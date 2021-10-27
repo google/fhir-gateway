@@ -1,4 +1,4 @@
-package ca.uhn.fhir.example;
+package com.google.fhir.proxy;
 
 import java.io.IOException;
 import javax.servlet.ServletException;

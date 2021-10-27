@@ -1,4 +1,4 @@
-package ca.uhn.fhir.example;
+package com.google.fhir.proxy;
 
 import com.google.auth.oauth2.AccessToken;
 import com.google.auth.oauth2.GoogleCredentials;

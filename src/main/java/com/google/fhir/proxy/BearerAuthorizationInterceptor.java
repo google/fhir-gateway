@@ -1,4 +1,4 @@
-package ca.uhn.fhir.example;
+package com.google.fhir.proxy;
 
 import ca.uhn.fhir.interceptor.api.Hook;
 import ca.uhn.fhir.interceptor.api.Interceptor;
