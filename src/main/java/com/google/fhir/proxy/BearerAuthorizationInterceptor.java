@@ -5,6 +5,7 @@ import ca.uhn.fhir.interceptor.api.Interceptor;
 import ca.uhn.fhir.interceptor.api.Pointcut;
 import ca.uhn.fhir.rest.api.server.IRestfulResponse;
 import ca.uhn.fhir.rest.api.server.RequestDetails;
+import ca.uhn.fhir.rest.server.RestfulServer;
 import ca.uhn.fhir.rest.server.exceptions.AuthenticationException;
 import ca.uhn.fhir.rest.server.servlet.ServletRequestDetails;
 import com.auth0.jwt.JWT;
@@ -13,10 +14,13 @@ import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.exceptions.JWTVerificationException;
 import com.auth0.jwt.interfaces.Claim;
 import com.auth0.jwt.interfaces.DecodedJWT;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.Writer;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -29,10 +33,10 @@ import java.security.spec.InvalidKeySpecException;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
 import java.util.List;
-import org.apache.commons.io.IOUtils;
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
+import org.apache.http.entity.ContentType;
 import org.apache.http.util.EntityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,6 +47,8 @@ public class BearerAuthorizationInterceptor {
   private static final Logger logger = LoggerFactory
       .getLogger(BearerAuthorizationInterceptor.class);
 
+  private static final String DEFAULT_CONTENT_TYPE = "text/html; charset=UTF-8";
+  private static final String DEFAULT_CHARSET = StandardCharsets.UTF_8.name();
   private static final String BEARER_PREFIX = "Bearer ";
   private static final String FHIR_USER = "fhirUser";
 
@@ -55,17 +61,24 @@ public class BearerAuthorizationInterceptor {
   // TODO: Add dependency-injection.
   private final HttpFhirClient httpFhirClient;
   private final HttpUtil httpUtil;
+  private final RestfulServer server;
+  private final String gcpFhirStore;
 
-  BearerAuthorizationInterceptor(String gcpFhirStore, String tokenIssuer) throws IOException {
+  BearerAuthorizationInterceptor(String gcpFhirStore, String tokenIssuer,
+      RestfulServer server) throws IOException {
     Preconditions.checkNotNull(gcpFhirStore);
-    httpFhirClient = new GcpFhirClient(gcpFhirStore);
+    Preconditions.checkNotNull(server);
+    this.server = server;
+    // Remove trailing '/'s since proxy's base URL has no trailing '/'.
+    this.gcpFhirStore = gcpFhirStore.replaceAll("/+$", "");
+    logger.info("Proxy to the GCP FHR store " + this.gcpFhirStore);
+    httpFhirClient = new GcpFhirClient(this.gcpFhirStore);
     httpUtil = new HttpUtil();
     this.tokenIssuer = tokenIssuer;
     RSAPublicKey issuerPublicKey = fetchAndDecodePublicKey();
     jwtVerifier = JWT.require(Algorithm.RSA256(issuerPublicKey, null)).withIssuer(tokenIssuer)
         .build();
   }
-
 
   private RSAPublicKey fetchAndDecodePublicKey() throws IOException {
     //Preconditions.checkState(SIGN_ALGORITHM.equals("ES512"));
@@ -169,17 +182,16 @@ public class BearerAuthorizationInterceptor {
             .throwRuntimeExceptionAndLog(logger, "Nothing received from the FHIR server!");
       }
       logger.debug(String.format("The response for %s is %s ", requestPath, response));
+      logger.info("FHIR store response length: " + entity.getContentLength());
       IRestfulResponse proxyResponse = requestDetails.getResponse();
       for (Header header : httpFhirClient.responseHeadersToKeep(response)) {
         proxyResponse.addHeader(header.getName(), header.getValue());
       }
       // This should be called after adding headers.
+      // TODO handle non-text responses, e.g., gzip.
       Writer writer = proxyResponse.getResponseWriter(response.getStatusLine().getStatusCode(),
-          response.getStatusLine().toString(), entity.getContentType().getValue(),
-          StandardCharsets.UTF_8.name(), false);
-      // If request and response charsets are the same we can binary copy.
-      // TODO: Test performance difference and consider charset similarity enforcing.
-      IOUtils.copy(entity.getContent(), writer, StandardCharsets.UTF_8.name());
+          response.getStatusLine().toString(), DEFAULT_CONTENT_TYPE, DEFAULT_CHARSET, false);
+      replaceAndCopyResponse(entity, writer, server.getServerBaseForRequest(servletDetails));
     } catch (IOException e) {
       logger.error(String
           .format("Exception for resource %s method %s with error: %s", requestPath,
@@ -190,4 +202,50 @@ public class BearerAuthorizationInterceptor {
     // The request processing stops here, hence returning false.
     return false;
   }
+
+  /**
+   * Reads the content from the FHIR store response `entity`, replaces any FHIR store URLs by
+   * the corresponding proxy URLs, and write the modified response to the proxy response `writer`.
+   *
+   * @param entity the entity part of the FHIR store response
+   * @param writer the writer for proxy response
+   * @param proxyBase the base URL of the proxy
+   */
+  @VisibleForTesting
+  void replaceAndCopyResponse(HttpEntity entity, Writer writer, String proxyBase)
+      throws IOException {
+    // To make this more efficient, this only does a string search/replace; we may need to add
+    // proper URL parsing if we need to address edge cases in URL no-op changes. This string
+    // matching can be done more efficiently if needed, but we should avoid loading the full
+    // stream in memory.
+    ContentType contentType = ContentType.getOrDefault(entity);
+    String charset = DEFAULT_CHARSET;
+    if (contentType.getCharset() != null) {
+      charset = contentType.getCharset().name();
+    }
+    InputStreamReader reader = new InputStreamReader(entity.getContent(), charset);
+    BufferedReader bufReader = new BufferedReader(reader);
+    int numMatched = 0;
+    int n;
+    while ((n = bufReader.read()) >= 0) {
+      char c = (char) n;
+      if (gcpFhirStore.charAt(numMatched) == c) {
+        numMatched++;
+        if (numMatched == gcpFhirStore.length()) {
+          // A match found; replace it with proxy's base URL.
+          writer.write(proxyBase);
+          numMatched = 0;
+        }
+      } else {
+        writer.write(gcpFhirStore.substring(0, numMatched));
+        writer.write(c);
+        numMatched = 0;
+      }
+    }
+    if (numMatched > 0) {
+      // Handle any remaining characters that partially matched.
+      writer.write(gcpFhirStore.substring(0, numMatched));
+    }
+  }
+
 }

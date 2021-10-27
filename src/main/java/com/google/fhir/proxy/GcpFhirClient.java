@@ -26,8 +26,9 @@ public class GcpFhirClient extends HttpFhirClient {
   private static final String CLOUD_PLATFORM_SCOPE = "https://www.googleapis.com/auth/cloud-platform";
 
   // The list of header names to keep in a response sent from the proxy; use lower case only.
+  // Note we don't copy content-length/type because we may modify the response.
   private static final Set<String> HEADERS_TO_KEEP = Sets
-      .newHashSet("content-type", "content-length", "last-modified", "date");
+      .newHashSet("last-modified", "date");
 
   private final GoogleCredentials credentials;
   private final String gcpFhirStore;

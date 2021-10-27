@@ -35,7 +35,7 @@ public class FhirProxyServer extends RestfulServer {
     setFhirContext(FhirContext.forR4());
 
     try {
-      registerInterceptor(new BearerAuthorizationInterceptor(gcpFhirStore, tokenIssuer));
+      registerInterceptor(new BearerAuthorizationInterceptor(gcpFhirStore, tokenIssuer, this));
     } catch (IOException e) {
       ExceptionUtil.throwRuntimeExceptionAndLog(logger, "IOException while initializing", e);
     }
