@@ -34,12 +34,22 @@ First we need to set the followings as the proxy configuration:
   ```
   The above example is a test authentication server based on
   [Keycloak](https://github.com/Alvearie/keycloak-extensions-for-fhir) and
-  has a single test user in its `test` realm. 
+  has a single test user in its `test` realm.
   Note this is not a secure server (hence no `https`) and is purely set up for
-  test purposes.
+  test purposes. The Keycloak image's configuration can be found
+  [here](docker/keycloak/keycloak_setup.sh). The image itself is maintained at
+  [gcr.io/fhir-sdk/keycloak-with-setup](`https://gcr.io/fhir-sdk/keycloak-with-setup`).
+
+  To run:
+  ```
+  docker run -p 80:8080 -p 443:8443 -e KEYCLOAK_USER=admin \
+  -e KEYCLOAK_PASSWORD=SOME_PASS -e FHIR_USER=test-fhir \
+  -e FHIR_PASS=SOME_TEST_PASS --name keycloak-h2-setup \
+  gcr.io/fhir-sdk/keycloak-with-setup
+  ```
 
 
-* The service account to be used to access the FHIR store, if it is a 
+* The service account to be used to access the FHIR store, if it is a
   GCP FHIR store. To set this, a key for that service account can be generated
   and downloaded. In the above example `fhir-sdk` project, the `smart-proxy-account`
   service account is created for this purpose. If you have access to this project,
@@ -59,10 +69,10 @@ which runs the server on port 8081.
 
 Once the proxy is running, we first need to fetch an access token from the
 `${TOKEN_ISSUER}`; you should know the test username and password plus the
-`client_id` (please disregard `scope` for now):
+`client_id` (please disregard `scope` for now; it can be skipped):
 ```shell
 $ curl -X POST -d 'client_id=CLIENT_ID' -d 'username=USER' -d 'password=PASS' \
-  -d 'grant_type=password' -d 'scope=patient/*.read' \
+  -d 'grant_type=password' -d 'scope=email' \
   "http://35-224-71-179.nip.io/auth/realms/test/protocol/openid-connect/token"
 ```
 we need the `access_token` of the returned JSON to be able to convince the proxy
@@ -80,7 +90,7 @@ beyond having a valid `access_token` is that the user should be in the
 ```shell
 $ curl -X GET -H "Authorization: Bearer ${ACCESS_TOKEN}" \
   -H "Content-Type: application/json; charset=utf-8" \
-  'http://localhost:8081/Patient/f16b5191-af47-4c5a-b9ca-71e0a4365824' 
+  'http://localhost:8081/Patient/f16b5191-af47-4c5a-b9ca-71e0a4365824'
 ```
 ```shell
 $ curl -X PUT -H "Authorization: Bearer ${ACCESS_TOKEN}" \
