@@ -12,7 +12,6 @@ import com.auth0.jwt.JWT;
 import com.auth0.jwt.JWTVerifier;
 import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.exceptions.JWTVerificationException;
-import com.auth0.jwt.interfaces.Claim;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -32,7 +31,6 @@ import java.security.spec.EncodedKeySpec;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
-import java.util.List;
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
@@ -50,7 +48,6 @@ public class BearerAuthorizationInterceptor {
   private static final String DEFAULT_CONTENT_TYPE = "text/html; charset=UTF-8";
   private static final String DEFAULT_CHARSET = StandardCharsets.UTF_8.name();
   private static final String BEARER_PREFIX = "Bearer ";
-  private static final String FHIR_USER = "fhirUser";
 
   // TODO: Make this configurable or based on the given JWT; we should at least support some other
   // RSA* and ES* algorithms (requires ECDSA512 JWT algorithm).
@@ -63,9 +60,10 @@ public class BearerAuthorizationInterceptor {
   private final HttpUtil httpUtil;
   private final RestfulServer server;
   private final String gcpFhirStore;
+  private final PatientAccessCheckerFactory accessFactory;
 
   BearerAuthorizationInterceptor(String gcpFhirStore, String tokenIssuer,
-      RestfulServer server) throws IOException {
+      RestfulServer server, PatientAccessCheckerFactory accessFactory) throws IOException {
     Preconditions.checkNotNull(gcpFhirStore);
     Preconditions.checkNotNull(server);
     this.server = server;
@@ -75,6 +73,7 @@ public class BearerAuthorizationInterceptor {
     httpFhirClient = new GcpFhirClient(this.gcpFhirStore);
     httpUtil = new HttpUtil();
     this.tokenIssuer = tokenIssuer;
+    this.accessFactory = accessFactory;
     RSAPublicKey issuerPublicKey = fetchAndDecodePublicKey();
     jwtVerifier = JWT.require(Algorithm.RSA256(issuerPublicKey, null)).withIssuer(tokenIssuer)
         .build();
@@ -112,7 +111,7 @@ public class BearerAuthorizationInterceptor {
     return null;
   }
 
-  private void verifyBearerToken(String authHeader) {
+  private DecodedJWT decodeAndVerifyBearerToken(String authHeader) {
     if (!authHeader.startsWith(BEARER_PREFIX)) {
       ExceptionUtil.throwRuntimeExceptionAndLog(logger,
           "Authorization header is not a valid Bearer token!", AuthenticationException.class);
@@ -145,17 +144,7 @@ public class BearerAuthorizationInterceptor {
           String.format("JWT verification failed with error: %s", e.getMessage()), e,
           AuthenticationException.class);
     }
-    Claim groupClaim = verifiedJwt.getClaim("group");
-    if (groupClaim == null) {
-      ExceptionUtil.throwRuntimeExceptionAndLog(logger, "Bearer JWT has no `group` claim!",
-          AuthenticationException.class);
-    }
-    List<String> groups = groupClaim.asList(String.class);
-    if (groups == null || !groups.contains(FHIR_USER)) {
-      ExceptionUtil.throwRuntimeExceptionAndLog(logger,
-          "Bearer JWT does not have the expected group " + FHIR_USER,
-          AuthenticationException.class);
-    }
+    return verifiedJwt;
   }
 
   @Hook(Pointcut.SERVER_INCOMING_REQUEST_PRE_HANDLER_SELECTED)
@@ -170,8 +159,9 @@ public class BearerAuthorizationInterceptor {
       ExceptionUtil.throwRuntimeExceptionAndLog(logger, "No Authorization header provided!",
           AuthenticationException.class);
     }
-    // TODO add patient compartment check
-    verifyBearerToken(authHeader);
+    // TODO add patient compartment check (b/205977937)
+    DecodedJWT decodedJwt = decodeAndVerifyBearerToken(authHeader);
+    PatientAccessChecker accessChecker = accessFactory.create(decodedJwt, httpFhirClient);
     String requestPath = requestDetails.getRequestPath();
     logger.debug("Authorized request path " + requestPath);
     try {

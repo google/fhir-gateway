@@ -16,6 +16,9 @@ public class FhirProxyServer extends RestfulServer {
 
   private static final String PROXY_TO_ENV = "PROXY_TO";
   private static final String TOKEN_ISSUER_ENV = "TOKEN_ISSUER";
+  private static final String ACCESS_CHECKER_ENV = "ACCESS_CHECKER";
+  // TODO add a TEST_MODE config to control whether some permissive settings (like letting
+  // all requests to go through) are acceptable or not.
 
   @Override
   protected void initialize() throws ServletException {
@@ -35,7 +38,19 @@ public class FhirProxyServer extends RestfulServer {
     setFhirContext(FhirContext.forR4());
 
     try {
-      registerInterceptor(new BearerAuthorizationInterceptor(gcpFhirStore, tokenIssuer, this));
+      PatientAccessCheckerFactory factory = new PermissiveAccessChecker.Factory();
+      String accessCheckerType = System.getenv(ACCESS_CHECKER_ENV);
+      if (accessCheckerType != null && !accessCheckerType.isEmpty()) {
+        logger.info(String.format("Patient access-checker is '%s'", accessCheckerType));
+        // Currently this is the only non-trivial checker, hence not caring about the env-var value.
+        factory = new PatientListAccessChecker.Factory();
+      } else {
+        logger.warn(String.format(
+            "Environment variable %s is not set; disabling Patient access-checker!",
+            ACCESS_CHECKER_ENV));
+      }
+      registerInterceptor(
+          new BearerAuthorizationInterceptor(gcpFhirStore, tokenIssuer, this, factory));
     } catch (IOException e) {
       ExceptionUtil.throwRuntimeExceptionAndLog(logger, "IOException while initializing", e);
     }

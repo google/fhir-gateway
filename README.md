@@ -95,9 +95,8 @@ $ export ACCESS_TOKEN=$(curl -X POST -d 'client_id=CLIENT_ID' -d 'username=USER'
   "http://35-224-71-179.nip.io/auth/realms/test/protocol/openid-connect/token" | \
    python3 -m json.tool | awk '/access_token/{gsub(/"|,/, "", $2); print $2;}')
 ```
-with this done, you can access the FHIR store as you wish (the only restriction
-beyond having a valid `access_token` is that the user should be in the
-`fhirUser` group which the test account is):
+with this done, you can access the FHIR store with a valid `access_token` as
+you wish:
 ```shell
 $ curl -X GET -H "Authorization: Bearer ${ACCESS_TOKEN}" \
   -H "Content-Type: application/json; charset=utf-8" \
@@ -109,3 +108,11 @@ $ curl -X PUT -H "Authorization: Bearer ${ACCESS_TOKEN}" \
   'http://localhost:8081/Patient/f16b5191-af47-4c5a-b9ca-71e0a4365824' \
   -d @Patient_f16b5191-af47-4c5a-b9ca-71e0a4365824_modified.json
 ```
+
+You can impose patient level restrictions by setting `${ACCESS_CHECKER}`:
+```shell
+$ export ACCESS_CHECKER=list
+```
+With this setup, the user should have a valid user attribute `patient_list`
+which is the ID of a `List` FHIR resource with all the patients that this user
+has access to.

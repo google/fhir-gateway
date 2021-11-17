@@ -28,9 +28,6 @@ public abstract class HttpFhirClient {
   public abstract List<Header> responseHeadersToKeep(HttpResponse response);
 
   HttpResponse handleRequest(ServletRequestDetails request) throws IOException {
-    // TODO reuse if creation overhead is significant.
-    HttpClient httpClient = HttpClients.createDefault();
-
     String httpMethod = request.getServletRequest().getMethod();
     RequestBuilder builder = RequestBuilder.create(httpMethod);
     try {
@@ -54,13 +51,20 @@ public abstract class HttpFhirClient {
     copyRequiredHeaders(request, builder);
     copyParameters(request, builder);
     HttpUriRequest httpRequest = builder.build();
+    return sendRequest(httpRequest);
+  }
+
+  HttpResponse sendRequest(HttpUriRequest httpRequest) throws IOException {
     logger.info("Request to the FHIR store is " + httpRequest);
+    // TODO reuse if creation overhead is significant.
+    HttpClient httpClient = HttpClients.createDefault();
 
     // Execute the request and process the results.
     HttpResponse response = httpClient.execute(httpRequest);
     if (response.getStatusLine().getStatusCode() >= 400) {
       logger.error(String.format("Error in FHIR resource %s method %s; status %s",
-          httpRequest.getRequestLine(), httpMethod, response.getStatusLine().toString()));
+          httpRequest.getRequestLine(), httpRequest.getMethod(),
+          response.getStatusLine().toString()));
     }
     return response;
   }
