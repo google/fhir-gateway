@@ -13,6 +13,7 @@ import java.util.Set;
 import org.apache.http.Header;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.utils.URIBuilder;
+import org.apache.http.message.BasicHeader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -58,8 +59,14 @@ public class GcpFhirClient extends HttpFhirClient {
   @Override
   protected URI getUriForResource(String resourcePath) throws URISyntaxException {
     String uri = String.format("%s/%s", gcpFhirStore, resourcePath);
-    URIBuilder uriBuilder = new URIBuilder(uri).setParameter("access_token", getAccessToken());
+    URIBuilder uriBuilder = new URIBuilder(uri);
     return uriBuilder.build();
+  }
+
+  @Override
+  protected Header getAuthHeader() {
+    String authToken = String.format("Bearer %s", getAccessToken());
+    return new BasicHeader("Authorization", authToken);
   }
 
   @Override

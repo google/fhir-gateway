@@ -25,6 +25,8 @@ public abstract class HttpFhirClient {
 
   protected abstract URI getUriForResource(String resourcePath) throws URISyntaxException;
 
+  protected abstract Header getAuthHeader() throws URISyntaxException;
+
   public abstract List<Header> responseHeadersToKeep(HttpResponse response);
 
   HttpResponse handleRequest(ServletRequestDetails request) throws IOException {
@@ -33,6 +35,8 @@ public abstract class HttpFhirClient {
     try {
       URI uri = getUriForResource(request.getRequestPath());
       builder.setUri(uri);
+      Header header = getAuthHeader();
+      builder.addHeader(header);
       logger.info("FHIR store resource is " + uri);
     } catch (URISyntaxException e) {
       ExceptionUtil.throwRuntimeExceptionAndLog(logger,
