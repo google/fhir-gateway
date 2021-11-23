@@ -14,3 +14,6 @@ local.properties
 .settings
 bin/
 gen/
+
+# MacOS
+.DS_Store

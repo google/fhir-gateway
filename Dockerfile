@@ -12,6 +12,7 @@ ENV PROXY_TO="https://healthcare.googleapis.com/v1/projects/fhir-sdk/locations/u
 # are enabled; otherwise any valid token issued by TOKEN_ISSUER can be used
 # for full access to the FHIR store.
 ENV ACCESS_CHECKER=""
+ENV RUN_MODE="DEV"
 
 COPY src ./src
 COPY pom.xml .

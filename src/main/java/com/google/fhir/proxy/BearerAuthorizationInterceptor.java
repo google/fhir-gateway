@@ -13,6 +13,7 @@ import com.auth0.jwt.JWTVerifier;
 import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.exceptions.JWTVerificationException;
 import com.auth0.jwt.interfaces.DecodedJWT;
+import com.auth0.jwt.interfaces.Verification;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.gson.JsonObject;
@@ -54,7 +55,7 @@ public class BearerAuthorizationInterceptor {
   private static final String SIGN_ALGORITHM = "RS256";
 
   private final String tokenIssuer;
-  private final JWTVerifier jwtVerifier;
+  private final Verification jwtVerifierConfig;
   // TODO: Add dependency-injection.
   private final HttpFhirClient httpFhirClient;
   private final HttpUtil httpUtil;
@@ -75,8 +76,7 @@ public class BearerAuthorizationInterceptor {
     this.tokenIssuer = tokenIssuer;
     this.accessFactory = accessFactory;
     RSAPublicKey issuerPublicKey = fetchAndDecodePublicKey();
-    jwtVerifier = JWT.require(Algorithm.RSA256(issuerPublicKey, null)).withIssuer(tokenIssuer)
-        .build();
+    jwtVerifierConfig = JWT.require(Algorithm.RSA256(issuerPublicKey, null));
   }
 
   private RSAPublicKey fetchAndDecodePublicKey() throws IOException {
@@ -111,6 +111,23 @@ public class BearerAuthorizationInterceptor {
     return null;
   }
 
+  private JWTVerifier buildJwtVerifier(String issuer) {
+
+    if (issuer.equals(tokenIssuer)) {
+      return jwtVerifierConfig.withIssuer(tokenIssuer).build();
+    } else if (FhirProxyServer.isDevMode()) {
+      // If server is in DEV mode, set issuer to one from request
+      logger.warn("Server run in DEV mode. Setting issuer to issuer from request.");
+      return jwtVerifierConfig.withIssuer(issuer).build();
+    } else {
+      ExceptionUtil.throwRuntimeExceptionAndLog(
+          logger,
+          String.format("The token issuer %s does not match the expected token issuer", issuer),
+          AuthenticationException.class);
+      return null;
+    }
+  }
+
   private DecodedJWT decodeAndVerifyBearerToken(String authHeader) {
     if (!authHeader.startsWith(BEARER_PREFIX)) {
       ExceptionUtil.throwRuntimeExceptionAndLog(logger,
@@ -120,15 +137,11 @@ public class BearerAuthorizationInterceptor {
     DecodedJWT jwt = JWT.decode(bearerToken);
     String issuer = jwt.getIssuer();
     String algorithm = jwt.getAlgorithm();
+    JWTVerifier jwtVerifier = buildJwtVerifier(issuer);
     logger.info(String
         .format("JWT issuer is %s, audience is %s, and algorithm is %s", issuer,
             jwt.getAudience(), algorithm));
-    // This and some other checks can be moved to jwtVerifier too.
-    if (issuer == null || !issuer.equals(tokenIssuer)) {
-      ExceptionUtil
-          .throwRuntimeExceptionAndLog(logger, "The token issuer (iss) is not " + tokenIssuer,
-              AuthenticationException.class);
-    }
+
     if (!algorithm.equals(SIGN_ALGORITHM)) {
       ExceptionUtil.throwRuntimeExceptionAndLog(logger, String.format(
           "Only %s signing algorithm is supported, got %s", SIGN_ALGORITHM, algorithm),

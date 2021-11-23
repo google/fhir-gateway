@@ -3,7 +3,6 @@ package com.google.fhir.proxy;
 import java.io.IOException;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
-
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.rest.server.RestfulServer;
 import org.slf4j.Logger;
@@ -17,8 +16,11 @@ public class FhirProxyServer extends RestfulServer {
   private static final String PROXY_TO_ENV = "PROXY_TO";
   private static final String TOKEN_ISSUER_ENV = "TOKEN_ISSUER";
   private static final String ACCESS_CHECKER_ENV = "ACCESS_CHECKER";
-  // TODO add a TEST_MODE config to control whether some permissive settings (like letting
-  // all requests to go through) are acceptable or not.
+
+  static boolean isDevMode() {
+    String runMode = System.getenv("RUN_MODE");
+    return runMode.equals("DEV");
+  }
 
   @Override
   protected void initialize() throws ServletException {
