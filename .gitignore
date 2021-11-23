@@ -1,7 +1,16 @@
 /target/
 /tmp/
-##############################
-## IntelliJ
-##############################
+
+# IntelliJ
 .idea/
 *.iml
+
+# Local configuration file (sdk path, etc)
+local.properties
+
+# VSCode/Eclipse project files
+.classpath
+.project
+.settings
+bin/
+gen/
