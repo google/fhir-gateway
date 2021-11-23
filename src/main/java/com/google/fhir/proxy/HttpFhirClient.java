@@ -2,6 +2,7 @@ package com.google.fhir.proxy;
 
 import ca.uhn.fhir.rest.server.servlet.ServletRequestDetails;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Sets;
 import java.io.IOException;
 import java.net.URI;
@@ -25,23 +26,25 @@ public abstract class HttpFhirClient {
 
   protected abstract URI getUriForResource(String resourcePath) throws URISyntaxException;
 
-  protected abstract Header getAuthHeader() throws URISyntaxException;
+  protected abstract Header getAuthHeader();
 
   public abstract List<Header> responseHeadersToKeep(HttpResponse response);
+
+  private void setUri(RequestBuilder builder, String resourcePath) {
+    try {
+      URI uri = getUriForResource(resourcePath);
+      builder.setUri(uri);
+      logger.info("FHIR store resource is " + uri);
+    } catch (URISyntaxException e) {
+      ExceptionUtil.throwRuntimeExceptionAndLog(logger,
+          "Error in building URI for resource " + resourcePath);
+    }
+  }
 
   HttpResponse handleRequest(ServletRequestDetails request) throws IOException {
     String httpMethod = request.getServletRequest().getMethod();
     RequestBuilder builder = RequestBuilder.create(httpMethod);
-    try {
-      URI uri = getUriForResource(request.getRequestPath());
-      builder.setUri(uri);
-      Header header = getAuthHeader();
-      builder.addHeader(header);
-      logger.info("FHIR store resource is " + uri);
-    } catch (URISyntaxException e) {
-      ExceptionUtil.throwRuntimeExceptionAndLog(logger,
-          "Error in build URI for resource " + request.getRequestPath());
-    }
+    setUri(builder, request.getRequestPath());
     // TODO Check why this does not work Content-Type is application/x-www-form-urlencoded.
     byte[] requestContent = request.loadRequestContents();
     if (requestContent != null && requestContent.length > 0) {
@@ -54,11 +57,20 @@ public abstract class HttpFhirClient {
     }
     copyRequiredHeaders(request, builder);
     copyParameters(request, builder);
-    HttpUriRequest httpRequest = builder.build();
-    return sendRequest(httpRequest);
+    return sendRequest(builder);
   }
 
-  HttpResponse sendRequest(HttpUriRequest httpRequest) throws IOException {
+  HttpResponse getResource(String resourcePath) throws IOException {
+    RequestBuilder requestBuilder = RequestBuilder.get();
+    setUri(requestBuilder, resourcePath);
+    return sendRequest(requestBuilder);
+  }
+
+  private HttpResponse sendRequest(RequestBuilder builder) throws IOException {
+    Preconditions.checkArgument(builder.getFirstHeader("Authorization") == null);
+    Header header = getAuthHeader();
+    builder.addHeader(header);
+    HttpUriRequest httpRequest = builder.build();
     logger.info("Request to the FHIR store is " + httpRequest);
     // TODO reuse if creation overhead is significant.
     HttpClient httpClient = HttpClients.createDefault();

@@ -6,11 +6,8 @@ import com.auth0.jwt.interfaces.DecodedJWT;
 import com.google.common.collect.Sets;
 import java.io.IOException;
 import java.net.HttpURLConnection;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.Set;
 import org.apache.http.HttpResponse;
-import org.apache.http.client.methods.RequestBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -43,18 +40,9 @@ public class PatientListAccessChecker implements PatientAccessChecker {
       }
       // TODO do some sanity checks on the `patientListId`.
       String patientListId = patientListClaim.asString();
-      URI uri = null;
-      try {
-        uri = httpFhirClient.getUriForResource(String.format("List/%s", patientListId));
-      } catch (URISyntaxException e) {
-        ExceptionUtil.throwRuntimeExceptionAndLog(logger,
-            String.format("Malformed patient list ID %s", patientListId), e);
-      }
       PatientAccessChecker accessChecker = null;
       try {
-        RequestBuilder requestBuilder = RequestBuilder.get();
-        requestBuilder.setUri(uri);
-        HttpResponse response = httpFhirClient.sendRequest(requestBuilder.build());
+        HttpResponse response = httpFhirClient.getResource(String.format("List/%s", patientListId));
         if (response.getStatusLine().getStatusCode() != HttpURLConnection.HTTP_OK) {
           throw new ForbiddenOperationException(String.format(
               "The provided List ID '%s' in claim '%s' was not found on the FHIR server!",
@@ -66,7 +54,7 @@ public class PatientListAccessChecker implements PatientAccessChecker {
         accessChecker = new PatientListAccessChecker(patientSet);
       } catch (IOException e) {
         ExceptionUtil.throwRuntimeExceptionAndLog(logger,
-            String.format("Cannot fetch patient list %s", uri.toString()), e);
+            String.format("Cannot fetch patient list %s", patientListId), e);
       }
       return accessChecker;
     }
