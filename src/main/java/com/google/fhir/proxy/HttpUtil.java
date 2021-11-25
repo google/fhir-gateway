@@ -3,6 +3,7 @@ package com.google.fhir.proxy;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import org.apache.http.HttpRequest;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
 import org.apache.http.client.HttpClient;
@@ -16,25 +17,38 @@ public class HttpUtil {
 
   private static final Logger logger = LoggerFactory.getLogger(HttpUtil.class);
 
-  HttpResponse getResource(URI uri) throws IOException {
-    HttpClient httpClient = HttpClients.createDefault();
+  static void validateResponseOrFail(HttpResponse response, String resource) {
+    validateResponseOrFail(response, resource, false);
+  }
 
+  static void validateResponseEntityOrFail(HttpResponse response, String resource) {
+    validateResponseOrFail(response, resource, true);
+  }
+
+  private static void validateResponseOrFail(HttpResponse response, String resource,
+      boolean checkEntity) {
+    boolean isValid = (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK);
+    if (checkEntity) {
+      isValid = isValid && (response.getEntity() != null);
+    }
+    if (!isValid) {
+      ExceptionUtil.throwRuntimeExceptionAndLog(logger,
+          String.format("Error accessing resource %s; status %s",
+              resource, response.getStatusLine().toString()));
+    }
+  }
+
+  HttpResponse getResourceOrFail(URI uri) throws IOException {
+    HttpClient httpClient = HttpClients.createDefault();
     HttpUriRequest request =
         RequestBuilder.get()
             .setUri(uri)
             .addHeader("Accept-Charset", StandardCharsets.UTF_8.name())
             //.addHeader("Accept", "application/fhir+json; charset=utf-8")
             .build();
-
     // Execute the request and process the results.
     HttpResponse response = httpClient.execute(request);
-    if (response.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
-      logger.error(String.format("Error fetching FHIR resource %s; status %s",
-          request.getRequestLine(), response.getStatusLine().toString()));
-      ExceptionUtil.throwRuntimeExceptionAndLog(logger,
-          String.format("Error fetching FHIR resource %s; status %s", uri.getPath(),
-              response.getStatusLine().toString()));
-    }
+    validateResponseOrFail(response, uri.toString());
     return response;
   }
 

@@ -1,6 +1,7 @@
 package com.google.fhir.proxy;
 
 import java.io.IOException;
+import java.net.URL;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
 
@@ -34,16 +35,17 @@ public class FhirProxyServer extends RestfulServer {
           String.format("The environment variable %s is not set!", TOKEN_ISSUER_ENV));
     }
 
+    // TODO make the FHIR version configurable.
     // Create a context for the appropriate version
     setFhirContext(FhirContext.forR4());
 
     try {
-      PatientAccessCheckerFactory factory = new PermissiveAccessChecker.Factory();
+      AccessCheckerFactory factory = new PermissiveAccessChecker.Factory();
       String accessCheckerType = System.getenv(ACCESS_CHECKER_ENV);
       if (accessCheckerType != null && !accessCheckerType.isEmpty()) {
         logger.info(String.format("Patient access-checker is '%s'", accessCheckerType));
         // Currently this is the only non-trivial checker, hence not caring about the env-var value.
-        factory = new PatientListAccessChecker.Factory();
+        factory = new ListAccessChecker.Factory(this);
       } else {
         logger.warn(String.format(
             "Environment variable %s is not set; disabling Patient access-checker!",
