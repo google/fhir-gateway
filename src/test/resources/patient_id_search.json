@@ -1,0 +1,225 @@
+{
+  "entry": [
+    {
+      "fullUrl": "https://healthcare.googleapis.com/v1/projects/fhir-sdk/locations/us/datasets/synthea-sample-data/fhirStores/gcs-data/fhir/Patient/be92a43f-de46-affa-b131-bbf9eea51140",
+      "resource": {
+        "id": "be92a43f-de46-affa-b131-bbf9eea51140",
+        "meta": {
+          "lastUpdated": "2021-11-25T19:03:28.085054+00:00",
+          "tag": [
+            {
+              "code": "SUBSETTED",
+              "system": "http://hl7.org/fhir/v3/ObservationValue"
+            }
+          ],
+          "versionId": "MTYzNzg2NzAwODA4NTA1NDAwMA"
+        },
+        "resourceType": "Patient"
+      },
+      "search": {
+        "mode": "match"
+      }
+    },
+    {
+      "fullUrl": "https://healthcare.googleapis.com/v1/projects/fhir-sdk/locations/us/datasets/synthea-sample-data/fhirStores/gcs-data/fhir/Patient/420e791b-e419-c19b-3144-29e101c2c12f",
+      "resource": {
+        "id": "420e791b-e419-c19b-3144-29e101c2c12f",
+        "meta": {
+          "lastUpdated": "2021-10-21T02:15:57.647205+00:00",
+          "tag": [
+            {
+              "code": "SUBSETTED",
+              "system": "http://hl7.org/fhir/v3/ObservationValue"
+            }
+          ],
+          "versionId": "MTYzNDc4MjU1NzY0NzIwNTAwMA"
+        },
+        "resourceType": "Patient"
+      },
+      "search": {
+        "mode": "match"
+      }
+    },
+    {
+      "fullUrl": "https://healthcare.googleapis.com/v1/projects/fhir-sdk/locations/us/datasets/synthea-sample-data/fhirStores/gcs-data/fhir/Patient/1fde5922-c743-62fb-70d6-399b1272ed39",
+      "resource": {
+        "id": "1fde5922-c743-62fb-70d6-399b1272ed39",
+        "meta": {
+          "lastUpdated": "2021-10-21T02:15:49.246001+00:00",
+          "tag": [
+            {
+              "code": "SUBSETTED",
+              "system": "http://hl7.org/fhir/v3/ObservationValue"
+            }
+          ],
+          "versionId": "MTYzNDc4MjU0OTI0NjAwMTAwMA"
+        },
+        "resourceType": "Patient"
+      },
+      "search": {
+        "mode": "match"
+      }
+    },
+    {
+      "fullUrl": "https://healthcare.googleapis.com/v1/projects/fhir-sdk/locations/us/datasets/synthea-sample-data/fhirStores/gcs-data/fhir/Patient/92a950eb-6aae-0e82-c297-d91585b22edf",
+      "resource": {
+        "id": "92a950eb-6aae-0e82-c297-d91585b22edf",
+        "meta": {
+          "lastUpdated": "2021-10-21T02:15:37.349442+00:00",
+          "tag": [
+            {
+              "code": "SUBSETTED",
+              "system": "http://hl7.org/fhir/v3/ObservationValue"
+            }
+          ],
+          "versionId": "MTYzNDc4MjUzNzM0OTQ0MjAwMA"
+        },
+        "resourceType": "Patient"
+      },
+      "search": {
+        "mode": "match"
+      }
+    },
+    {
+      "fullUrl": "https://healthcare.googleapis.com/v1/projects/fhir-sdk/locations/us/datasets/synthea-sample-data/fhirStores/gcs-data/fhir/Patient/49b60906-d8f9-0bc2-2722-b04c34fda88c",
+      "resource": {
+        "id": "49b60906-d8f9-0bc2-2722-b04c34fda88c",
+        "meta": {
+          "lastUpdated": "2021-10-21T02:15:29.271932+00:00",
+          "tag": [
+            {
+              "code": "SUBSETTED",
+              "system": "http://hl7.org/fhir/v3/ObservationValue"
+            }
+          ],
+          "versionId": "MTYzNDc4MjUyOTI3MTkzMjAwMA"
+        },
+        "resourceType": "Patient"
+      },
+      "search": {
+        "mode": "match"
+      }
+    },
+    {
+      "fullUrl": "https://healthcare.googleapis.com/v1/projects/fhir-sdk/locations/us/datasets/synthea-sample-data/fhirStores/gcs-data/fhir/Patient/f8a00fa6-16ae-2a26-8901-c9f4d12b4f77",
+      "resource": {
+        "id": "f8a00fa6-16ae-2a26-8901-c9f4d12b4f77",
+        "meta": {
+          "lastUpdated": "2021-10-21T02:15:19.679650+00:00",
+          "tag": [
+            {
+              "code": "SUBSETTED",
+              "system": "http://hl7.org/fhir/v3/ObservationValue"
+            }
+          ],
+          "versionId": "MTYzNDc4MjUxOTY3OTY1MDAwMA"
+        },
+        "resourceType": "Patient"
+      },
+      "search": {
+        "mode": "match"
+      }
+    },
+    {
+      "fullUrl": "https://healthcare.googleapis.com/v1/projects/fhir-sdk/locations/us/datasets/synthea-sample-data/fhirStores/gcs-data/fhir/Patient/fcdfec52-92ea-d0ae-868a-096a7f14f9e0",
+      "resource": {
+        "id": "fcdfec52-92ea-d0ae-868a-096a7f14f9e0",
+        "meta": {
+          "lastUpdated": "2021-10-21T02:15:10.031933+00:00",
+          "tag": [
+            {
+              "code": "SUBSETTED",
+              "system": "http://hl7.org/fhir/v3/ObservationValue"
+            }
+          ],
+          "versionId": "MTYzNDc4MjUxMDAzMTkzMzAwMA"
+        },
+        "resourceType": "Patient"
+      },
+      "search": {
+        "mode": "match"
+      }
+    },
+    {
+      "fullUrl": "https://healthcare.googleapis.com/v1/projects/fhir-sdk/locations/us/datasets/synthea-sample-data/fhirStores/gcs-data/fhir/Patient/4e793ae5-3e24-b786-2e0a-ccc6afea999f",
+      "resource": {
+        "id": "4e793ae5-3e24-b786-2e0a-ccc6afea999f",
+        "meta": {
+          "lastUpdated": "2021-10-21T02:15:00.769314+00:00",
+          "tag": [
+            {
+              "code": "SUBSETTED",
+              "system": "http://hl7.org/fhir/v3/ObservationValue"
+            }
+          ],
+          "versionId": "MTYzNDc4MjUwMDc2OTMxNDAwMA"
+        },
+        "resourceType": "Patient"
+      },
+      "search": {
+        "mode": "match"
+      }
+    },
+    {
+      "fullUrl": "https://healthcare.googleapis.com/v1/projects/fhir-sdk/locations/us/datasets/synthea-sample-data/fhirStores/gcs-data/fhir/Patient/79c72c71-85a6-be5e-bc57-5a1092a4c7be",
+      "resource": {
+        "id": "79c72c71-85a6-be5e-bc57-5a1092a4c7be",
+        "meta": {
+          "lastUpdated": "2021-10-21T02:14:49.492227+00:00",
+          "tag": [
+            {
+              "code": "SUBSETTED",
+              "system": "http://hl7.org/fhir/v3/ObservationValue"
+            }
+          ],
+          "versionId": "MTYzNDc4MjQ4OTQ5MjIyNzAwMA"
+        },
+        "resourceType": "Patient"
+      },
+      "search": {
+        "mode": "match"
+      }
+    },
+    {
+      "fullUrl": "https://healthcare.googleapis.com/v1/projects/fhir-sdk/locations/us/datasets/synthea-sample-data/fhirStores/gcs-data/fhir/Patient/f3d673cd-5ba0-253b-8dd6-2c79633e4456",
+      "resource": {
+        "id": "f3d673cd-5ba0-253b-8dd6-2c79633e4456",
+        "meta": {
+          "lastUpdated": "2021-10-21T02:14:47.193853+00:00",
+          "tag": [
+            {
+              "code": "SUBSETTED",
+              "system": "http://hl7.org/fhir/v3/ObservationValue"
+            }
+          ],
+          "versionId": "MTYzNDc4MjQ4NzE5Mzg1MzAwMA"
+        },
+        "resourceType": "Patient"
+      },
+      "search": {
+        "mode": "match"
+      }
+    }
+  ],
+  "link": [
+    {
+      "relation": "search",
+      "url": "https://healthcare.googleapis.com/v1/projects/fhir-sdk/locations/us/datasets/synthea-sample-data/fhirStores/gcs-data/fhir/Patient/?_count=10&_elements=id"
+    },
+    {
+      "relation": "next",
+      "url": "https://healthcare.googleapis.com/v1/projects/fhir-sdk/locations/us/datasets/synthea-sample-data/fhirStores/gcs-data/fhir/Patient/?_count=10&_elements=id&_page_token=Cjj3YXDNF%2F%2F%2F%2F%2F%2BABc7TdW8o%2FQD%2FAf%2F%2BNjdhYzU1OTllZTk5OGI0ZWY4Yzc2YjYyZjhkYjYzYWQAARAKIeRmIPX4MlS1OQAAAADoMo%2BeSAFQAFoLCeMaW231efGDEANg2%2F6CowI%3D"
+    },
+    {
+      "relation": "first",
+      "url": "https://healthcare.googleapis.com/v1/projects/fhir-sdk/locations/us/datasets/synthea-sample-data/fhirStores/gcs-data/fhir/Patient/?_count=10&_elements=id"
+    },
+    {
+      "relation": "self",
+      "url": "https://healthcare.googleapis.com/v1/projects/fhir-sdk/locations/us/datasets/synthea-sample-data/fhirStores/gcs-data/fhir/Patient/?_count=10&_elements=id"
+    }
+  ],
+  "resourceType": "Bundle",
+  "total": 394,
+  "type": "searchset"
+}

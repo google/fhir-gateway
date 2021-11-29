@@ -20,7 +20,7 @@ public class FhirProxyServer extends RestfulServer {
 
   static boolean isDevMode() {
     String runMode = System.getenv("RUN_MODE");
-    return runMode.equals("DEV");
+    return "DEV".equals(runMode);
   }
 
   @Override
@@ -54,7 +54,8 @@ public class FhirProxyServer extends RestfulServer {
             ACCESS_CHECKER_ENV));
       }
       registerInterceptor(
-          new BearerAuthorizationInterceptor(gcpFhirStore, tokenIssuer, this, factory));
+          new BearerAuthorizationInterceptor(
+              new GcpFhirClient(gcpFhirStore), tokenIssuer, this, new HttpUtil(), factory));
     } catch (IOException e) {
       ExceptionUtil.throwRuntimeExceptionAndLog(logger, "IOException while initializing", e);
     }

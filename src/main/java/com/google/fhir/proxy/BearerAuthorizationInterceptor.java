@@ -56,27 +56,28 @@ public class BearerAuthorizationInterceptor {
 
   private final String tokenIssuer;
   private final Verification jwtVerifierConfig;
-  // TODO: Add dependency-injection.
-  private final HttpFhirClient httpFhirClient;
   private final HttpUtil httpUtil;
   private final RestfulServer server;
-  private final String gcpFhirStore;
+  private final HttpFhirClient fhirClient;
   private final AccessCheckerFactory accessFactory;
 
-  BearerAuthorizationInterceptor(String gcpFhirStore, String tokenIssuer,
-      RestfulServer server, AccessCheckerFactory accessFactory) throws IOException {
-    Preconditions.checkNotNull(gcpFhirStore);
+  BearerAuthorizationInterceptor(
+      HttpFhirClient fhirClient,
+      String tokenIssuer,
+      RestfulServer server,
+      HttpUtil httpUtil,
+      AccessCheckerFactory accessFactory)
+      throws IOException {
+    Preconditions.checkNotNull(fhirClient);
     Preconditions.checkNotNull(server);
     this.server = server;
-    // Remove trailing '/'s since proxy's base URL has no trailing '/'.
-    this.gcpFhirStore = gcpFhirStore.replaceAll("/+$", "");
-    logger.info("Proxy to the GCP FHR store " + this.gcpFhirStore);
-    httpFhirClient = new GcpFhirClient(this.gcpFhirStore);
-    httpUtil = new HttpUtil();
+    this.fhirClient = fhirClient;
+    this.httpUtil = httpUtil;
     this.tokenIssuer = tokenIssuer;
     this.accessFactory = accessFactory;
     RSAPublicKey issuerPublicKey = fetchAndDecodePublicKey();
     jwtVerifierConfig = JWT.require(Algorithm.RSA256(issuerPublicKey, null));
+    logger.info("Created proxy to the FHIR store " + this.fhirClient.getBaseUrl());
   }
 
   private RSAPublicKey fetchAndDecodePublicKey() throws IOException {
@@ -128,7 +129,8 @@ public class BearerAuthorizationInterceptor {
     }
   }
 
-  private DecodedJWT decodeAndVerifyBearerToken(String authHeader) {
+  @VisibleForTesting
+  DecodedJWT decodeAndVerifyBearerToken(String authHeader) {
     if (!authHeader.startsWith(BEARER_PREFIX)) {
       ExceptionUtil.throwRuntimeExceptionAndLog(logger,
           "Authorization header is not a valid Bearer token!", AuthenticationException.class);
@@ -161,7 +163,7 @@ public class BearerAuthorizationInterceptor {
   }
 
   private void checkAuthorization(DecodedJWT jwt, RequestDetails requestDetails) {
-    AccessChecker accessChecker = accessFactory.create(jwt, httpFhirClient);
+    AccessChecker accessChecker = accessFactory.create(jwt, fhirClient);
     if (!accessChecker.canAccess(requestDetails)) {
       ExceptionUtil.throwRuntimeExceptionAndLog(
           logger,
@@ -173,7 +175,7 @@ public class BearerAuthorizationInterceptor {
   }
 
   @Hook(Pointcut.SERVER_INCOMING_REQUEST_PRE_HANDLER_SELECTED)
-  public boolean authorizeRequests(RequestDetails requestDetails) {
+  public boolean authorizeRequest(RequestDetails requestDetails) {
     Preconditions.checkArgument(requestDetails instanceof ServletRequestDetails);
     ServletRequestDetails servletDetails = (ServletRequestDetails) requestDetails;
     logger.info("Started authorization check for URL " + requestDetails.getCompleteUrl());
@@ -188,13 +190,13 @@ public class BearerAuthorizationInterceptor {
     String requestPath = requestDetails.getRequestPath();
     logger.debug("Authorized request path " + requestPath);
     try {
-      HttpResponse response = httpFhirClient.handleRequest(servletDetails);
+      HttpResponse response = fhirClient.handleRequest(servletDetails);
       HttpUtil.validateResponseEntityOrFail(response, requestPath);
       HttpEntity entity = response.getEntity();
       logger.debug(String.format("The response for %s is %s ", requestPath, response));
       logger.info("FHIR store response length: " + entity.getContentLength());
       IRestfulResponse proxyResponse = requestDetails.getResponse();
-      for (Header header : httpFhirClient.responseHeadersToKeep(response)) {
+      for (Header header : fhirClient.responseHeadersToKeep(response)) {
         proxyResponse.addHeader(header.getName(), header.getValue());
       }
       // This should be called after adding headers.
@@ -221,8 +223,7 @@ public class BearerAuthorizationInterceptor {
    * @param writer the writer for proxy response
    * @param proxyBase the base URL of the proxy
    */
-  @VisibleForTesting
-  void replaceAndCopyResponse(HttpEntity entity, Writer writer, String proxyBase)
+  private void replaceAndCopyResponse(HttpEntity entity, Writer writer, String proxyBase)
       throws IOException {
     // To make this more efficient, this only does a string search/replace; we may need to add
     // proper URL parsing if we need to address edge cases in URL no-op changes. This string
@@ -233,28 +234,29 @@ public class BearerAuthorizationInterceptor {
     if (contentType.getCharset() != null) {
       charset = contentType.getCharset().name();
     }
+    String fhirStoreUrl = fhirClient.getBaseUrl();
     InputStreamReader reader = new InputStreamReader(entity.getContent(), charset);
     BufferedReader bufReader = new BufferedReader(reader);
     int numMatched = 0;
     int n;
     while ((n = bufReader.read()) >= 0) {
       char c = (char) n;
-      if (gcpFhirStore.charAt(numMatched) == c) {
+      if (fhirStoreUrl.charAt(numMatched) == c) {
         numMatched++;
-        if (numMatched == gcpFhirStore.length()) {
+        if (numMatched == fhirStoreUrl.length()) {
           // A match found; replace it with proxy's base URL.
           writer.write(proxyBase);
           numMatched = 0;
         }
       } else {
-        writer.write(gcpFhirStore.substring(0, numMatched));
+        writer.write(fhirStoreUrl.substring(0, numMatched));
         writer.write(c);
         numMatched = 0;
       }
     }
     if (numMatched > 0) {
       // Handle any remaining characters that partially matched.
-      writer.write(gcpFhirStore.substring(0, numMatched));
+      writer.write(fhirStoreUrl.substring(0, numMatched));
     }
   }
 

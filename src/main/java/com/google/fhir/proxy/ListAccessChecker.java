@@ -13,6 +13,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.io.Resources;
 import java.io.IOException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
@@ -38,7 +39,7 @@ import org.slf4j.LoggerFactory;
 public class ListAccessChecker implements AccessChecker {
 
   private static final Logger logger = LoggerFactory.getLogger(ListAccessChecker.class);
-  private static final String PATIENT_LIST_CLAIM = "patient_list";
+  static final String PATIENT_LIST_CLAIM = "patient_list";
   private final FhirContext fhirContext;
   private final HttpFhirClient httpFhirClient;
   private final String patientListId;
@@ -90,9 +91,8 @@ public class ListAccessChecker implements AccessChecker {
     return requestDetails.getId().getIdPart();
   }
 
-  @VisibleForTesting
   @Nullable
-  String findPatientId(RequestDetails requestDetails) {
+  private String findPatientId(RequestDetails requestDetails) {
     String resourceName = requestDetails.getResourceName();
     if (resourceName == null) {
       logger.error("No resource specified for request " + requestDetails.getRequestPath());
@@ -164,12 +164,10 @@ public class ListAccessChecker implements AccessChecker {
       IParser jsonParser = fhirContext.newJsonParser();
       String compartmentText = null;
       try {
-        URL url =
-            server
-                .getServletContext()
-                .getResource("/WEB-INF/classes/CompartmentDefinition-patient.json");
+        // TODO make sure relative addresses are handled properly and that @Beta is okay.
+        URL url = Resources.getResource("CompartmentDefinition-patient.json");
         logger.info("Loading patient compartment definition from " + url);
-        compartmentText = IOUtils.toString(url, StandardCharsets.UTF_8);
+        compartmentText = Resources.toString(url, StandardCharsets.UTF_8);
       } catch (IOException e) {
         ExceptionUtil.throwRuntimeExceptionAndLog(
             logger,

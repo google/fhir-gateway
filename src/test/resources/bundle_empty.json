@@ -1,0 +1,19 @@
+{
+  "link": [
+    {
+      "relation": "search",
+      "url": "https://healthcare.googleapis.com/v1/projects/fhir-sdk/locations/us/datasets/synthea-sample-data/fhirStores/gcs-data/fhir/List/?_elements=id&_id=patient-list-example&item=Patient%2Fbe92a43f-de46-affa-b131-bbf9eea51140TTTT"
+    },
+    {
+      "relation": "first",
+      "url": "https://healthcare.googleapis.com/v1/projects/fhir-sdk/locations/us/datasets/synthea-sample-data/fhirStores/gcs-data/fhir/List/?_elements=id&_id=patient-list-example&item=Patient%2Fbe92a43f-de46-affa-b131-bbf9eea51140TTTT"
+    },
+    {
+      "relation": "self",
+      "url": "https://healthcare.googleapis.com/v1/projects/fhir-sdk/locations/us/datasets/synthea-sample-data/fhirStores/gcs-data/fhir/List/?_elements=id&_id=patient-list-example&item=Patient%2Fbe92a43f-de46-affa-b131-bbf9eea51140TTTT"
+    }
+  ],
+  "resourceType": "Bundle",
+  "total": 0,
+  "type": "searchset"
+}

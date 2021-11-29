@@ -1,0 +1,41 @@
+{
+  "entry": [
+    {
+      "fullUrl": "https://healthcare.googleapis.com/v1/projects/fhir-sdk/locations/us/datasets/synthea-sample-data/fhirStores/gcs-data/fhir/List/patient-list-example",
+      "resource": {
+        "id": "patient-list-example",
+        "meta": {
+          "lastUpdated": "2021-11-25T18:54:23.389580+00:00",
+          "tag": [
+            {
+              "code": "SUBSETTED",
+              "system": "http://hl7.org/fhir/v3/ObservationValue"
+            }
+          ],
+          "versionId": "MTYzNzg2NjQ2MzM4OTU4MDAwMA"
+        },
+        "resourceType": "List"
+      },
+      "search": {
+        "mode": "match"
+      }
+    }
+  ],
+  "link": [
+    {
+      "relation": "search",
+      "url": "https://healthcare.googleapis.com/v1/projects/fhir-sdk/locations/us/datasets/synthea-sample-data/fhirStores/gcs-data/fhir/List/?_elements=id&_id=patient-list-example&item=Patient%2Fbe92a43f-de46-affa-b131-bbf9eea51140"
+    },
+    {
+      "relation": "first",
+      "url": "https://healthcare.googleapis.com/v1/projects/fhir-sdk/locations/us/datasets/synthea-sample-data/fhirStores/gcs-data/fhir/List/?_elements=id&_id=patient-list-example&item=Patient%2Fbe92a43f-de46-affa-b131-bbf9eea51140"
+    },
+    {
+      "relation": "self",
+      "url": "https://healthcare.googleapis.com/v1/projects/fhir-sdk/locations/us/datasets/synthea-sample-data/fhirStores/gcs-data/fhir/List/?_elements=id&_id=patient-list-example&item=Patient%2Fbe92a43f-de46-affa-b131-bbf9eea51140"
+    }
+  ],
+  "resourceType": "Bundle",
+  "total": 1,
+  "type": "searchset"
+}

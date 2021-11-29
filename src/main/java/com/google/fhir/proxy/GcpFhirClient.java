@@ -35,10 +35,16 @@ public class GcpFhirClient extends HttpFhirClient {
   private final String gcpFhirStore;
 
   public GcpFhirClient(String gcpFhirStore) throws IOException {
+    // Remove trailing '/'s since proxy's base URL has no trailing '/'.
+    this.gcpFhirStore = gcpFhirStore.replaceAll("/+$", "");
     credentials = GoogleCredentials.getApplicationDefault()
         .createScoped(Collections.singleton(CLOUD_PLATFORM_SCOPE));
-    this.gcpFhirStore = gcpFhirStore;
     logger.info("Initialized a client for GCP FHIR store: " + gcpFhirStore);
+  }
+
+  @Override
+  protected  String getBaseUrl() {
+    return gcpFhirStore;
   }
 
   private String getAccessToken() {

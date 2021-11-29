@@ -1,0 +1,22 @@
+{
+  "entry": [
+    {
+      "item": {
+        "reference": "Patient/be92a43f-de46-affa-b131-bbf9eea51140"
+      }
+    },
+    {
+      "item": {
+        "reference": "Patient/420e791b-e419-c19b-3144-29e101c2c12f"
+      }
+    }
+  ],
+  "id": "patient-list-example",
+  "meta": {
+    "lastUpdated": "2021-11-25T18:54:23.389580+00:00",
+    "versionId": "MTYzNzg2NjQ2MzM4OTU4MDAwMA"
+  },
+  "mode": "working",
+  "resourceType": "List",
+  "status": "current"
+}

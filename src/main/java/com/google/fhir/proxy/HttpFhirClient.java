@@ -24,6 +24,8 @@ public abstract class HttpFhirClient {
 
   private static final Logger logger = LoggerFactory.getLogger(HttpFhirClient.class);
 
+  protected  abstract String getBaseUrl();
+
   protected abstract URI getUriForResource(String resourcePath) throws URISyntaxException;
 
   protected abstract Header getAuthHeader();
