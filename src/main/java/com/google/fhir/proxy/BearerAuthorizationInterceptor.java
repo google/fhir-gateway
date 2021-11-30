@@ -61,10 +61,10 @@ public class BearerAuthorizationInterceptor {
   private final HttpUtil httpUtil;
   private final RestfulServer server;
   private final String gcpFhirStore;
-  private final PatientAccessCheckerFactory accessFactory;
+  private final AccessCheckerFactory accessFactory;
 
   BearerAuthorizationInterceptor(String gcpFhirStore, String tokenIssuer,
-      RestfulServer server, PatientAccessCheckerFactory accessFactory) throws IOException {
+      RestfulServer server, AccessCheckerFactory accessFactory) throws IOException {
     Preconditions.checkNotNull(gcpFhirStore);
     Preconditions.checkNotNull(server);
     this.server = server;
@@ -87,7 +87,7 @@ public class BearerAuthorizationInterceptor {
     try {
       // TODO: Make sure this works for any issuer not just Keycloak; instead of this we should
       // read the metadata and choose the right endpoint for the keys.
-      HttpResponse response = httpUtil.getResource(new URI(tokenIssuer));
+      HttpResponse response = httpUtil.getResourceOrFail(new URI(tokenIssuer));
       JsonObject jsonObject = JsonParser
           .parseString(EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8))
           .getAsJsonObject();
@@ -160,30 +160,37 @@ public class BearerAuthorizationInterceptor {
     return verifiedJwt;
   }
 
+  private void checkAuthorization(DecodedJWT jwt, RequestDetails requestDetails) {
+    AccessChecker accessChecker = accessFactory.create(jwt, httpFhirClient);
+    if (!accessChecker.canAccess(requestDetails)) {
+      ExceptionUtil.throwRuntimeExceptionAndLog(
+          logger,
+          String.format(
+              "User is not authorized to %s %s",
+              requestDetails.getRequestType(), requestDetails.getCompleteUrl()),
+          AuthenticationException.class);
+    }
+  }
+
   @Hook(Pointcut.SERVER_INCOMING_REQUEST_PRE_HANDLER_SELECTED)
   public boolean authorizeRequests(RequestDetails requestDetails) {
     Preconditions.checkArgument(requestDetails instanceof ServletRequestDetails);
     ServletRequestDetails servletDetails = (ServletRequestDetails) requestDetails;
-    logger.info("Started authorization check for URI " + servletDetails.getServletRequest()
-        .getRequestURI());
+    logger.info("Started authorization check for URL " + requestDetails.getCompleteUrl());
     // Check the Bearer token to be a valid JWT with required claims.
     String authHeader = requestDetails.getHeader("Authorization");
     if (authHeader == null) {
-      ExceptionUtil.throwRuntimeExceptionAndLog(logger, "No Authorization header provided!",
-          AuthenticationException.class);
+      ExceptionUtil.throwRuntimeExceptionAndLog(
+          logger, "No Authorization header provided!", AuthenticationException.class);
     }
-    // TODO add patient compartment check (b/205977937)
     DecodedJWT decodedJwt = decodeAndVerifyBearerToken(authHeader);
-    PatientAccessChecker accessChecker = accessFactory.create(decodedJwt, httpFhirClient);
+    checkAuthorization(decodedJwt, requestDetails);
     String requestPath = requestDetails.getRequestPath();
     logger.debug("Authorized request path " + requestPath);
     try {
       HttpResponse response = httpFhirClient.handleRequest(servletDetails);
+      HttpUtil.validateResponseEntityOrFail(response, requestPath);
       HttpEntity entity = response.getEntity();
-      if (entity == null) {
-        ExceptionUtil
-            .throwRuntimeExceptionAndLog(logger, "Nothing received from the FHIR server!");
-      }
       logger.debug(String.format("The response for %s is %s ", requestPath, response));
       logger.info("FHIR store response length: " + entity.getContentLength());
       IRestfulResponse proxyResponse = requestDetails.getResponse();
