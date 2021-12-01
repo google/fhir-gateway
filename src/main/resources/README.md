@@ -4,6 +4,7 @@
   can be fetched on-the-fly when the proxy runs. However, given the importance
   of this resource and to make things simpler, it is downloaded and made
   available statically:
+
   ```shell
   $ curl -X GET -L -H "Accept: application/fhir+json" \
     http://hl7.org/fhir/CompartmentDefinition/patient \
@@ -11,4 +12,3 @@
   ```
 
 - `logback.xml`: The Logback configuration
-

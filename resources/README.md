@@ -1,6 +1,7 @@
 # Files description
-- `patient-list-example.json`: This is a sample list of patient IDs that can
-  be uploaded to a FHIR store and used as authorization list:
+
+- `patient-list-example.json`: This is a sample list of patient IDs that can be
+  uploaded to a FHIR store and used as authorization list:
   ```shell
   $ curl --request PUT \
     -H "Authorization: Bearer $(gcloud auth print-access-token)" \

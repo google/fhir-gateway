@@ -1,6 +1,5 @@
-<project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xmlns="http://maven.apache.org/POM/4.0.0"
-    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
   <groupId>com.google.fhir.proxy</groupId>
@@ -13,6 +12,7 @@
   <properties>
     <hapifhir_version>5.5.3</hapifhir_version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <spotless.version>2.17.4</spotless.version>
   </properties>
 
   <dependencies>
@@ -128,13 +128,74 @@
           <artifactId>jetty-maven-plugin</artifactId>
           <version>9.4.11.v20180605</version>
         </plugin>
+        <plugin>
+          <groupId>com.diffplug.spotless</groupId>
+          <artifactId>spotless-maven-plugin</artifactId>
+          <version>${spotless.version}</version>
+          <configuration>
+            <pom>
+              <sortPom>
+                <expandEmptyElements>false</expandEmptyElements>
+              </sortPom>
+              <trimTrailingWhitespace/>
+              <endWithNewline/>
+              <indent>
+                <spaces>true</spaces>
+              </indent>
+            </pom>
+            <formats>
+              <!-- you can define as many formats as you want, each is independent -->
+              <format>
+                <!-- define the files to apply to -->
+                <includes>
+                  <include>**/*.md</include>
+                  <include>**/*.xml</include>
+                  <include>.gitignore</include>
+                </includes>
+                <trimTrailingWhitespace/>
+                <endWithNewline/>
+                <indent>
+                  <spaces>true</spaces>
+                </indent>
+              </format>
+            </formats>
+            <!-- define a language-specific format -->
+            <java>
+              <importOrder/>
+              <!-- standard import order -->
+              <importOrder>
+                <!-- or a custom ordering -->
+                <order>java,javax,org,com,com.diffplug,</order>
+                <!-- You probably want an empty string at the end - all of the
+                    imports you didn't specify explicitly will go there. -->
+              </importOrder>
+
+              <removeUnusedImports/>
+
+              <!-- apply a specific flavor of google-java-format and reflow long strings -->
+              <googleJavaFormat>
+                <version>1.8</version>
+                <style>GOOGLE</style>
+                <reflowLongStrings>true</reflowLongStrings>
+              </googleJavaFormat>
+              <licenseHeader>
+                <file>${project.basedir}/license-header.txt</file>
+              </licenseHeader>
+            </java>
+          </configuration>
+          <executions>
+            <execution>
+              <goals>
+                <goal>apply</goal>
+              </goals>
+              <phase>compile</phase>
+            </execution>
+          </executions>
+        </plugin>
       </plugins>
     </pluginManagement>
 
     <plugins>
-      <!--
-      Tell Maven which Java source version you want to use
-      -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>

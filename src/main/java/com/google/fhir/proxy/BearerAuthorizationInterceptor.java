@@ -1,3 +1,18 @@
+/*
+ * Copyright 2021 Google LLC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.google.fhir.proxy;
 
 import ca.uhn.fhir.interceptor.api.Hook;
@@ -43,8 +58,8 @@ import org.slf4j.LoggerFactory;
 @Interceptor
 public class BearerAuthorizationInterceptor {
 
-  private static final Logger logger = LoggerFactory
-      .getLogger(BearerAuthorizationInterceptor.class);
+  private static final Logger logger =
+      LoggerFactory.getLogger(BearerAuthorizationInterceptor.class);
 
   private static final String DEFAULT_CONTENT_TYPE = "text/html; charset=UTF-8";
   private static final String DEFAULT_CHARSET = StandardCharsets.UTF_8.name();
@@ -81,28 +96,28 @@ public class BearerAuthorizationInterceptor {
   }
 
   private RSAPublicKey fetchAndDecodePublicKey() throws IOException {
-    //Preconditions.checkState(SIGN_ALGORITHM.equals("ES512"));
+    // Preconditions.checkState(SIGN_ALGORITHM.equals("ES512"));
     Preconditions.checkState(SIGN_ALGORITHM.equals("RS256"));
-    //final String keyAlgorithm = "EC";
+    // final String keyAlgorithm = "EC";
     final String keyAlgorithm = "RSA";
     try {
       // TODO: Make sure this works for any issuer not just Keycloak; instead of this we should
       // read the metadata and choose the right endpoint for the keys.
       HttpResponse response = httpUtil.getResourceOrFail(new URI(tokenIssuer));
-      JsonObject jsonObject = JsonParser
-          .parseString(EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8))
-          .getAsJsonObject();
+      JsonObject jsonObject =
+          JsonParser.parseString(EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8))
+              .getAsJsonObject();
       String keyStr = jsonObject.get("public_key").getAsString();
       if (keyStr == null) {
-        ExceptionUtil
-            .throwRuntimeExceptionAndLog(logger, "Cannot find 'public_key' in issuer metadata.");
+        ExceptionUtil.throwRuntimeExceptionAndLog(
+            logger, "Cannot find 'public_key' in issuer metadata.");
       }
       KeyFactory keyFactory = KeyFactory.getInstance(keyAlgorithm);
       EncodedKeySpec keySpec = new X509EncodedKeySpec(Base64.getDecoder().decode(keyStr));
       return (RSAPublicKey) keyFactory.generatePublic(keySpec);
     } catch (URISyntaxException e) {
-      ExceptionUtil
-          .throwRuntimeExceptionAndLog(logger, "Error in token issuer URI " + tokenIssuer, e);
+      ExceptionUtil.throwRuntimeExceptionAndLog(
+          logger, "Error in token issuer URI " + tokenIssuer, e);
     } catch (NoSuchAlgorithmException e) {
       ExceptionUtil.throwRuntimeExceptionAndLog(logger, "Invalid algorithm " + keyAlgorithm, e);
     } catch (InvalidKeySpecException e) {
@@ -132,21 +147,26 @@ public class BearerAuthorizationInterceptor {
   @VisibleForTesting
   DecodedJWT decodeAndVerifyBearerToken(String authHeader) {
     if (!authHeader.startsWith(BEARER_PREFIX)) {
-      ExceptionUtil.throwRuntimeExceptionAndLog(logger,
-          "Authorization header is not a valid Bearer token!", AuthenticationException.class);
+      ExceptionUtil.throwRuntimeExceptionAndLog(
+          logger,
+          "Authorization header is not a valid Bearer token!",
+          AuthenticationException.class);
     }
     String bearerToken = authHeader.substring(BEARER_PREFIX.length());
     DecodedJWT jwt = JWT.decode(bearerToken);
     String issuer = jwt.getIssuer();
     String algorithm = jwt.getAlgorithm();
     JWTVerifier jwtVerifier = buildJwtVerifier(issuer);
-    logger.info(String
-        .format("JWT issuer is %s, audience is %s, and algorithm is %s", issuer,
-            jwt.getAudience(), algorithm));
+    logger.info(
+        String.format(
+            "JWT issuer is %s, audience is %s, and algorithm is %s",
+            issuer, jwt.getAudience(), algorithm));
 
     if (!algorithm.equals(SIGN_ALGORITHM)) {
-      ExceptionUtil.throwRuntimeExceptionAndLog(logger, String.format(
-          "Only %s signing algorithm is supported, got %s", SIGN_ALGORITHM, algorithm),
+      ExceptionUtil.throwRuntimeExceptionAndLog(
+          logger,
+          String.format(
+              "Only %s signing algorithm is supported, got %s", SIGN_ALGORITHM, algorithm),
           AuthenticationException.class);
     }
     DecodedJWT verifiedJwt = null;
@@ -155,8 +175,10 @@ public class BearerAuthorizationInterceptor {
     } catch (JWTVerificationException e) {
       // Throwing an AuthenticationException instead since it is handled by HAPI and a 401
       // status code is returned in the response.
-      ExceptionUtil.throwRuntimeExceptionAndLog(logger,
-          String.format("JWT verification failed with error: %s", e.getMessage()), e,
+      ExceptionUtil.throwRuntimeExceptionAndLog(
+          logger,
+          String.format("JWT verification failed with error: %s", e.getMessage()),
+          e,
           AuthenticationException.class);
     }
     return verifiedJwt;
@@ -201,13 +223,19 @@ public class BearerAuthorizationInterceptor {
       }
       // This should be called after adding headers.
       // TODO handle non-text responses, e.g., gzip.
-      Writer writer = proxyResponse.getResponseWriter(response.getStatusLine().getStatusCode(),
-          response.getStatusLine().toString(), DEFAULT_CONTENT_TYPE, DEFAULT_CHARSET, false);
+      Writer writer =
+          proxyResponse.getResponseWriter(
+              response.getStatusLine().getStatusCode(),
+              response.getStatusLine().toString(),
+              DEFAULT_CONTENT_TYPE,
+              DEFAULT_CHARSET,
+              false);
       replaceAndCopyResponse(entity, writer, server.getServerBaseForRequest(servletDetails));
     } catch (IOException e) {
-      logger.error(String
-          .format("Exception for resource %s method %s with error: %s", requestPath,
-              servletDetails.getServletRequest().getMethod(), e));
+      logger.error(
+          String.format(
+              "Exception for resource %s method %s with error: %s",
+              requestPath, servletDetails.getServletRequest().getMethod(), e));
       ExceptionUtil.throwRuntimeExceptionAndLog(logger, e);
     }
 
@@ -216,8 +244,8 @@ public class BearerAuthorizationInterceptor {
   }
 
   /**
-   * Reads the content from the FHIR store response `entity`, replaces any FHIR store URLs by
-   * the corresponding proxy URLs, and write the modified response to the proxy response `writer`.
+   * Reads the content from the FHIR store response `entity`, replaces any FHIR store URLs by the
+   * corresponding proxy URLs, and write the modified response to the proxy response `writer`.
    *
    * @param entity the entity part of the FHIR store response
    * @param writer the writer for proxy response
@@ -259,5 +287,4 @@ public class BearerAuthorizationInterceptor {
       writer.write(fhirStoreUrl.substring(0, numMatched));
     }
   }
-
 }
