@@ -70,7 +70,11 @@ public class FhirProxyServer extends RestfulServer {
       }
       registerInterceptor(
           new BearerAuthorizationInterceptor(
-              new GcpFhirClient(gcpFhirStore), tokenIssuer, this, new HttpUtil(), factory));
+              new GcpFhirClient(gcpFhirStore, GcpFhirClient.createCredentials()),
+              tokenIssuer,
+              this,
+              new HttpUtil(),
+              factory));
     } catch (IOException e) {
       ExceptionUtil.throwRuntimeExceptionAndLog(logger, "IOException while initializing", e);
     }
