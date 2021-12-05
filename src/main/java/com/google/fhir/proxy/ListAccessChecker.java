@@ -16,6 +16,7 @@
 package com.google.fhir.proxy;
 
 import ca.uhn.fhir.context.FhirContext;
+import ca.uhn.fhir.fhirpath.IFhirPath;
 import ca.uhn.fhir.model.primitive.IdDt;
 import ca.uhn.fhir.parser.IParser;
 import ca.uhn.fhir.rest.api.RequestTypeEnum;
@@ -28,11 +29,15 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.io.Resources;
+import com.google.gson.Gson;
 import java.io.IOException;
 import java.net.URL;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import org.apache.http.HttpResponse;
 import org.hl7.fhir.instance.model.api.IBaseResource;
@@ -40,6 +45,7 @@ import org.hl7.fhir.instance.model.api.IIdType;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.CompartmentDefinition;
 import org.hl7.fhir.r4.model.CompartmentDefinition.CompartmentDefinitionResourceComponent;
+import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.ResourceType;
 import org.hl7.fhir.r4.model.StringType;
 import org.slf4j.Logger;
@@ -54,34 +60,52 @@ public class ListAccessChecker implements AccessChecker {
   private static final Logger logger = LoggerFactory.getLogger(ListAccessChecker.class);
   static final String PATIENT_LIST_CLAIM = "patient_list";
   private final FhirContext fhirContext;
+  private final IFhirPath fhirPath;
   private final HttpFhirClient httpFhirClient;
   private final String patientListId;
   private final Map<String, List<String>> patientSearchParams;
+  private final Map<String, List<String>> patientFhirPaths;
 
   private ListAccessChecker(
       HttpFhirClient httpFhirClient,
       String patientListId,
       FhirContext fhirContext,
-      Map<String, List<String>> patientSearchParams) {
+      Map<String, List<String>> patientSearchParams,
+      Map<String, List<String>> patientFhirPaths) {
     this.fhirContext = fhirContext;
+    this.fhirPath = fhirContext.newFhirPath();
     this.httpFhirClient = httpFhirClient;
     this.patientListId = patientListId;
     this.patientSearchParams = patientSearchParams;
+    this.patientFhirPaths = patientFhirPaths;
   }
 
   private static boolean isSameResourceType(String resourceType, ResourceType type) {
     return ResourceType.fromCode(resourceType) == type;
   }
 
-  private boolean serverListIncludesPatient(String patientId) {
-    if (patientId == null) {
+  // Note this returns true iff at least one of the patient IDs is found in the associated list.
+  // The rationale is that a user should have access to a resource iff they are authorized to access
+  // at least one of the patients referenced in that resource. This is a subjective decision, so we
+  // may want to revisit it in the future.
+  private boolean serverListIncludesAnyPatient(List<String> patientIds) {
+    if (patientIds == null) {
       return false;
     }
     // TODO consider using HAPI FHIR clients to avoid crafting search queries and parsing responses.
+    String patientParam =
+        patientIds.stream()
+            .filter(Objects::nonNull)
+            .map(p -> "Patient/" + p)
+            .collect(Collectors.joining(","));
+    if (patientParam.isEmpty()) {
+      return false;
+    }
     // We cannot use `_summary` parameter because it is not implemented on GCP yet; so to prevent a
     // potentially huge list to be fetched each time, we add `_elements=id`.
     String searchQuery =
-        String.format("/List?_id=%s&item=Patient/%s&_elements=id", this.patientListId, patientId);
+        String.format("/List?_id=%s&item=%s&_elements=id", this.patientListId, patientParam);
+    logger.debug("Search query for patient access authorization check is: " + searchQuery);
     try {
       HttpResponse httpResponse = httpFhirClient.getResource(searchQuery);
       HttpUtil.validateResponseEntityOrFail(httpResponse, searchQuery);
@@ -126,13 +150,45 @@ public class ListAccessChecker implements AccessChecker {
         if (paramValues != null && paramValues.length == 1) {
           // Making sure that we extract the actual ID without any resource type or URL.
           IIdType id = new IdDt(paramValues[0]);
-          // TODO do some sanity checks on the returned value (b/207737513).
-          return id.getIdPart();
+          // TODO add test for null/non-Patient cases.
+          if (id.getResourceType() == null || id.getResourceType().equals("Patient")) {
+            // TODO do some sanity checks on the returned value (b/207737513).
+            return id.getIdPart();
+          }
         }
       }
     }
     logger.warn("Patient ID cannot be found in " + requestDetails.getCompleteUrl());
     return null;
+  }
+
+  private List<String> findPatientsInResource(RequestDetails request) {
+    byte[] requestContentBytes = request.loadRequestContents();
+    Charset charset = request.getCharset();
+    if (charset == null) {
+      charset = StandardCharsets.UTF_8;
+    }
+    String requestContent = new String(requestContentBytes, charset);
+    IParser jsonParser = fhirContext.newJsonParser();
+    IBaseResource resource = jsonParser.parseResource(requestContent);
+    if (!resource.fhirType().equals(request.getResourceName())) {
+      // The provided resource is different from what is on the path; stop parsing.
+      return Lists.newArrayList();
+    }
+    List<String> fhirPaths = patientFhirPaths.get(resource.fhirType());
+    if (fhirPaths == null) {
+      return Lists.newArrayList();
+    }
+    List<String> patiendIds = Lists.newArrayList();
+    for (String path : fhirPaths) {
+      List<Reference> refs = fhirPath.evaluate(resource, path, Reference.class);
+      patiendIds.addAll(
+          refs.stream()
+              .filter(r -> "Patient".equals(r.getReferenceElement().getResourceType()))
+              .map(r -> r.getReferenceElement().getIdPart())
+              .collect(Collectors.toList()));
+    }
+    return patiendIds;
   }
 
   /**
@@ -152,18 +208,20 @@ public class ListAccessChecker implements AccessChecker {
         }
       }
       String patientId = findPatientId(requestDetails);
-      return serverListIncludesPatient(patientId);
-    } else if (requestDetails.getRequestType() == RequestTypeEnum.PUT) {
-      if (!isSameResourceType(requestDetails.getResourceName(), ResourceType.Patient)) {
-        // TODO add parsing of non-Patient resources to extract patientId and check authorization.
-        return false;
-      }
-      String patientId = getIdOrNull(requestDetails);
-      return serverListIncludesPatient(patientId);
-    } else {
-      // TODO decide what to do for other methods like POST (b/207589782).
-      return false;
+      return serverListIncludesAnyPatient(Lists.newArrayList(patientId));
     }
+    if (requestDetails.getRequestType() == RequestTypeEnum.PUT
+        || requestDetails.getRequestType() == RequestTypeEnum.POST) {
+      if (isSameResourceType(requestDetails.getResourceName(), ResourceType.Patient)) {
+        // TODO decide what to do for adding new patients (b/207589782).
+        return false;
+      } else {
+        List<String> patientIds = findPatientsInResource(requestDetails);
+        return serverListIncludesAnyPatient(patientIds);
+      }
+    }
+    // TODO decide what to do for other methods like PATCH and DELETE.
+    return false;
   }
 
   public static class Factory implements AccessCheckerFactory {
@@ -171,23 +229,14 @@ public class ListAccessChecker implements AccessChecker {
     private final FhirContext fhirContext;
     private final CompartmentDefinition patientCompartment;
     private final Map<String, List<String>> patientSearchParams;
+    private final Map<String, List<String>> patientFhirPaths;
 
     public Factory(RestfulServer server) {
       this.fhirContext = server.getFhirContext();
+
+      // Read patient compartment and create search param map.
       IParser jsonParser = fhirContext.newJsonParser();
-      String compartmentText = null;
-      try {
-        // TODO make sure relative addresses are handled properly and that @Beta is okay.
-        URL url = Resources.getResource("CompartmentDefinition-patient.json");
-        logger.info("Loading patient compartment definition from " + url);
-        compartmentText = Resources.toString(url, StandardCharsets.UTF_8);
-      } catch (IOException e) {
-        ExceptionUtil.throwRuntimeExceptionAndLog(
-            logger,
-            "Cannot read CompartmentDefinition-patient.json resource!",
-            e,
-            ForbiddenOperationException.class);
-      }
+      String compartmentText = readResource("CompartmentDefinition-patient.json");
       IBaseResource resource = jsonParser.parseResource(compartmentText);
       Preconditions.checkArgument(
           ListAccessChecker.isSameResourceType(
@@ -196,6 +245,27 @@ public class ListAccessChecker implements AccessChecker {
       logger.info("Patient compartment is based on: " + patientCompartment);
       this.patientSearchParams = Maps.newHashMap();
       makeSearchParamMap();
+
+      // Read FHIR paths for finding associated patients of each resource.
+      String pathsJson = readResource("patient_paths.json");
+      Gson gson = new Gson();
+      this.patientFhirPaths = gson.fromJson(pathsJson, Map.class);
+    }
+
+    private String readResource(String resourcePath) {
+      try {
+        // TODO make sure relative addresses are handled properly and that @Beta is okay.
+        URL url = Resources.getResource(resourcePath);
+        logger.info("Loading patient compartment definition from " + url);
+        return Resources.toString(url, StandardCharsets.UTF_8);
+      } catch (IOException e) {
+        ExceptionUtil.throwRuntimeExceptionAndLog(
+            logger,
+            String.format("Cannot read %s resource!", resourcePath),
+            e,
+            ForbiddenOperationException.class);
+        return null;
+      }
     }
 
     private void makeSearchParamMap() {
@@ -222,7 +292,8 @@ public class ListAccessChecker implements AccessChecker {
       }
       // TODO do some sanity checks on the `patientListId` (b/207737513).
       String patientListId = patientListClaim.asString();
-      return new ListAccessChecker(httpFhirClient, patientListId, fhirContext, patientSearchParams);
+      return new ListAccessChecker(
+          httpFhirClient, patientListId, fhirContext, patientSearchParams, patientFhirPaths);
     }
   }
 }

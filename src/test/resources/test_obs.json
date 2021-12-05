@@ -1,0 +1,48 @@
+{
+  "category": [
+    {
+      "coding": [
+        {
+          "code": "survey",
+          "display": "survey",
+          "system": "http://terminology.hl7.org/CodeSystem/observation-category"
+        }
+      ]
+    }
+  ],
+  "code": {
+    "coding": [
+      {
+        "code": "1250AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "display": "ANTIRETROVIRALS STARTED",
+        "system": "http://loinc.org"
+      }
+    ],
+    "text": "ANTIRETROVIRALS STARTED"
+  },
+  "effectiveDateTime": "2004-03-26T01:52:09+00:00",
+  "encounter": {
+    "reference": "Encounter/0ed72aff-0275-af43-4a59-c2695f9859d7"
+  },
+  "id": "8d82f8ba-e045-4e43-833e-c8aa4de303a5",
+  "issued": "2004-03-26T02:52:09.437+00:00",
+  "meta": {
+    "lastUpdated": "2021-12-04T07:57:08.423056+00:00",
+    "versionId": "MTYzODYwNDYyODQyMzA1NjAwMA"
+  },
+  "resourceType": "Observation",
+  "status": "final",
+  "subject": {
+    "reference": "Patient/be92a43f-de46-affa-b131-bbf9eea51140"
+  },
+  "valueCodeableConcept": {
+    "coding": [
+      {
+        "code": "86663AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "display": "Zidovudine",
+        "system": "http://snomed.info/sct"
+      }
+    ],
+    "text": "Zidovudine"
+  }
+}

@@ -11,4 +11,10 @@
     -o CompartmentDefinition-patient.json
   ```
 
+- `patient_paths.json`: For each FHIR resource, this file has the corresponding
+  mapping of the list of FHIR paths that should be searched for finding
+  patients in that resource. This is used for access control of POST and PUT
+  requests where a resource is provided by the client
+  (see [b/209207333](b/209207333)).
+
 - `logback.xml`: The Logback configuration

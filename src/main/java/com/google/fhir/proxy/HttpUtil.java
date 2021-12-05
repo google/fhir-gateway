@@ -19,7 +19,6 @@ import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import org.apache.http.HttpResponse;
-import org.apache.http.HttpStatus;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.client.methods.RequestBuilder;
@@ -41,7 +40,10 @@ public class HttpUtil {
 
   private static void validateResponseOrFail(
       HttpResponse response, String resource, boolean checkEntity) {
-    boolean isValid = (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK);
+    // All success codes are valid.
+    boolean isValid =
+        (response.getStatusLine().getStatusCode() >= 200
+            && response.getStatusLine().getStatusCode() < 300);
     if (checkEntity) {
       isValid = isValid && (response.getEntity() != null);
     }

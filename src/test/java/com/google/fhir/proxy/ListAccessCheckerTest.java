@@ -59,27 +59,30 @@ public class ListAccessCheckerTest {
 
   @Mock private RequestDetails requestMock;
 
-  // Note this is an expensive class to instantiate so we only do this once for all tests.
-  private final FhirContext fhirContext = FhirContext.forR4();
-
-  private String testListJson;
+  // Note this is an expensive class to instantiate, so we only do this once for all tests.
+  private static final FhirContext fhirContext = FhirContext.forR4();
 
   private ListAccessChecker.Factory testFactoryInstance;
+
+  private void setUpFhirListSearchMock(String itemParam, String resourceFileToReturn)
+      throws IOException {
+    URL listUrl = Resources.getResource(resourceFileToReturn);
+    String testListJson = Resources.toString(listUrl, StandardCharsets.UTF_8);
+    HttpResponse fhirResponseMock = Mockito.mock(HttpResponse.class);
+    when(httpFhirClientMock.getResource(
+            String.format("/List?_id=%s&item=%s&_elements=id", TEST_LIST_ID, itemParam)))
+        .thenReturn(fhirResponseMock);
+    TestUtil.setUpFhirResponseMock(fhirResponseMock, testListJson);
+  }
 
   @Before
   public void setUp() throws IOException {
     when(serverMock.getFhirContext()).thenReturn(fhirContext);
     when(jwtMock.getClaim(ListAccessChecker.PATIENT_LIST_CLAIM)).thenReturn(claimMock);
     when(claimMock.asString()).thenReturn(TEST_LIST_ID);
-    URL listUrl = Resources.getResource("bundle_list_patient_item.json");
-    testListJson = Resources.toString(listUrl, StandardCharsets.UTF_8);
-    HttpResponse fhirResponseMock = Mockito.mock(HttpResponse.class);
+    setUpFhirListSearchMock("Patient/" + PATIENT_AUTHORIZED, "bundle_list_patient_item.json");
+    setUpFhirListSearchMock("Patient/" + PATIENT_NON_AUTHORIZED, "bundle_empty.json");
     when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.GET);
-    when(httpFhirClientMock.getResource(
-            String.format(
-                "/List?_id=%s&item=Patient/%s&_elements=id", TEST_LIST_ID, PATIENT_AUTHORIZED)))
-        .thenReturn(fhirResponseMock);
-    TestUtil.setUpFhirResponseMock(fhirResponseMock, testListJson);
     testFactoryInstance = new ListAccessChecker.Factory(serverMock);
   }
 
@@ -100,14 +103,6 @@ public class ListAccessCheckerTest {
   public void canAccessNotAuthorized() throws IOException {
     when(requestMock.getResourceName()).thenReturn("Patient");
     when(requestMock.getId()).thenReturn(PATIENT_NON_AUTHORIZED_ID);
-    HttpResponse fhirResponseMock = Mockito.mock(HttpResponse.class);
-    when(httpFhirClientMock.getResource(
-            String.format(
-                "/List?_id=%s&item=Patient/%s&_elements=id", TEST_LIST_ID, PATIENT_NON_AUTHORIZED)))
-        .thenReturn(fhirResponseMock);
-    URL listUrl = Resources.getResource("bundle_empty.json");
-    String emptyListJson = Resources.toString(listUrl, StandardCharsets.UTF_8);
-    TestUtil.setUpFhirResponseMock(fhirResponseMock, emptyListJson);
     AccessChecker testInstance = testFactoryInstance.create(jwtMock, httpFhirClientMock);
     assertThat(testInstance.canAccess(requestMock), equalTo(false));
   }
@@ -137,6 +132,77 @@ public class ListAccessCheckerTest {
     assertThat(testInstance.canAccess(requestMock), equalTo(false));
   }
 
-  // TODO add tests for PUT with content.
+  @Test
+  public void canAccessPutObservation() throws IOException {
+    when(requestMock.getResourceName()).thenReturn("Observation");
+    URL listUrl = Resources.getResource("test_obs.json");
+    byte[] obsBytes = Resources.toByteArray(listUrl);
+    when(requestMock.loadRequestContents()).thenReturn(obsBytes);
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.PUT);
+    AccessChecker testInstance = testFactoryInstance.create(jwtMock, httpFhirClientMock);
+    assertThat(testInstance.canAccess(requestMock), equalTo(true));
+  }
 
+  @Test
+  public void canAccessPutObservationUnauthorized() throws IOException {
+    when(requestMock.getResourceName()).thenReturn("Observation");
+    URL listUrl = Resources.getResource("test_obs_unauthorized.json");
+    byte[] obsBytes = Resources.toByteArray(listUrl);
+    when(requestMock.loadRequestContents()).thenReturn(obsBytes);
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.PUT);
+    AccessChecker testInstance = testFactoryInstance.create(jwtMock, httpFhirClientMock);
+    assertThat(testInstance.canAccess(requestMock), equalTo(false));
+  }
+
+  @Test
+  public void canAccessPostObservation() throws IOException {
+    when(requestMock.getResourceName()).thenReturn("Observation");
+    URL listUrl = Resources.getResource("test_obs.json");
+    byte[] obsBytes = Resources.toByteArray(listUrl);
+    when(requestMock.loadRequestContents()).thenReturn(obsBytes);
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.POST);
+    AccessChecker testInstance = testFactoryInstance.create(jwtMock, httpFhirClientMock);
+    assertThat(testInstance.canAccess(requestMock), equalTo(true));
+  }
+
+  @Test
+  public void canAccessPostObservationWithPerformer() throws IOException {
+    // The sample Observation resource below has a few `performers` references in it. This is to see
+    // if the `Patient` performer references are properly extracted and passed to the List query.
+    when(requestMock.getResourceName()).thenReturn("Observation");
+    URL listUrl = Resources.getResource("test_obs_performers.json");
+    byte[] obsBytes = Resources.toByteArray(listUrl);
+    when(requestMock.loadRequestContents()).thenReturn(obsBytes);
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.POST);
+    setUpFhirListSearchMock(
+        String.format(
+            "Patient/test-patient-1,Patient/%s,Patient/test-patient-2", PATIENT_AUTHORIZED),
+        "bundle_list_patient_item.json");
+    AccessChecker testInstance = testFactoryInstance.create(jwtMock, httpFhirClientMock);
+    assertThat(testInstance.canAccess(requestMock), equalTo(true));
+  }
+
+  @Test
+  public void canAccessPostObservationNoSubject() throws IOException {
+    when(requestMock.getResourceName()).thenReturn("Observation");
+    URL listUrl = Resources.getResource("test_obs_no_subject.json");
+    byte[] obsBytes = Resources.toByteArray(listUrl);
+    when(requestMock.loadRequestContents()).thenReturn(obsBytes);
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.POST);
+    AccessChecker testInstance = testFactoryInstance.create(jwtMock, httpFhirClientMock);
+    assertThat(testInstance.canAccess(requestMock), equalTo(false));
+  }
+
+  @Test
+  public void canAccessPostWrongQueryPath() throws IOException {
+    when(requestMock.getResourceName()).thenReturn("Encounter");
+    URL listUrl = Resources.getResource("test_obs.json");
+    byte[] obsBytes = Resources.toByteArray(listUrl);
+    when(requestMock.loadRequestContents()).thenReturn(obsBytes);
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.POST);
+    AccessChecker testInstance = testFactoryInstance.create(jwtMock, httpFhirClientMock);
+    assertThat(testInstance.canAccess(requestMock), equalTo(false));
+  }
+
+  // TODO add an Appointment POST
 }
