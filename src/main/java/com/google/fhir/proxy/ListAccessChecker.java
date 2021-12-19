@@ -80,10 +80,6 @@ public class ListAccessChecker implements AccessChecker {
     this.patientFhirPaths = patientFhirPaths;
   }
 
-  private static boolean isSameResourceType(String resourceType, ResourceType type) {
-    return ResourceType.fromCode(resourceType) == type;
-  }
-
   // Note this returns true iff at least one of the patient IDs is found in the associated list.
   // The rationale is that a user should have access to a resource iff they are authorized to access
   // at least one of the patients referenced in that resource. This is a subjective decision, so we
@@ -92,7 +88,7 @@ public class ListAccessChecker implements AccessChecker {
     if (patientIds == null) {
       return false;
     }
-    // TODO consider using HAPI FHIR clients to avoid crafting search queries and parsing responses.
+    // TODO consider using the HAPI FHIR client instead (b/211231483).
     String patientParam =
         patientIds.stream()
             .filter(Objects::nonNull)
@@ -105,27 +101,17 @@ public class ListAccessChecker implements AccessChecker {
     // potentially huge list to be fetched each time, we add `_elements=id`.
     String searchQuery =
         String.format("/List?_id=%s&item=%s&_elements=id", this.patientListId, patientParam);
-    logger.debug("Search query for patient access authorization check is: " + searchQuery);
+    logger.debug("Search query for patient access authorization check is: {}", searchQuery);
     try {
       HttpResponse httpResponse = httpFhirClient.getResource(searchQuery);
       HttpUtil.validateResponseEntityOrFail(httpResponse, searchQuery);
-      IParser jsonParser = fhirContext.newJsonParser();
-      IBaseResource resource = jsonParser.parseResource(httpResponse.getEntity().getContent());
-      Preconditions.checkArgument(isSameResourceType(resource.fhirType(), ResourceType.Bundle));
-      Bundle bundle = (Bundle) resource;
+      Bundle bundle = FhirUtil.parseResponseToBundle(fhirContext, httpResponse);
       // We expect exactly one result which is `patientListId`.
       return bundle.getTotal() == 1;
     } catch (IOException e) {
       logger.error("Exception while accessing " + searchQuery, e);
     }
     return false;
-  }
-
-  private String getIdOrNull(RequestDetails requestDetails) {
-    if (requestDetails.getId() == null) {
-      return null;
-    }
-    return requestDetails.getId().getIdPart();
   }
 
   @Nullable
@@ -137,8 +123,8 @@ public class ListAccessChecker implements AccessChecker {
     }
     // Note we only let fetching data for one patient in each query; we may want to revisit this
     // if we need to batch multiple patients together in one query.
-    if (isSameResourceType(resourceName, ResourceType.Patient)) {
-      return getIdOrNull(requestDetails);
+    if (FhirUtil.isSameResourceType(resourceName, ResourceType.Patient)) {
+      return FhirUtil.getIdOrNull(requestDetails);
     }
     List<String> searchParams = patientSearchParams.get(resourceName);
     if (searchParams != null) {
@@ -191,6 +177,20 @@ public class ListAccessChecker implements AccessChecker {
     return patiendIds;
   }
 
+  private boolean patientExists(String patientId) throws IOException {
+    // TODO consider using the HAPI FHIR client instead (b/211231483).
+    String searchQuery = String.format("/Patient?_id=%s&_elements=id", patientId);
+    HttpResponse response = httpFhirClient.getResource(searchQuery);
+    Bundle bundle = FhirUtil.parseResponseToBundle(fhirContext, response);
+    if (bundle.getTotal() > 1) {
+      logger.error(
+          String.format(
+              "%s patients with the same ID %s returned from the FHIR store.",
+              bundle.getTotal(), patientId));
+    }
+    return (bundle.getTotal() > 0);
+  }
+
   /**
    * Inspects the given request to make sure that it is for a FHIR resource of a patient that the
    * current user has access too; i.e., the patient is in the patient-list associated to the user.
@@ -199,29 +199,49 @@ public class ListAccessChecker implements AccessChecker {
    * @return true iff patient is in the patient-list associated to the current user.
    */
   @Override
-  public boolean canAccess(RequestDetails requestDetails) {
+  public AccessDecision checkAccess(RequestDetails requestDetails) {
     if (requestDetails.getRequestType() == RequestTypeEnum.GET) {
       // There should be a patient id in search params; the param name is based on the resource.
-      if (isSameResourceType(requestDetails.getResourceName(), ResourceType.List)) {
-        if (patientListId.equals(getIdOrNull(requestDetails))) {
-          return true;
+      if (FhirUtil.isSameResourceType(requestDetails.getResourceName(), ResourceType.List)) {
+        if (patientListId.equals(FhirUtil.getIdOrNull(requestDetails))) {
+          return NoOpAccessDecision.accessGranted();
         }
       }
       String patientId = findPatientId(requestDetails);
-      return serverListIncludesAnyPatient(Lists.newArrayList(patientId));
+      return new NoOpAccessDecision(serverListIncludesAnyPatient(Lists.newArrayList(patientId)));
     }
     if (requestDetails.getRequestType() == RequestTypeEnum.PUT
         || requestDetails.getRequestType() == RequestTypeEnum.POST) {
-      if (isSameResourceType(requestDetails.getResourceName(), ResourceType.Patient)) {
-        // TODO decide what to do for adding new patients (b/207589782).
-        return false;
+      if (FhirUtil.isSameResourceType(requestDetails.getResourceName(), ResourceType.Patient)) {
+        String patientId = FhirUtil.getIdOrNull(requestDetails);
+        if (requestDetails.getRequestType() == RequestTypeEnum.PUT) {
+          if (patientId == null) {
+            // This is an invalid PUT request; note we are not supporting "conditional updates".
+            logger.error("The provided Patient resource has no ID; denying access!");
+            return NoOpAccessDecision.accessDenied();
+          }
+          try {
+            if (patientExists(patientId)) {
+              logger.info(
+                  "Updating existing patient {}, so no need to update access list.", patientId);
+              return new NoOpAccessDecision(
+                  serverListIncludesAnyPatient(Lists.newArrayList(patientId)));
+            }
+          } catch (IOException e) {
+            logger.error("Exception while checking patient existence; denying access! ", e);
+            return NoOpAccessDecision.accessDenied();
+          }
+        }
+        // We have decided to let clients add new patients while understanding its security risks.
+        return new AccessGrantedAndUpdateList(
+            patientListId, httpFhirClient, fhirContext, patientId);
       } else {
         List<String> patientIds = findPatientsInResource(requestDetails);
-        return serverListIncludesAnyPatient(patientIds);
+        return new NoOpAccessDecision(serverListIncludesAnyPatient(patientIds));
       }
     }
     // TODO decide what to do for other methods like PATCH and DELETE.
-    return false;
+    return NoOpAccessDecision.accessDenied();
   }
 
   public static class Factory implements AccessCheckerFactory {
@@ -239,8 +259,7 @@ public class ListAccessChecker implements AccessChecker {
       String compartmentText = readResource("CompartmentDefinition-patient.json");
       IBaseResource resource = jsonParser.parseResource(compartmentText);
       Preconditions.checkArgument(
-          ListAccessChecker.isSameResourceType(
-              resource.fhirType(), ResourceType.CompartmentDefinition));
+          FhirUtil.isSameResourceType(resource.fhirType(), ResourceType.CompartmentDefinition));
       this.patientCompartment = (CompartmentDefinition) resource;
       logger.info("Patient compartment is based on: " + patientCompartment);
       this.patientSearchParams = Maps.newHashMap();
@@ -283,15 +302,19 @@ public class ListAccessChecker implements AccessChecker {
       }
     }
 
-    @Override
-    public AccessChecker create(DecodedJWT jwt, HttpFhirClient httpFhirClient) {
+    private String getListId(DecodedJWT jwt) {
       Claim patientListClaim = jwt.getClaim(PATIENT_LIST_CLAIM);
       if (patientListClaim == null) {
         throw new ForbiddenOperationException(
             String.format("The provided token has no %s claim!", PATIENT_LIST_CLAIM));
       }
       // TODO do some sanity checks on the `patientListId` (b/207737513).
-      String patientListId = patientListClaim.asString();
+      return patientListClaim.asString();
+    }
+
+    @Override
+    public AccessChecker create(DecodedJWT jwt, HttpFhirClient httpFhirClient) {
+      String patientListId = getListId(jwt);
       return new ListAccessChecker(
           httpFhirClient, patientListId, fhirContext, patientSearchParams, patientFhirPaths);
     }

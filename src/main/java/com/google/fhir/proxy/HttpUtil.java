@@ -15,13 +15,18 @@
  */
 package com.google.fhir.proxy;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.net.URI;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.client.methods.RequestBuilder;
+import org.apache.http.entity.ContentType;
 import org.apache.http.impl.client.HttpClients;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,8 +43,15 @@ public class HttpUtil {
     validateResponseOrFail(response, resource, true);
   }
 
-  private static void validateResponseOrFail(
-      HttpResponse response, String resource, boolean checkEntity) {
+  static boolean isResponseEntityValid(HttpResponse response) {
+    return isResponseValidInternal(response, true);
+  }
+
+  static boolean isResponseValid(HttpResponse response) {
+    return isResponseValidInternal(response, false);
+  }
+
+  private static boolean isResponseValidInternal(HttpResponse response, boolean checkEntity) {
     // All success codes are valid.
     boolean isValid =
         (response.getStatusLine().getStatusCode() >= 200
@@ -47,7 +59,13 @@ public class HttpUtil {
     if (checkEntity) {
       isValid = isValid && (response.getEntity() != null);
     }
-    if (!isValid) {
+    return isValid;
+  }
+
+  private static void validateResponseOrFail(
+      HttpResponse response, String resource, boolean checkEntity) {
+
+    if (!isResponseValidInternal(response, checkEntity)) {
       ExceptionUtil.throwRuntimeExceptionAndLog(
           logger,
           String.format(
@@ -68,5 +86,15 @@ public class HttpUtil {
     HttpResponse response = httpClient.execute(request);
     validateResponseOrFail(response, uri.toString());
     return response;
+  }
+
+  static BufferedReader readerFromEntity(HttpEntity entity) throws IOException {
+    ContentType contentType = ContentType.getOrDefault(entity);
+    Charset charset = Constants.DEFAULT_CHARSET;
+    if (contentType.getCharset() != null) {
+      charset = contentType.getCharset();
+    }
+    InputStreamReader reader = new InputStreamReader(entity.getContent(), charset);
+    return new BufferedReader(reader);
   }
 }

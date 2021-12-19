@@ -83,12 +83,22 @@ public abstract class HttpFhirClient {
     return sendRequest(requestBuilder);
   }
 
+  HttpResponse patchResource(String resourcePath, String jsonPatch) throws IOException {
+    Preconditions.checkArgument(jsonPatch != null && !jsonPatch.isEmpty());
+    RequestBuilder requestBuilder = RequestBuilder.patch();
+    setUri(requestBuilder, resourcePath);
+    byte[] content = jsonPatch.getBytes(Constants.DEFAULT_CHARSET);
+    requestBuilder.setCharset(Constants.DEFAULT_CHARSET);
+    requestBuilder.setEntity(new ByteArrayEntity(content, Constants.JSON_PATCH_CONTENT));
+    return sendRequest(requestBuilder);
+  }
+
   private HttpResponse sendRequest(RequestBuilder builder) throws IOException {
     Preconditions.checkArgument(builder.getFirstHeader("Authorization") == null);
     Header header = getAuthHeader();
     builder.addHeader(header);
     HttpUriRequest httpRequest = builder.build();
-    logger.info("Request to the FHIR store is " + httpRequest);
+    logger.info("Request to the FHIR store is {}", httpRequest);
     // TODO reuse if creation overhead is significant.
     HttpClient httpClient = HttpClients.createDefault();
 

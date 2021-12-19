@@ -31,6 +31,7 @@ public class FhirProxyServer extends RestfulServer {
   private static final String PROXY_TO_ENV = "PROXY_TO";
   private static final String TOKEN_ISSUER_ENV = "TOKEN_ISSUER";
   private static final String ACCESS_CHECKER_ENV = "ACCESS_CHECKER";
+  private static final String LIST_ACCESS_CHECKER = "list";
 
   static boolean isDevMode() {
     String runMode = System.getenv("RUN_MODE");
@@ -56,16 +57,15 @@ public class FhirProxyServer extends RestfulServer {
     setFhirContext(FhirContext.forR4());
 
     try {
-      AccessCheckerFactory factory = new PermissiveAccessChecker.Factory();
+      AccessCheckerFactory checkerFactory = new PermissiveAccessChecker.Factory();
       String accessCheckerType = System.getenv(ACCESS_CHECKER_ENV);
-      if (accessCheckerType != null && !accessCheckerType.isEmpty()) {
+      if (LIST_ACCESS_CHECKER.equals(accessCheckerType)) {
         logger.info(String.format("Patient access-checker is '%s'", accessCheckerType));
-        // Currently this is the only non-trivial checker, hence not caring about the env-var value.
-        factory = new ListAccessChecker.Factory(this);
+        checkerFactory = new ListAccessChecker.Factory(this);
       } else {
         logger.warn(
             String.format(
-                "Environment variable %s is not set; disabling Patient access-checker!",
+                "Environment variable %s is not recognized; disabling Patient access-checker!",
                 ACCESS_CHECKER_ENV));
       }
       registerInterceptor(
@@ -74,7 +74,7 @@ public class FhirProxyServer extends RestfulServer {
               tokenIssuer,
               this,
               new HttpUtil(),
-              factory));
+              checkerFactory));
     } catch (IOException e) {
       ExceptionUtil.throwRuntimeExceptionAndLog(logger, "IOException while initializing", e);
     }

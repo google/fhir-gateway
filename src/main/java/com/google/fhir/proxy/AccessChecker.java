@@ -19,5 +19,11 @@ import ca.uhn.fhir.rest.api.server.RequestDetails;
 
 interface AccessChecker {
 
-  boolean canAccess(RequestDetails requestDetails);
+  /**
+   * Checks whether the current user has access to requested resources.
+   *
+   * @param requestDetails details about the resource and operation requested
+   * @return the outcome of access checking
+   */
+  AccessDecision checkAccess(RequestDetails requestDetails);
 }

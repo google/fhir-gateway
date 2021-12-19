@@ -16,19 +16,31 @@
 package com.google.fhir.proxy;
 
 import ca.uhn.fhir.rest.api.server.RequestDetails;
-import com.auth0.jwt.interfaces.DecodedJWT;
+import org.apache.http.HttpResponse;
 
-/** This is the default no-op access-checker which lets all requests to go through. */
-public class PermissiveAccessChecker implements AccessChecker {
+public class NoOpAccessDecision implements AccessDecision {
+
+  private final boolean accessGranted;
+
+  NoOpAccessDecision(boolean accessGranted) {
+    this.accessGranted = accessGranted;
+  }
+
   @Override
-  public AccessDecision checkAccess(RequestDetails requestDetails) {
+  public boolean canAccess() {
+    return accessGranted;
+  }
+
+  @Override
+  public String postProcess(HttpResponse response, RequestDetails request) {
+    return null;
+  }
+
+  public static AccessDecision accessGranted() {
     return new NoOpAccessDecision(true);
   }
 
-  public static class Factory implements AccessCheckerFactory {
-    @Override
-    public AccessChecker create(DecodedJWT jwt, HttpFhirClient httpFhirClient) {
-      return new PermissiveAccessChecker();
-    }
+  public static AccessDecision accessDenied() {
+    return new NoOpAccessDecision(false);
   }
 }

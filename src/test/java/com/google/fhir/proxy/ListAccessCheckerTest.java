@@ -96,7 +96,7 @@ public class ListAccessCheckerTest {
     when(requestMock.getResourceName()).thenReturn("Patient");
     when(requestMock.getId()).thenReturn(PATIENT_AUTHORIZED_ID);
     AccessChecker testInstance = testFactoryInstance.create(jwtMock, httpFhirClientMock);
-    assertThat(testInstance.canAccess(requestMock), equalTo(true));
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(true));
   }
 
   @Test
@@ -104,7 +104,7 @@ public class ListAccessCheckerTest {
     when(requestMock.getResourceName()).thenReturn("Patient");
     when(requestMock.getId()).thenReturn(PATIENT_NON_AUTHORIZED_ID);
     AccessChecker testInstance = testFactoryInstance.create(jwtMock, httpFhirClientMock);
-    assertThat(testInstance.canAccess(requestMock), equalTo(false));
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
   }
 
   @Test
@@ -112,7 +112,7 @@ public class ListAccessCheckerTest {
     when(requestMock.getResourceName()).thenReturn("List");
     when(requestMock.getId()).thenReturn(new IdDt("List", TEST_LIST_ID));
     AccessChecker testInstance = testFactoryInstance.create(jwtMock, httpFhirClientMock);
-    assertThat(testInstance.canAccess(requestMock), equalTo(true));
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(true));
   }
 
   @Test
@@ -122,14 +122,14 @@ public class ListAccessCheckerTest {
     params.put("subject", new String[] {PATIENT_AUTHORIZED});
     when(requestMock.getParameters()).thenReturn(params);
     AccessChecker testInstance = testFactoryInstance.create(jwtMock, httpFhirClientMock);
-    assertThat(testInstance.canAccess(requestMock), equalTo(true));
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(true));
   }
 
   @Test
   public void canAccessSearchQueryNotAuthorized() {
     when(requestMock.getResourceName()).thenReturn("Observation");
     AccessChecker testInstance = testFactoryInstance.create(jwtMock, httpFhirClientMock);
-    assertThat(testInstance.canAccess(requestMock), equalTo(false));
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
   }
 
   @Test
@@ -140,7 +140,7 @@ public class ListAccessCheckerTest {
     when(requestMock.loadRequestContents()).thenReturn(obsBytes);
     when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.PUT);
     AccessChecker testInstance = testFactoryInstance.create(jwtMock, httpFhirClientMock);
-    assertThat(testInstance.canAccess(requestMock), equalTo(true));
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(true));
   }
 
   @Test
@@ -151,7 +151,7 @@ public class ListAccessCheckerTest {
     when(requestMock.loadRequestContents()).thenReturn(obsBytes);
     when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.PUT);
     AccessChecker testInstance = testFactoryInstance.create(jwtMock, httpFhirClientMock);
-    assertThat(testInstance.canAccess(requestMock), equalTo(false));
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
   }
 
   @Test
@@ -162,7 +162,7 @@ public class ListAccessCheckerTest {
     when(requestMock.loadRequestContents()).thenReturn(obsBytes);
     when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.POST);
     AccessChecker testInstance = testFactoryInstance.create(jwtMock, httpFhirClientMock);
-    assertThat(testInstance.canAccess(requestMock), equalTo(true));
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(true));
   }
 
   @Test
@@ -179,7 +179,7 @@ public class ListAccessCheckerTest {
             "Patient/test-patient-1,Patient/%s,Patient/test-patient-2", PATIENT_AUTHORIZED),
         "bundle_list_patient_item.json");
     AccessChecker testInstance = testFactoryInstance.create(jwtMock, httpFhirClientMock);
-    assertThat(testInstance.canAccess(requestMock), equalTo(true));
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(true));
   }
 
   @Test
@@ -190,7 +190,7 @@ public class ListAccessCheckerTest {
     when(requestMock.loadRequestContents()).thenReturn(obsBytes);
     when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.POST);
     AccessChecker testInstance = testFactoryInstance.create(jwtMock, httpFhirClientMock);
-    assertThat(testInstance.canAccess(requestMock), equalTo(false));
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
   }
 
   @Test
@@ -201,7 +201,47 @@ public class ListAccessCheckerTest {
     when(requestMock.loadRequestContents()).thenReturn(obsBytes);
     when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.POST);
     AccessChecker testInstance = testFactoryInstance.create(jwtMock, httpFhirClientMock);
-    assertThat(testInstance.canAccess(requestMock), equalTo(false));
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
+  }
+
+  @Test
+  public void canAccessPostPatient() {
+    when(requestMock.getResourceName()).thenReturn("Patient");
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.POST);
+    AccessChecker testInstance = testFactoryInstance.create(jwtMock, httpFhirClientMock);
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(true));
+  }
+
+  @Test
+  public void canAccessPutExistingPatient() throws IOException {
+    when(requestMock.getResourceName()).thenReturn("Patient");
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.PUT);
+    when(requestMock.getId()).thenReturn(PATIENT_AUTHORIZED_ID);
+    URL url = Resources.getResource("patient_id_search_single.json");
+    String testJson = Resources.toString(url, StandardCharsets.UTF_8);
+    HttpResponse fhirResponseMock = Mockito.mock(HttpResponse.class);
+    TestUtil.setUpFhirResponseMock(fhirResponseMock, testJson);
+    when(httpFhirClientMock.getResource(
+            String.format("/Patient?_id=%s&_elements=id", PATIENT_AUTHORIZED)))
+        .thenReturn(fhirResponseMock);
+    AccessChecker testInstance = testFactoryInstance.create(jwtMock, httpFhirClientMock);
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(true));
+  }
+
+  @Test
+  public void canAccessPutNewPatient() throws IOException {
+    when(requestMock.getResourceName()).thenReturn("Patient");
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.PUT);
+    when(requestMock.getId()).thenReturn(PATIENT_AUTHORIZED_ID);
+    URL url = Resources.getResource("bundle_empty.json");
+    String testJson = Resources.toString(url, StandardCharsets.UTF_8);
+    HttpResponse fhirResponseMock = Mockito.mock(HttpResponse.class);
+    TestUtil.setUpFhirResponseMock(fhirResponseMock, testJson);
+    when(httpFhirClientMock.getResource(
+            String.format("/Patient?_id=%s&_elements=id", PATIENT_AUTHORIZED)))
+        .thenReturn(fhirResponseMock);
+    AccessChecker testInstance = testFactoryInstance.create(jwtMock, httpFhirClientMock);
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(true));
   }
 
   // TODO add an Appointment POST

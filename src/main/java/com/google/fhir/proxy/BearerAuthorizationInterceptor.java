@@ -33,9 +33,9 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.Reader;
+import java.io.StringReader;
 import java.io.Writer;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -50,7 +50,6 @@ import java.util.Base64;
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
-import org.apache.http.entity.ContentType;
 import org.apache.http.util.EntityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -62,7 +61,6 @@ public class BearerAuthorizationInterceptor {
       LoggerFactory.getLogger(BearerAuthorizationInterceptor.class);
 
   private static final String DEFAULT_CONTENT_TYPE = "text/html; charset=UTF-8";
-  private static final String DEFAULT_CHARSET = StandardCharsets.UTF_8.name();
   private static final String BEARER_PREFIX = "Bearer ";
 
   // TODO: Make this configurable or based on the given JWT; we should at least support some other
@@ -184,9 +182,10 @@ public class BearerAuthorizationInterceptor {
     return verifiedJwt;
   }
 
-  private void checkAuthorization(DecodedJWT jwt, RequestDetails requestDetails) {
+  private AccessDecision checkAuthorization(DecodedJWT jwt, RequestDetails requestDetails) {
     AccessChecker accessChecker = accessFactory.create(jwt, fhirClient);
-    if (!accessChecker.canAccess(requestDetails)) {
+    AccessDecision outcome = accessChecker.checkAccess(requestDetails);
+    if (!outcome.canAccess()) {
       ExceptionUtil.throwRuntimeExceptionAndLog(
           logger,
           String.format(
@@ -194,6 +193,7 @@ public class BearerAuthorizationInterceptor {
               requestDetails.getRequestType(), requestDetails.getCompleteUrl()),
           AuthenticationException.class);
     }
+    return outcome;
   }
 
   @Hook(Pointcut.SERVER_INCOMING_REQUEST_PRE_HANDLER_SELECTED)
@@ -208,12 +208,27 @@ public class BearerAuthorizationInterceptor {
           logger, "No Authorization header provided!", AuthenticationException.class);
     }
     DecodedJWT decodedJwt = decodeAndVerifyBearerToken(authHeader);
-    checkAuthorization(decodedJwt, requestDetails);
+    AccessDecision outcome = checkAuthorization(decodedJwt, requestDetails);
     String requestPath = requestDetails.getRequestPath();
     logger.debug("Authorized request path " + requestPath);
     try {
       HttpResponse response = fhirClient.handleRequest(servletDetails);
+      // TODO pass along the response to the client in case of errors (b/211233113).
       HttpUtil.validateResponseEntityOrFail(response, requestPath);
+      // TODO communicate post-processing failures to the client (b/211243404).
+      String content = null;
+      try {
+        // For post-processing rationale/example see b/207589782#comment3.
+        content = outcome.postProcess(response, requestDetails);
+      } catch (Exception e) {
+        // Note this is after a successful fetch/update of the FHIR store. That success must be
+        // passed to the client even if the access related post-processing fails.
+        logger.error(
+            "Exception in access related post-processing for {} {}",
+            requestDetails.getRequestType(),
+            requestDetails.getRequestPath(),
+            e);
+      }
       HttpEntity entity = response.getEntity();
       logger.debug(String.format("The response for %s is %s ", requestPath, response));
       logger.info("FHIR store response length: " + entity.getContentLength());
@@ -228,9 +243,16 @@ public class BearerAuthorizationInterceptor {
               response.getStatusLine().getStatusCode(),
               response.getStatusLine().toString(),
               DEFAULT_CONTENT_TYPE,
-              DEFAULT_CHARSET,
+              Constants.DEFAULT_CHARSET.name(),
               false);
-      replaceAndCopyResponse(entity, writer, server.getServerBaseForRequest(servletDetails));
+      Reader reader;
+      if (content != null) {
+        // We can read the entity body stream only once; in this case we have already done that.
+        reader = new StringReader(content);
+      } else {
+        reader = HttpUtil.readerFromEntity(entity);
+      }
+      replaceAndCopyResponse(reader, writer, server.getServerBaseForRequest(servletDetails));
     } catch (IOException e) {
       logger.error(
           String.format(
@@ -247,27 +269,20 @@ public class BearerAuthorizationInterceptor {
    * Reads the content from the FHIR store response `entity`, replaces any FHIR store URLs by the
    * corresponding proxy URLs, and write the modified response to the proxy response `writer`.
    *
-   * @param entity the entity part of the FHIR store response
+   * @param entityContentReader a reader for the entity content of the FHIR store response
    * @param writer the writer for proxy response
    * @param proxyBase the base URL of the proxy
    */
-  private void replaceAndCopyResponse(HttpEntity entity, Writer writer, String proxyBase)
+  private void replaceAndCopyResponse(Reader entityContentReader, Writer writer, String proxyBase)
       throws IOException {
     // To make this more efficient, this only does a string search/replace; we may need to add
     // proper URL parsing if we need to address edge cases in URL no-op changes. This string
     // matching can be done more efficiently if needed, but we should avoid loading the full
     // stream in memory.
-    ContentType contentType = ContentType.getOrDefault(entity);
-    String charset = DEFAULT_CHARSET;
-    if (contentType.getCharset() != null) {
-      charset = contentType.getCharset().name();
-    }
     String fhirStoreUrl = fhirClient.getBaseUrl();
-    InputStreamReader reader = new InputStreamReader(entity.getContent(), charset);
-    BufferedReader bufReader = new BufferedReader(reader);
     int numMatched = 0;
     int n;
-    while ((n = bufReader.read()) >= 0) {
+    while ((n = entityContentReader.read()) >= 0) {
       char c = (char) n;
       if (fhirStoreUrl.charAt(numMatched) == c) {
         numMatched++;

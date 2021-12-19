@@ -1,0 +1,41 @@
+{
+  "entry": [
+    {
+      "fullUrl": "https://healthcare.googleapis.com/v1/projects/fhir-sdk/locations/us/datasets/synthea-sample-data/fhirStores/gcs-data/fhir/Patient/be92a43f-de46-affa-b131-bbf9eea51140",
+      "resource": {
+        "id": "be92a43f-de46-affa-b131-bbf9eea51140",
+        "meta": {
+          "lastUpdated": "2021-11-25T19:03:28.085054+00:00",
+          "tag": [
+            {
+              "code": "SUBSETTED",
+              "system": "http://hl7.org/fhir/v3/ObservationValue"
+            }
+          ],
+          "versionId": "MTYzNzg2NzAwODA4NTA1NDAwMA"
+        },
+        "resourceType": "Patient"
+      },
+      "search": {
+        "mode": "match"
+      }
+    }
+  ],
+  "link": [
+    {
+      "relation": "search",
+      "url": "https://healthcare.googleapis.com/v1/projects/fhir-sdk/locations/us/datasets/synthea-sample-data/fhirStores/gcs-data/fhir/Patient/?_count=10&_elements=id"
+    },
+    {
+      "relation": "first",
+      "url": "https://healthcare.googleapis.com/v1/projects/fhir-sdk/locations/us/datasets/synthea-sample-data/fhirStores/gcs-data/fhir/Patient/?_count=10&_elements=id"
+    },
+    {
+      "relation": "self",
+      "url": "https://healthcare.googleapis.com/v1/projects/fhir-sdk/locations/us/datasets/synthea-sample-data/fhirStores/gcs-data/fhir/Patient/?_count=10&_elements=id"
+    }
+  ],
+  "resourceType": "Bundle",
+  "total": 1,
+  "type": "searchset"
+}

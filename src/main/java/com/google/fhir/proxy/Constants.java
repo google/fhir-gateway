@@ -15,20 +15,14 @@
  */
 package com.google.fhir.proxy;
 
-import ca.uhn.fhir.rest.api.server.RequestDetails;
-import com.auth0.jwt.interfaces.DecodedJWT;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+import org.apache.http.entity.ContentType;
 
-/** This is the default no-op access-checker which lets all requests to go through. */
-public class PermissiveAccessChecker implements AccessChecker {
-  @Override
-  public AccessDecision checkAccess(RequestDetails requestDetails) {
-    return new NoOpAccessDecision(true);
-  }
+public class Constants {
 
-  public static class Factory implements AccessCheckerFactory {
-    @Override
-    public AccessChecker create(DecodedJWT jwt, HttpFhirClient httpFhirClient) {
-      return new PermissiveAccessChecker();
-    }
-  }
+  static final Charset DEFAULT_CHARSET = StandardCharsets.UTF_8;
+
+  // Note we should not set charset here; otherwise GCP FHIR store complains about Content-Type.
+  static final ContentType JSON_PATCH_CONTENT = ContentType.create("application/json-patch+json");
 }
