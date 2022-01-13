@@ -31,7 +31,9 @@ import com.auth0.jwt.JWT;
 import com.auth0.jwt.JWTCreator;
 import com.auth0.jwt.algorithms.Algorithm;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Maps;
 import com.google.common.io.Resources;
+import com.google.gson.Gson;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.io.Writer;
@@ -45,6 +47,8 @@ import java.security.KeyPairGenerator;
 import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
 import java.util.Base64;
+import java.util.Map;
+import javax.servlet.http.HttpServletRequest;
 import org.apache.http.HttpResponse;
 import org.apache.http.entity.StringEntity;
 import org.junit.Before;
@@ -194,5 +198,29 @@ public class BearerAuthorizationInterceptorTest {
     testInstance.authorizeRequest(requestMock);
     String replaced = testPatientIdSearch.replaceAll(FHIR_STORE, BASE_URL);
     assertThat(replaced, equalTo(writerStub.toString()));
+  }
+
+  @Test
+  public void authorizeRequestWellKnow() throws IOException {
+    IRestfulResponse proxyResponseMock = Mockito.mock(IRestfulResponse.class);
+    when(requestMock.getResponse()).thenReturn(proxyResponseMock);
+    when(proxyResponseMock.getResponseWriter(
+            anyInt(), anyString(), anyString(), anyString(), anyBoolean()))
+        .thenReturn(writerStub);
+    HttpServletRequest servletRequestMock = Mockito.mock(HttpServletRequest.class);
+    when(requestMock.getServletRequest()).thenReturn(servletRequestMock);
+    when(servletRequestMock.getProtocol()).thenReturn("HTTP/1.1");
+    when(requestMock.getRequestPath())
+        .thenReturn(BearerAuthorizationInterceptor.WELL_KNOWN_CONF_PATH);
+    testInstance.authorizeRequest(requestMock);
+    Gson gson = new Gson();
+    Map<String, Object> jsonMap = Maps.newHashMap();
+    jsonMap = gson.fromJson(writerStub.toString(), jsonMap.getClass());
+    assertThat(
+        jsonMap.get("authorization_endpoint"),
+        equalTo("https://token.issuer/protocol/openid-connect/auth"));
+    assertThat(
+        jsonMap.get("token_endpoint"),
+        equalTo("https://token.issuer/protocol/openid-connect/token"));
   }
 }

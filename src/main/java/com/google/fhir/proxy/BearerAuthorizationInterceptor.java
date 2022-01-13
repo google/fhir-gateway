@@ -18,6 +18,7 @@ package com.google.fhir.proxy;
 import ca.uhn.fhir.interceptor.api.Hook;
 import ca.uhn.fhir.interceptor.api.Interceptor;
 import ca.uhn.fhir.interceptor.api.Pointcut;
+import ca.uhn.fhir.rest.api.Constants;
 import ca.uhn.fhir.rest.api.server.IRestfulResponse;
 import ca.uhn.fhir.rest.api.server.RequestDetails;
 import ca.uhn.fhir.rest.server.RestfulServer;
@@ -50,6 +51,7 @@ import java.util.Base64;
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
+import org.apache.http.HttpStatus;
 import org.apache.http.util.EntityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -60,8 +62,11 @@ public class BearerAuthorizationInterceptor {
   private static final Logger logger =
       LoggerFactory.getLogger(BearerAuthorizationInterceptor.class);
 
-  private static final String DEFAULT_CONTENT_TYPE = "text/html; charset=UTF-8";
+  private static final String DEFAULT_CONTENT_TYPE = "application/json; charset=UTF-8";
   private static final String BEARER_PREFIX = "Bearer ";
+
+  // See https://hl7.org/fhir/smart-app-launch/conformance.html#using-well-known
+  @VisibleForTesting static final String WELL_KNOWN_CONF_PATH = ".well-known/smart-configuration";
 
   // TODO: Make this configurable or based on the given JWT; we should at least support some other
   // RSA* and ES* algorithms (requires ECDSA512 JWT algorithm).
@@ -73,6 +78,7 @@ public class BearerAuthorizationInterceptor {
   private final RestfulServer server;
   private final HttpFhirClient fhirClient;
   private final AccessCheckerFactory accessFactory;
+  private final String configJson;
 
   BearerAuthorizationInterceptor(
       HttpFhirClient fhirClient,
@@ -90,6 +96,7 @@ public class BearerAuthorizationInterceptor {
     this.accessFactory = accessFactory;
     RSAPublicKey issuerPublicKey = fetchAndDecodePublicKey();
     jwtVerifierConfig = JWT.require(Algorithm.RSA256(issuerPublicKey, null));
+    configJson = SmartConfiguration.getConfigJson(tokenIssuer);
     logger.info("Created proxy to the FHIR store " + this.fhirClient.getBaseUrl());
   }
 
@@ -200,7 +207,16 @@ public class BearerAuthorizationInterceptor {
   public boolean authorizeRequest(RequestDetails requestDetails) {
     Preconditions.checkArgument(requestDetails instanceof ServletRequestDetails);
     ServletRequestDetails servletDetails = (ServletRequestDetails) requestDetails;
-    logger.info("Started authorization check for URL " + requestDetails.getCompleteUrl());
+    logger.info(
+        "Started authorization check for {} {}",
+        requestDetails.getRequestType(),
+        requestDetails.getCompleteUrl());
+    final String requestPath = requestDetails.getRequestPath();
+    if (WELL_KNOWN_CONF_PATH.equals(requestPath)) {
+      // No authorization is needed for the well-known URL.
+      serveWellKnown(servletDetails);
+      return false;
+    }
     // Check the Bearer token to be a valid JWT with required claims.
     String authHeader = requestDetails.getHeader("Authorization");
     if (authHeader == null) {
@@ -209,7 +225,6 @@ public class BearerAuthorizationInterceptor {
     }
     DecodedJWT decodedJwt = decodeAndVerifyBearerToken(authHeader);
     AccessDecision outcome = checkAuthorization(decodedJwt, requestDetails);
-    String requestPath = requestDetails.getRequestPath();
     logger.debug("Authorized request path " + requestPath);
     try {
       HttpResponse response = fhirClient.handleRequest(servletDetails);
@@ -238,12 +253,13 @@ public class BearerAuthorizationInterceptor {
       }
       // This should be called after adding headers.
       // TODO handle non-text responses, e.g., gzip.
+      // TODO verify DEFAULT_CONTENT_TYPE/CHARSET are compatible with `entity.getContentType()`.
       Writer writer =
           proxyResponse.getResponseWriter(
               response.getStatusLine().getStatusCode(),
               response.getStatusLine().toString(),
               DEFAULT_CONTENT_TYPE,
-              Constants.DEFAULT_CHARSET.name(),
+              Constants.CHARSET_NAME_UTF8,
               false);
       Reader reader;
       if (content != null) {
@@ -300,6 +316,30 @@ public class BearerAuthorizationInterceptor {
     if (numMatched > 0) {
       // Handle any remaining characters that partially matched.
       writer.write(fhirStoreUrl.substring(0, numMatched));
+    }
+  }
+
+  private void serveWellKnown(ServletRequestDetails request) {
+    IRestfulResponse proxyResponse = request.getResponse();
+    final String statusLine =
+        String.format(
+            "%s %d %s",
+            request.getServletRequest().getProtocol(),
+            HttpStatus.SC_OK,
+            Constants.HTTP_STATUS_NAMES.get(HttpStatus.SC_OK));
+    try {
+      Writer writer =
+          proxyResponse.getResponseWriter(
+              HttpStatus.SC_OK,
+              statusLine,
+              DEFAULT_CONTENT_TYPE,
+              Constants.CHARSET_NAME_UTF8,
+              false);
+      writer.write(configJson);
+    } catch (IOException e) {
+      logger.error(
+          String.format("Exception serving %s with error %s", request.getRequestPath(), e));
+      ExceptionUtil.throwRuntimeExceptionAndLog(logger, e);
     }
   }
 }
