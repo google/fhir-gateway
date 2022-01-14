@@ -1,0 +1,7 @@
+steps:
+- name: 'adoptopenjdk/maven-openjdk11'
+  id: 'Test Cloud Build'
+  entrypoint: /bin/bash
+  args:
+  - -c
+  - ./build.sh
