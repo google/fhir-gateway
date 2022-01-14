@@ -9,4 +9,4 @@ set -e
 #  Additionally, recursive invocation with credentials as command-line
 #  parameters, will print the full command, with credentials, in the build logs.
 # set -x
-mvn package
+mvn --batch-mode package
