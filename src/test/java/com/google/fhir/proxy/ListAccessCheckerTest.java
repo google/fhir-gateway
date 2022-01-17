@@ -116,6 +116,14 @@ public class ListAccessCheckerTest {
   }
 
   @Test
+  public void canAccessListNotAuthorized() throws IOException {
+    when(requestMock.getResourceName()).thenReturn("List");
+    when(requestMock.getId()).thenReturn(new IdDt("List", "wrong-id"));
+    AccessChecker testInstance = testFactoryInstance.create(jwtMock, httpFhirClientMock);
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
+  }
+
+  @Test
   public void canAccessSearchQuery() {
     when(requestMock.getResourceName()).thenReturn("Observation");
     Map<String, String[]> params = Maps.newHashMap();

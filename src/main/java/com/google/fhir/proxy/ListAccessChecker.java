@@ -206,6 +206,7 @@ public class ListAccessChecker implements AccessChecker {
         if (patientListId.equals(FhirUtil.getIdOrNull(requestDetails))) {
           return NoOpAccessDecision.accessGranted();
         }
+        return NoOpAccessDecision.accessDenied();
       }
       String patientId = findPatientId(requestDetails);
       return new NoOpAccessDecision(serverListIncludesAnyPatient(Lists.newArrayList(patientId)));
