@@ -10,6 +10,8 @@
     http://hl7.org/fhir/CompartmentDefinition/patient \
     -o CompartmentDefinition-patient.json
   ```
+  **NOTE**: We have also made changes to this file due to
+  [b/215051963](b/215051963).
 
 - `patient_paths.json`: For each FHIR resource, this file has the corresponding
   mapping of the list of FHIR paths that should be searched for finding

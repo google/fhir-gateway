@@ -388,6 +388,7 @@
   {
     "code" : "Observation",
     "param" : ["subject",
+      "patient",
     "performer"]
   },
   {

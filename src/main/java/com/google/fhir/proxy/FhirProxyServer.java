@@ -36,6 +36,8 @@ public class FhirProxyServer extends RestfulServer {
   private static final String TOKEN_ISSUER_ENV = "TOKEN_ISSUER";
   private static final String ACCESS_CHECKER_ENV = "ACCESS_CHECKER";
   private static final String LIST_ACCESS_CHECKER = "list";
+  private static final String PATIENT_ACCESS_CHECKER = "patient";
+  private static final String PERMISSIVE_ACCESS_CHECKER = "permissive";
 
   static boolean isDevMode() {
     String runMode = System.getenv("RUN_MODE");
@@ -64,22 +66,8 @@ public class FhirProxyServer extends RestfulServer {
 
     try {
       logger.info("Adding BearerAuthorizationInterceptor ");
-      AccessCheckerFactory checkerFactory = new PermissiveAccessChecker.Factory();
-      String accessCheckerType = System.getenv(ACCESS_CHECKER_ENV);
-      if (LIST_ACCESS_CHECKER.equals(accessCheckerType)) {
-        logger.info(String.format("Patient access-checker is '%s'", accessCheckerType));
-        checkerFactory = new ListAccessChecker.Factory(this);
-      } else {
-        if (!isDevMode()) {
-          ExceptionUtil.throwRuntimeExceptionAndLog(
-              logger,
-              String.format("Environment variable %s is not recognized!", ACCESS_CHECKER_ENV));
-        }
-        logger.warn(
-            String.format(
-                "Env. variable %s is not recognized; disabling Patient access-checker (DEV mode)!",
-                ACCESS_CHECKER_ENV));
-      }
+      AccessCheckerFactory checkerFactory = chooseAccessCheckerFactor();
+
       registerInterceptor(
           new BearerAuthorizationInterceptor(
               new GcpFhirClient(gcpFhirStore, GcpFhirClient.createCredentials()),
@@ -90,6 +78,29 @@ public class FhirProxyServer extends RestfulServer {
     } catch (IOException e) {
       ExceptionUtil.throwRuntimeExceptionAndLog(logger, "IOException while initializing", e);
     }
+  }
+
+  private AccessCheckerFactory chooseAccessCheckerFactor() {
+    String accessCheckerType = System.getenv(ACCESS_CHECKER_ENV);
+    if (LIST_ACCESS_CHECKER.equals(accessCheckerType)) {
+      logger.info(String.format("Access-checker is '%s'", accessCheckerType));
+      return new ListAccessChecker.Factory(this);
+    }
+    if (PATIENT_ACCESS_CHECKER.equals(accessCheckerType)) {
+      logger.info(String.format("Access-checker is '%s'", accessCheckerType));
+      return new PatientAccessChecker.Factory(this);
+    }
+    if (PERMISSIVE_ACCESS_CHECKER.equals(accessCheckerType) && isDevMode()) {
+      logger.warn(
+          String.format(
+              "Env. variable %s is '%s' which disables Patient access-checker (DEV mode)!",
+              ACCESS_CHECKER_ENV, PERMISSIVE_ACCESS_CHECKER));
+      return new PermissiveAccessChecker.Factory();
+    }
+    ExceptionUtil.throwRuntimeExceptionAndLog(
+        logger, String.format("Environment variable %s is not recognized!", ACCESS_CHECKER_ENV));
+    // This never happens!
+    return null;
   }
 
   /**
@@ -109,6 +120,7 @@ public class FhirProxyServer extends RestfulServer {
     // `CorsInterceptor.createDefaultCorsConfig`; the main difference is the authorization header.
     CorsConfiguration config = new CorsConfiguration();
     config.setAllowedHeaders(new ArrayList<>(Constants.CORS_ALLOWED_HEADERS));
+    // Note the typo in ALLWED is coming from the HAPI library.
     config.setAllowedMethods(new ArrayList<>(Constants.CORS_ALLWED_METHODS));
     config.addAllowedHeader(Constants.HEADER_AUTHORIZATION);
     config.addAllowedOrigin("*");

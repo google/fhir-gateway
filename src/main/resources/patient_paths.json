@@ -177,6 +177,7 @@
   ],
   "Observation": [
     "subject",
+    "patient",
     "performer"
   ],
   "Person": [
