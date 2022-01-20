@@ -15,6 +15,7 @@
  */
 package com.google.fhir.proxy;
 
+import ca.uhn.fhir.rest.api.Constants;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -90,7 +91,7 @@ public class HttpUtil {
 
   static BufferedReader readerFromEntity(HttpEntity entity) throws IOException {
     ContentType contentType = ContentType.getOrDefault(entity);
-    Charset charset = Constants.DEFAULT_CHARSET;
+    Charset charset = Constants.CHARSET_UTF8;
     if (contentType.getCharset() != null) {
       charset = contentType.getCharset();
     }

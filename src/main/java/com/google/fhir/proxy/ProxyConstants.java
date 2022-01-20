@@ -15,14 +15,11 @@
  */
 package com.google.fhir.proxy;
 
-import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
+import ca.uhn.fhir.rest.api.Constants;
 import org.apache.http.entity.ContentType;
 
-public class Constants {
-
-  static final Charset DEFAULT_CHARSET = StandardCharsets.UTF_8;
+public class ProxyConstants {
 
   // Note we should not set charset here; otherwise GCP FHIR store complains about Content-Type.
-  static final ContentType JSON_PATCH_CONTENT = ContentType.create("application/json-patch+json");
+  static final ContentType JSON_PATCH_CONTENT = ContentType.create(Constants.CT_JSON_PATCH);
 }

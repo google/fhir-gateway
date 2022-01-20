@@ -45,6 +45,19 @@
       <version>${hapifhir_version}</version>
     </dependency>
 
+    <!-- This is needed for CORS interceptor -->
+    <dependency>
+      <groupId>org.springframework</groupId>
+      <artifactId>spring-web</artifactId>
+      <version>5.3.14</version>
+      <exclusions>
+        <exclusion>
+          <groupId>commons-logging</groupId>
+          <artifactId>commons-logging</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+
     <!--
     HAPI-FHIR uses Logback for logging support. The logback library is included
     automatically by Maven as a part of the hapi-fhir-base dependency, but you

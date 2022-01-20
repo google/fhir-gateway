@@ -15,6 +15,7 @@
  */
 package com.google.fhir.proxy;
 
+import ca.uhn.fhir.rest.api.Constants;
 import ca.uhn.fhir.rest.server.servlet.ServletRequestDetails;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -87,9 +88,9 @@ public abstract class HttpFhirClient {
     Preconditions.checkArgument(jsonPatch != null && !jsonPatch.isEmpty());
     RequestBuilder requestBuilder = RequestBuilder.patch();
     setUri(requestBuilder, resourcePath);
-    byte[] content = jsonPatch.getBytes(Constants.DEFAULT_CHARSET);
-    requestBuilder.setCharset(Constants.DEFAULT_CHARSET);
-    requestBuilder.setEntity(new ByteArrayEntity(content, Constants.JSON_PATCH_CONTENT));
+    byte[] content = jsonPatch.getBytes(Constants.CHARSET_UTF8);
+    requestBuilder.setCharset(Constants.CHARSET_UTF8);
+    requestBuilder.setEntity(new ByteArrayEntity(content, ProxyConstants.JSON_PATCH_CONTENT));
     return sendRequest(requestBuilder);
   }
 
