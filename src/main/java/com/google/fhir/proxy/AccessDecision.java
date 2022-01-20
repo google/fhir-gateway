@@ -15,7 +15,6 @@
  */
 package com.google.fhir.proxy;
 
-import ca.uhn.fhir.rest.api.server.RequestDetails;
 import java.io.IOException;
 import org.apache.http.HttpResponse;
 
@@ -30,9 +29,8 @@ public interface AccessDecision {
    * is finished successfully.
    *
    * @param response the response returned from the FHIR store
-   * @param request the original request
    * @return the response entity content if this reads it; otherwise null. Note that we should try
    *     to avoid reading the whole content in memory whenever it is not needed for post-processing.
    */
-  String postProcess(HttpResponse response, RequestDetails request) throws IOException;
+  String postProcess(HttpResponse response) throws IOException;
 }

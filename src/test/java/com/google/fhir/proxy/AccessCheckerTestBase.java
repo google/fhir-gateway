@@ -57,6 +57,14 @@ public abstract class AccessCheckerTestBase {
 
   protected abstract AccessChecker getInstance(RestfulServer server);
 
+  void setUpFhirBundle(String filename) throws IOException {
+    when(requestMock.getResourceName()).thenReturn(null);
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.POST);
+    URL url = Resources.getResource(filename);
+    byte[] obsBytes = Resources.toByteArray(url);
+    when(requestMock.loadRequestContents()).thenReturn(obsBytes);
+  }
+
   @Test
   public void createTest() {
     AccessChecker testInstance = getInstance(serverMock);
@@ -168,6 +176,20 @@ public abstract class AccessCheckerTestBase {
     when(requestMock.getResourceName()).thenReturn("Patient");
     when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.PUT);
     when(requestMock.getId()).thenReturn(null);
+    AccessChecker testInstance = getInstance(serverMock);
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
+  }
+
+  @Test
+  public void canAccessBundleNonPatientResourcesNoPatientRefUnauthorized() throws IOException {
+    setUpFhirBundle("bundle_transaction_no_patient_ref.json");
+    AccessChecker testInstance = getInstance(serverMock);
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
+  }
+
+  @Test
+  public void canAccessBundleDeletePatient() throws IOException {
+    setUpFhirBundle("bundle_transaction_delete.json");
     AccessChecker testInstance = getInstance(serverMock);
     assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
   }

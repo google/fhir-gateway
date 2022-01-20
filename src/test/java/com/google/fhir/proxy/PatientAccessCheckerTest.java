@@ -68,4 +68,18 @@ public class PatientAccessCheckerTest extends AccessCheckerTestBase {
     AccessChecker testInstance = getInstance(serverMock);
     assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
   }
+
+  @Test
+  public void canAccessBundleGetNonPatientUnAuthorized() throws IOException {
+    setUpFhirBundle("bundle_transaction_get_non_patient_unauthorized.json");
+    AccessChecker testInstance = getInstance(serverMock);
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
+  }
+
+  @Test
+  public void canAccessBundlePostPatientUnAuthorized() throws IOException {
+    setUpFhirBundle("bundle_transaction_post_patient.json");
+    AccessChecker testInstance = getInstance(serverMock);
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
+  }
 }

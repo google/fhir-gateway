@@ -9,6 +9,7 @@
 local.properties
 
 # VSCode/Eclipse project files
+.vscode
 .classpath
 .project
 .settings

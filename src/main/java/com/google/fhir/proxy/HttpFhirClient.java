@@ -95,6 +95,7 @@ public abstract class HttpFhirClient {
   }
 
   private HttpResponse sendRequest(RequestBuilder builder) throws IOException {
+    // TODO Set the Prefer header before sending a request (b/216136767)
     Preconditions.checkArgument(builder.getFirstHeader("Authorization") == null);
     Header header = getAuthHeader();
     builder.addHeader(header);

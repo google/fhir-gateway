@@ -17,15 +17,17 @@ package com.google.fhir.proxy;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
-import ca.uhn.fhir.rest.api.RequestTypeEnum;
-import ca.uhn.fhir.rest.api.server.RequestDetails;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Sets;
 import com.google.common.io.CharStreams;
 import java.io.IOException;
-import javax.annotation.Nullable;
+import java.util.Set;
 import org.apache.http.HttpResponse;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.instance.model.api.IIdType;
+import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.Bundle.BundleEntryComponent;
+import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.ResourceType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,17 +39,20 @@ class AccessGrantedAndUpdateList implements AccessDecision {
   private final FhirContext fhirContext;
   private final HttpFhirClient httpFhirClient;
   private final String patientListId;
-  private final String newPutPatient;
+  private final Set<String> existPutPatients;
+  private final ResourceType resourceTypeExpected;
 
-  AccessGrantedAndUpdateList(
+  private AccessGrantedAndUpdateList(
       String patientListId,
       HttpFhirClient httpFhirClient,
       FhirContext fhirContext,
-      @Nullable String newPutPatient) {
+      Set<String> existPutPatient,
+      ResourceType resourceTypeExpected) {
     this.patientListId = patientListId;
     this.fhirContext = fhirContext;
     this.httpFhirClient = httpFhirClient;
-    this.newPutPatient = newPutPatient;
+    this.existPutPatients = existPutPatient;
+    this.resourceTypeExpected = resourceTypeExpected;
   }
 
   @Override
@@ -56,32 +61,42 @@ class AccessGrantedAndUpdateList implements AccessDecision {
   }
 
   @Override
-  public String postProcess(HttpResponse response, RequestDetails requestDetails)
-      throws IOException {
+  public String postProcess(HttpResponse response) throws IOException {
     Preconditions.checkState(HttpUtil.isResponseValid(response));
-    String content = null;
-    String newPatient = null;
-    if (FhirUtil.isSameResourceType(requestDetails.getResourceName(), ResourceType.Patient)) {
-      if (requestDetails.getRequestType() == RequestTypeEnum.PUT) {
-        newPatient = newPutPatient;
-      } else if (requestDetails.getRequestType() == RequestTypeEnum.POST) {
-        content = CharStreams.toString(HttpUtil.readerFromEntity(response.getEntity()));
-        IParser parser = fhirContext.newJsonParser();
-        IBaseResource resource = parser.parseResource(content);
-        if (!FhirUtil.isSameResourceType(resource.fhirType(), ResourceType.Patient)) {
-          // We are expecting a Patient resource; this is an error!
-          logger.error("Expected to get a Patient resource; got: " + resource.fhirType());
-          return content;
+    String content = CharStreams.toString(HttpUtil.readerFromEntity(response.getEntity()));
+    IParser parser = fhirContext.newJsonParser();
+    IBaseResource resource = parser.parseResource(content);
+
+    if (!FhirUtil.isSameResourceType(resource.fhirType(), resourceTypeExpected)) {
+      String errorMessage =
+          String.format(
+              "Expected to get a %s resource; got: %s ", resourceTypeExpected, resource.fhirType());
+      logger.error(errorMessage);
+      return content;
+    }
+
+    if (FhirUtil.isSameResourceType(resource.fhirType(), ResourceType.Patient)) {
+      IIdType id = resource.getIdElement();
+      String patientFromResource = id.getIdPart();
+      addPatientToList(patientFromResource);
+    }
+
+    if (FhirUtil.isSameResourceType(resource.fhirType(), ResourceType.Bundle)) {
+      // TODO Response potentially too large to be loaded into memory b/215786247
+      Bundle bundle = (Bundle) parser.parseResource(content);
+
+      Set<String> patientIdsInResponse = Sets.newHashSet();
+      for (BundleEntryComponent entryComponent : bundle.getEntry()) {
+        IIdType resourceId =
+            new Reference(entryComponent.getResponse().getLocation()).getReferenceElement();
+
+        if (FhirUtil.isSameResourceType(resourceId.getResourceType(), ResourceType.Patient)) {
+          patientIdsInResponse.add(resourceId.getIdPart());
         }
-        IIdType id = resource.getIdElement();
-        if (id == null) {
-          logger.error("The updated Patient has no 'id' element!");
-          return content;
-        }
-        newPatient = id.getIdPart();
       }
-      if (newPatient != null) {
-        addPatientToList(newPatient);
+      patientIdsInResponse.removeAll(existPutPatients);
+      for (String patientId : patientIdsInResponse) {
+        addPatientToList(patientId);
       }
     }
     return content;
@@ -106,5 +121,20 @@ class AccessGrantedAndUpdateList implements AccessDecision {
     logger.info("Updating access list {} with patch {}", patientListId, jsonPatch);
     // TODO decide how to handle failures in access list updates (b/211243404).
     httpFhirClient.patchResource(String.format("List/%s", patientListId), jsonPatch);
+  }
+
+  public static AccessGrantedAndUpdateList forPatientResource(
+      String patientListId, HttpFhirClient httpFhirClient, FhirContext fhirContext) {
+    return new AccessGrantedAndUpdateList(
+        patientListId, httpFhirClient, fhirContext, Sets.newHashSet(), ResourceType.Patient);
+  }
+
+  public static AccessGrantedAndUpdateList forBundle(
+      String patientListId,
+      HttpFhirClient httpFhirClient,
+      FhirContext fhirContext,
+      Set<String> existPutPatients) {
+    return new AccessGrantedAndUpdateList(
+        patientListId, httpFhirClient, fhirContext, existPutPatients, ResourceType.Bundle);
   }
 }

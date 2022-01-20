@@ -234,7 +234,7 @@ public class BearerAuthorizationInterceptor {
       String content = null;
       try {
         // For post-processing rationale/example see b/207589782#comment3.
-        content = outcome.postProcess(response, requestDetails);
+        content = outcome.postProcess(response);
       } catch (Exception e) {
         // Note this is after a successful fetch/update of the FHIR store. That success must be
         // passed to the client even if the access related post-processing fails.

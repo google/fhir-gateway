@@ -1,0 +1,12 @@
+{
+  "resourceType": "Bundle",
+  "type": "transaction",
+  "entry": [
+    {
+      "request": {
+        "method": "GET",
+        "url": "Encounter?patient=db6e42c7-04fc-4d9d-b394-9ff33a41e178"
+      }
+    }
+  ]
+}

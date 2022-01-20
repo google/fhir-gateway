@@ -17,6 +17,7 @@ package com.google.fhir.proxy;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.when;
 
 import ca.uhn.fhir.model.primitive.IdDt;
@@ -38,6 +39,8 @@ import org.mockito.junit.MockitoJUnitRunner;
 public class ListAccessCheckerTest extends AccessCheckerTestBase {
 
   private static final String TEST_LIST_ID = "test-list";
+  private static final String PATIENT_IN_BUNDLE_1 = "420e791b-e419-c19b-3144-29e101c2c12f";
+  private static final String PATIENT_IN_BUNDLE_2 = "db6e42c7-04fc-4d9d-b394-9ff33a41e178";
 
   @Mock private HttpFhirClient httpFhirClientMock;
 
@@ -47,8 +50,19 @@ public class ListAccessCheckerTest extends AccessCheckerTestBase {
     String testListJson = Resources.toString(listUrl, StandardCharsets.UTF_8);
     HttpResponse fhirResponseMock = Mockito.mock(HttpResponse.class);
     when(httpFhirClientMock.getResource(
-            String.format("/List?_id=%s&item=%s&_elements=id", TEST_LIST_ID, itemParam)))
+            String.format("/List?_id=%s&_elements=id&%s", TEST_LIST_ID, itemParam)))
         .thenReturn(fhirResponseMock);
+    TestUtil.setUpFhirResponseMock(fhirResponseMock, testListJson);
+  }
+
+  private void setUpPatientSearchMock(String patientParam, String resourceFileToReturn)
+      throws IOException {
+    URL listUrl = Resources.getResource(resourceFileToReturn);
+    String testListJson = Resources.toString(listUrl, StandardCharsets.UTF_8);
+    HttpResponse fhirResponseMock = Mockito.mock(HttpResponse.class);
+    doReturn(fhirResponseMock)
+        .when(httpFhirClientMock)
+        .getResource(String.format("/Patient?_id=%s&_elements=id", patientParam));
     TestUtil.setUpFhirResponseMock(fhirResponseMock, testListJson);
   }
 
@@ -57,8 +71,8 @@ public class ListAccessCheckerTest extends AccessCheckerTestBase {
     when(serverMock.getFhirContext()).thenReturn(fhirContext);
     when(jwtMock.getClaim(ListAccessChecker.Factory.PATIENT_LIST_CLAIM)).thenReturn(claimMock);
     when(claimMock.asString()).thenReturn(TEST_LIST_ID);
-    setUpFhirListSearchMock("Patient/" + PATIENT_AUTHORIZED, "bundle_list_patient_item.json");
-    setUpFhirListSearchMock("Patient/" + PATIENT_NON_AUTHORIZED, "bundle_empty.json");
+    setUpFhirListSearchMock("item=Patient/" + PATIENT_AUTHORIZED, "bundle_list_patient_item.json");
+    setUpFhirListSearchMock("item=Patient/" + PATIENT_NON_AUTHORIZED, "bundle_empty.json");
     when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.GET);
   }
 
@@ -88,7 +102,7 @@ public class ListAccessCheckerTest extends AccessCheckerTestBase {
   public void canAccessPostObservationWithPerformer() throws IOException {
     setUpFhirListSearchMock(
         String.format(
-            "Patient/test-patient-2,Patient/test-patient-1,Patient/%s", PATIENT_AUTHORIZED),
+            "item=Patient/test-patient-2,Patient/test-patient-1,Patient/%s", PATIENT_AUTHORIZED),
         "bundle_list_patient_item.json");
     super.canAccessPostObservationWithPerformer();
   }
@@ -133,5 +147,96 @@ public class ListAccessCheckerTest extends AccessCheckerTestBase {
     assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(true));
   }
 
+  @Test
+  public void canAccessBundleGetNonPatientUnAuthorized() throws IOException {
+    setUpFhirBundle("bundle_transaction_get_non_patient_unauthorized.json");
+    setUpFhirListSearchMock(
+        "item=Patient/db6e42c7-04fc-4d9d-b394-9ff33a41e178", "bundle_empty.json");
+    AccessChecker testInstance = getInstance(serverMock);
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
+  }
+
+  @Test
+  public void canAccessBundleGetPatientNonAuthorized() throws IOException {
+    setUpFhirBundle("bundle_transaction_get_patient_unauthorized.json");
+    setUpFhirListSearchMock(
+        "item=Patient/db6e42c7-04fc-4d9d-b394-9ff33a41e178", "bundle_empty.json");
+    AccessChecker testInstance = getInstance(serverMock);
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
+  }
+
+  @Test
+  public void canAccessBundlePutExistingPatient() throws IOException {
+    setUpFhirBundle("bundle_transaction_put_patient.json");
+    setUpPatientSearchMock(PATIENT_AUTHORIZED, "patient_id_search_single.json");
+    setUpPatientSearchMock(PATIENT_IN_BUNDLE_1, "patient_id_search_single.json");
+    setUpFhirListSearchMock(
+        String.format("item=Patient/%s&item=Patient/%s", PATIENT_IN_BUNDLE_1, PATIENT_AUTHORIZED),
+        "bundle_list_patient_item.json");
+    AccessChecker testInstance = getInstance(serverMock);
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(true));
+  }
+
+  @Test
+  public void canAccessBundlePutNewPatient() throws IOException {
+    setUpFhirBundle("bundle_transaction_put_patient.json");
+    setUpPatientSearchMock(PATIENT_AUTHORIZED, "bundle_empty.json");
+    setUpPatientSearchMock(PATIENT_IN_BUNDLE_1, "patient_id_search_single.json");
+    setUpFhirListSearchMock(
+        String.format("item=Patient/%s", PATIENT_IN_BUNDLE_1), "bundle_list_patient_item.json");
+    AccessChecker testInstance = getInstance(serverMock);
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(true));
+  }
+
+  @Test
+  public void canAccessBundlePutExistingPatientUnauthorized() throws IOException {
+    setUpFhirBundle("bundle_transaction_put_unauthorized.json");
+    setUpFhirListSearchMock(
+        String.format("item=Patient/%s", PATIENT_NON_AUTHORIZED), "bundle_empty.json");
+    setUpPatientSearchMock(PATIENT_NON_AUTHORIZED, "bundle_list_patient_item.json");
+    AccessChecker testInstance = getInstance(serverMock);
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
+  }
+
+  @Test
+  public void canAccessBundleNonPatientResources() throws IOException {
+    setUpFhirBundle("bundle_transaction_non_patients.json");
+    setUpFhirListSearchMock(
+        String.format(
+            "item=Patient/%s,Patient/%s&item=Patient/%s",
+            PATIENT_IN_BUNDLE_1, PATIENT_IN_BUNDLE_2, PATIENT_AUTHORIZED),
+        "bundle_list_patient_item.json");
+    AccessChecker testInstance = getInstance(serverMock);
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(true));
+  }
+
+  @Test
+  public void canAccessBundleNonPatientResourcesUnauthorized() throws IOException {
+    setUpFhirBundle("bundle_transaction_non_patients.json");
+    setUpFhirListSearchMock(
+        String.format(
+            "item=Patient/%s,Patient/%s&item=Patient/%s",
+            PATIENT_IN_BUNDLE_1, PATIENT_IN_BUNDLE_2, PATIENT_AUTHORIZED),
+        "bundle_empty.json");
+    AccessChecker testInstance = getInstance(serverMock);
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
+  }
+
+  @Test
+  public void canAccessBundleNonPatientResourcesAndNewPatient() throws IOException {
+    setUpFhirBundle("bundle_transaction_patient_and_non_patients.json");
+    setUpFhirListSearchMock(
+        String.format("item=Patient/%s", PATIENT_IN_BUNDLE_1), "bundle_list_patient_item.json");
+    setUpPatientSearchMock(PATIENT_IN_BUNDLE_2, "bundle_empty.json");
+    AccessChecker testInstance = getInstance(serverMock);
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(true));
+  }
+
+  @Test
+  public void canAccessBundlePostPatient() throws IOException {
+    setUpFhirBundle("bundle_transaction_post_patient.json");
+    AccessChecker testInstance = getInstance(serverMock);
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(true));
+  }
   // TODO add an Appointment POST
 }

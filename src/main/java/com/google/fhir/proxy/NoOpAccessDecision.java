@@ -15,7 +15,6 @@
  */
 package com.google.fhir.proxy;
 
-import ca.uhn.fhir.rest.api.server.RequestDetails;
 import org.apache.http.HttpResponse;
 
 public class NoOpAccessDecision implements AccessDecision {
@@ -32,7 +31,7 @@ public class NoOpAccessDecision implements AccessDecision {
   }
 
   @Override
-  public String postProcess(HttpResponse response, RequestDetails request) {
+  public String postProcess(HttpResponse response) {
     return null;
   }
 

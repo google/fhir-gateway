@@ -1,0 +1,96 @@
+{
+  "resourceType": "Bundle",
+  "type": "transaction",
+  "entry": [
+    {
+      "fullUrl": "Observation/observation-jamess-bond-id-1",
+      "resource": {
+        "category": [
+          {
+            "coding": [
+              {
+                "code": "laboratory",
+                "display": "laboratory",
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "code": "33914-3",
+              "display": "Estimated Glomerular Filtration Rate",
+              "system": "http://loinc.org"
+            }
+          ],
+          "text": "Estimated Glomerular Filtration Rate"
+        },
+        "effectiveDateTime": "2020-10-01T18:56:10-04:00",
+        "encounter": {
+          "reference": "Encounter/encounter-jamess-bond-id-1"
+        },
+        "id": "observation-jamess-bond-id-1",
+        "issued": "2020-10-01T18:56:10.396-04:00",
+        "resourceType": "Observation",
+        "status": "final",
+        "subject": {
+          "reference": "Patient/420e791b-e419-c19b-3144-29e101c2c12f"
+        },
+        "valueQuantity": {
+          "code": "mL/min/{1.73_m2}",
+          "system": "http://unitsofmeasure.org",
+          "unit": "mL/min/{1.73_m2}",
+          "value": 76.02971496321274
+        }
+      },
+      "request": {
+        "method": "PUT",
+        "url": "Observation/observation-jamess-bond-id-1"
+      }
+    },
+    {
+      "fullUrl": "Encounter/encounter-jamess-bond-id-1",
+      "resource": {
+        "class": {
+          "code": "AMB",
+          "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode"
+        },
+        "id": "encounter-jamess-bond-id-1",
+        "period": {
+          "end": "2015-07-01T19:11:10-04:00",
+          "start": "2015-07-01T18:56:10-04:00"
+        },
+        "reasonCode": [
+          {
+            "coding": [
+              {
+                "code": "444814009",
+                "display": "Viral sinusitis (disorder)",
+                "system": "http://snomed.info/sct"
+              }
+            ]
+          }
+        ],
+        "resourceType": "Encounter",
+        "status": "finished",
+        "type": [
+          {
+            "coding": [
+              {
+                "code": "185345009",
+                "display": "Encounter for symptom",
+                "system": "http://snomed.info/sct"
+              }
+            ],
+            "text": "Encounter for symptom"
+          }
+        ]
+      },
+      "request": {
+        "method": "PUT",
+        "url": "Encounter/encounter-jamess-bond-id-1"
+      }
+    }
+  ]
+}

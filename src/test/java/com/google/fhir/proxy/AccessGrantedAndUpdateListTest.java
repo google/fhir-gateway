@@ -15,11 +15,7 @@
  */
 package com.google.fhir.proxy;
 
-import static org.mockito.Mockito.when;
-
 import ca.uhn.fhir.context.FhirContext;
-import ca.uhn.fhir.rest.api.RequestTypeEnum;
-import ca.uhn.fhir.rest.api.server.RequestDetails;
 import com.google.common.io.Resources;
 import java.io.IOException;
 import java.net.URL;
@@ -35,11 +31,8 @@ import org.mockito.junit.MockitoJUnitRunner;
 public class AccessGrantedAndUpdateListTest {
 
   private static final String TEST_LIST_ID = "test-list";
-  private static final String PATIENT = "be92a43f-de46-affa-b131-bbf9eea51140";
 
   @Mock private HttpFhirClient httpFhirClientMock;
-
-  @Mock private RequestDetails requestMock;
 
   @Mock private HttpResponse responseMock;
 
@@ -49,7 +42,6 @@ public class AccessGrantedAndUpdateListTest {
 
   @Before
   public void setUp() throws IOException {
-    when(requestMock.getResourceName()).thenReturn("Patient");
     URL url = Resources.getResource("test_patient.json");
     String testJson = Resources.toString(url, StandardCharsets.UTF_8);
     TestUtil.setUpFhirResponseMock(responseMock, testJson);
@@ -57,17 +49,17 @@ public class AccessGrantedAndUpdateListTest {
 
   @Test
   public void postProcessNewPatientPut() throws IOException {
-    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.PUT);
     testInstance =
-        new AccessGrantedAndUpdateList(TEST_LIST_ID, httpFhirClientMock, fhirContext, PATIENT);
-    testInstance.postProcess(responseMock, requestMock);
+        AccessGrantedAndUpdateList.forPatientResource(
+            TEST_LIST_ID, httpFhirClientMock, fhirContext);
+    testInstance.postProcess(responseMock);
   }
 
   @Test
   public void postProcessNewPatientPost() throws IOException {
-    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.POST);
     testInstance =
-        new AccessGrantedAndUpdateList(TEST_LIST_ID, httpFhirClientMock, fhirContext, null);
-    testInstance.postProcess(responseMock, requestMock);
+        AccessGrantedAndUpdateList.forPatientResource(
+            TEST_LIST_ID, httpFhirClientMock, fhirContext);
+    testInstance.postProcess(responseMock);
   }
 }

@@ -22,6 +22,7 @@ import ca.uhn.fhir.rest.server.RestfulServer;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableSet;
 import java.util.Set;
 import org.hl7.fhir.r4.model.ResourceType;
 import org.slf4j.Logger;
@@ -65,14 +66,42 @@ public class PatientAccessChecker implements AccessChecker {
       }
       return new NoOpAccessDecision(authorizedPatientId.equals(patientId));
     }
+
+    // For a Bundle requestDetails.getResourceName() returns null
+    if (requestDetails.getRequestType() == RequestTypeEnum.POST
+        && requestDetails.getResourceName() == null) {
+      return checkBundleAccess(requestDetails);
+    }
+
     // Creating/updating a non-Patient resource
     if (requestDetails.getRequestType() == RequestTypeEnum.PUT
         || requestDetails.getRequestType() == RequestTypeEnum.POST) {
       Set<String> patientIds = patientFinder.findPatientsInResource(requestDetails);
       return new NoOpAccessDecision(patientIds.contains(authorizedPatientId));
     }
+
     // TODO handle other cases like PATCH and DELETE
     return NoOpAccessDecision.accessDenied();
+  }
+
+  private AccessDecision checkBundleAccess(RequestDetails requestDetails) {
+    BundlePatients patientsInBundle = patientFinder.findPatientsInBundle(requestDetails);
+
+    if (patientsInBundle == null || patientsInBundle.areTherePatientToCreate()) {
+      return NoOpAccessDecision.accessDenied();
+    }
+
+    if (!patientsInBundle.getUpdatedPatients().isEmpty()
+        && !patientsInBundle.getUpdatedPatients().equals(ImmutableSet.of(authorizedPatientId))) {
+      return NoOpAccessDecision.accessDenied();
+    }
+
+    for (Set<String> refSet : patientsInBundle.getReferencedPatients()) {
+      if (!refSet.contains(authorizedPatientId)) {
+        return NoOpAccessDecision.accessDenied();
+      }
+    }
+    return NoOpAccessDecision.accessGranted();
   }
 
   static class Factory implements AccessCheckerFactory {

@@ -21,11 +21,15 @@ import ca.uhn.fhir.rest.api.server.RequestDetails;
 import ca.uhn.fhir.rest.server.RestfulServer;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Sets;
+import com.google.fhir.proxy.BundlePatients.BundlePatientsBuilder;
 import java.io.IOException;
+import java.util.Collections;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import org.apache.http.HttpResponse;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.ResourceType;
@@ -55,27 +59,22 @@ public class ListAccessChecker implements AccessChecker {
     this.patientFinder = patientFinder;
   }
 
-  // Note this returns true iff at least one of the patient IDs is found in the associated list.
-  // The rationale is that a user should have access to a resource iff they are authorized to access
-  // at least one of the patients referenced in that resource. This is a subjective decision, so we
-  // may want to revisit it in the future.
-  private boolean serverListIncludesAnyPatient(Set<String> patientIds) {
-    if (patientIds == null) {
-      return false;
-    }
-    // TODO consider using the HAPI FHIR client instead (b/211231483).
-    String patientParam =
-        patientIds.stream()
-            .filter(Objects::nonNull)
-            .map(p -> "Patient/" + p)
-            .collect(Collectors.joining(","));
-    if (patientParam.isEmpty()) {
+  /**
+   * Sends query to backend with user supplied parameters
+   *
+   * @param itemsParam resources to search for in the list. Must start with "item="
+   * @return the outcome of access checking. Returns false if no parameter is provided, or if the
+   *     parameter does not start with "item=", or if the query does not return exactly one match.
+   */
+  private boolean listIncludesItems(String itemsParam) {
+    Preconditions.checkArgument(itemsParam.startsWith("item="));
+    if (itemsParam.equals("item=")) {
       return false;
     }
     // We cannot use `_summary` parameter because it is not implemented on GCP yet; so to prevent a
     // potentially huge list to be fetched each time, we add `_elements=id`.
     String searchQuery =
-        String.format("/List?_id=%s&item=%s&_elements=id", this.patientListId, patientParam);
+        String.format("/List?_id=%s&_elements=id&%s", this.patientListId, itemsParam);
     logger.debug("Search query for patient access authorization check is: {}", searchQuery);
     try {
       HttpResponse httpResponse = httpFhirClient.getResource(searchQuery);
@@ -88,8 +87,29 @@ public class ListAccessChecker implements AccessChecker {
     }
     return false;
   }
+  // Note this returns true iff at least one of the patient IDs is found in the associated list.
+  // The rationale is that a user should have access to a resource iff they are authorized to access
+  // at least one of the patients referenced in that resource. This is a subjective decision, so we
+  // may want to revisit it in the future.
+  private boolean serverListIncludesAnyPatient(Set<String> patientIds) {
+    if (patientIds == null) {
+      return false;
+    }
+    // TODO consider using the HAPI FHIR client instead (b/211231483).
+    String patientParam = queryBuilder(patientIds, "Patient/", ",");
+    return listIncludesItems("item=" + patientParam);
+  }
 
-  private boolean patientExists(String patientId) throws IOException {
+  // Note this returns true iff all the patient IDs are found in the associated list.
+  private boolean serverListIncludesAllPatients(Set<String> patientIds) {
+    if (patientIds == null) {
+      return false;
+    }
+    String patientParam = queryBuilder(patientIds, "item=", "&");
+    return listIncludesItems(patientParam);
+  }
+
+  private boolean patientsExist(String patientId) throws IOException {
     // TODO consider using the HAPI FHIR client instead (b/211231483).
     String searchQuery = String.format("/Patient?_id=%s&_elements=id", patientId);
     HttpResponse response = httpFhirClient.getResource(searchQuery);
@@ -97,7 +117,7 @@ public class ListAccessChecker implements AccessChecker {
     if (bundle.getTotal() > 1) {
       logger.error(
           String.format(
-              "%s patients with the same ID %s returned from the FHIR store.",
+              "%s patients with the same ID of one of ths %s returned from the FHIR store.",
               bundle.getTotal(), patientId));
     }
     return (bundle.getTotal() > 0);
@@ -112,49 +132,138 @@ public class ListAccessChecker implements AccessChecker {
    */
   @Override
   public AccessDecision checkAccess(RequestDetails requestDetails) {
-    if (requestDetails.getRequestType() == RequestTypeEnum.GET) {
-      // There should be a patient id in search params; the param name is based on the resource.
-      if (FhirUtil.isSameResourceType(requestDetails.getResourceName(), ResourceType.List)) {
-        if (patientListId.equals(FhirUtil.getIdOrNull(requestDetails))) {
-          return NoOpAccessDecision.accessGranted();
+    try {
+      if (requestDetails.getRequestType() == RequestTypeEnum.GET) {
+        // There should be a patient id in search params; the param name is based on the resource.
+        if (FhirUtil.isSameResourceType(requestDetails.getResourceName(), ResourceType.List)) {
+          if (patientListId.equals(FhirUtil.getIdOrNull(requestDetails))) {
+            return NoOpAccessDecision.accessGranted();
+          }
+          return NoOpAccessDecision.accessDenied();
         }
-        return NoOpAccessDecision.accessDenied();
+        String patientId = patientFinder.findPatientId(requestDetails);
+        return new NoOpAccessDecision(serverListIncludesAnyPatient(Sets.newHashSet(patientId)));
       }
-      String patientId = patientFinder.findPatientId(requestDetails);
-      return new NoOpAccessDecision(serverListIncludesAnyPatient(Sets.newHashSet(patientId)));
-    }
-    // We have decided to let clients add new patients while understanding its security risks.
-    if (requestDetails.getRequestType() == RequestTypeEnum.POST
-        && FhirUtil.isSameResourceType(requestDetails.getResourceName(), ResourceType.Patient)) {
-      return new AccessGrantedAndUpdateList(patientListId, httpFhirClient, fhirContext, null);
-    }
-    if (requestDetails.getRequestType() == RequestTypeEnum.PUT
-        && FhirUtil.isSameResourceType(requestDetails.getResourceName(), ResourceType.Patient)) {
-      String patientId = FhirUtil.getIdOrNull(requestDetails);
-      if (patientId == null) {
-        // This is an invalid PUT request; note we are not supporting "conditional updates".
-        logger.error("The provided Patient resource has no ID; denying access!");
-        return NoOpAccessDecision.accessDenied();
+      // We have decided to let clients add new patients while understanding its security risks.
+      if (requestDetails.getRequestType() == RequestTypeEnum.POST
+          && FhirUtil.isSameResourceType(requestDetails.getResourceName(), ResourceType.Patient)) {
+        return AccessGrantedAndUpdateList.forPatientResource(
+            patientListId, httpFhirClient, fhirContext);
       }
-      try {
-        if (patientExists(patientId)) {
+
+      // For a Bundle requestDetails.getResourceName() returns null
+      if (requestDetails.getRequestType() == RequestTypeEnum.POST
+          && requestDetails.getResourceName() == null) {
+        return checkBundleAccess(requestDetails);
+      }
+
+      if (requestDetails.getRequestType() == RequestTypeEnum.PUT
+          && FhirUtil.isSameResourceType(requestDetails.getResourceName(), ResourceType.Patient)) {
+        String patientId = FhirUtil.getIdOrNull(requestDetails);
+        if (patientId == null) {
+          // This is an invalid PUT request; note we are not supporting "conditional updates".
+          logger.error("The provided Patient resource has no ID; denying access!");
+          return NoOpAccessDecision.accessDenied();
+        }
+        if (patientsExist(patientId)) {
           logger.info("Updating existing patient {}, so no need to update access list.", patientId);
           return new NoOpAccessDecision(serverListIncludesAnyPatient(Sets.newHashSet(patientId)));
         }
-      } catch (IOException e) {
-        logger.error("Exception while checking patient existence; denying access! ", e);
-        return NoOpAccessDecision.accessDenied();
+        return AccessGrantedAndUpdateList.forPatientResource(
+            patientListId, httpFhirClient, fhirContext);
       }
-      return new AccessGrantedAndUpdateList(patientListId, httpFhirClient, fhirContext, patientId);
+
+      // Creating/updating a non-Patient resource
+      if (requestDetails.getRequestType() == RequestTypeEnum.PUT
+          || requestDetails.getRequestType() == RequestTypeEnum.POST) {
+        Set<String> patientIds = patientFinder.findPatientsInResource(requestDetails);
+        return new NoOpAccessDecision(serverListIncludesAnyPatient(patientIds));
+      }
+      // TODO decide what to do for other methods like PATCH and DELETE.
+      return NoOpAccessDecision.accessDenied();
+    } catch (IOException e) {
+      logger.error("Exception while checking patient existence; denying access! ", e);
+      return NoOpAccessDecision.accessDenied();
     }
-    // Creating/updating a non-Patient resource
-    if (requestDetails.getRequestType() == RequestTypeEnum.PUT
-        || requestDetails.getRequestType() == RequestTypeEnum.POST) {
-      Set<String> patientIds = patientFinder.findPatientsInResource(requestDetails);
-      return new NoOpAccessDecision(serverListIncludesAnyPatient(patientIds));
+  }
+
+  private AccessDecision checkBundleAccess(RequestDetails requestDetails) throws IOException {
+    BundlePatients patientRequestsInBundle = createBundlePatients(requestDetails);
+
+    if (patientRequestsInBundle == null) {
+      return NoOpAccessDecision.accessDenied();
     }
-    // TODO decide what to do for other methods like PATCH and DELETE.
-    return NoOpAccessDecision.accessDenied();
+
+    boolean createPatients = patientRequestsInBundle.areTherePatientToCreate();
+    Set<String> putPatientIds = patientRequestsInBundle.getUpdatedPatients();
+
+    if (!createPatients && putPatientIds.isEmpty()) {
+      return NoOpAccessDecision.accessGranted();
+    }
+
+    if (putPatientIds.isEmpty()) {
+      return AccessGrantedAndUpdateList.forBundle(
+          patientListId, httpFhirClient, fhirContext, Sets.newHashSet());
+    } else {
+      return AccessGrantedAndUpdateList.forBundle(
+          patientListId, httpFhirClient, fhirContext, putPatientIds);
+    }
+  }
+
+  @Nullable
+  private BundlePatients createBundlePatients(RequestDetails requestDetails) throws IOException {
+    BundlePatients patientsInBundleUnfiltered = patientFinder.findPatientsInBundle(requestDetails);
+
+    if (patientsInBundleUnfiltered == null) {
+      return null;
+    }
+
+    BundlePatientsBuilder builder = new BundlePatientsBuilder();
+    builder.setPatientCreationFlag(patientsInBundleUnfiltered.areTherePatientToCreate());
+
+    Set<String> patientsToCreate = Sets.newHashSet();
+    Set<String> patientsToUpdate = Sets.newHashSet();
+
+    for (String patientId : patientsInBundleUnfiltered.getUpdatedPatients()) {
+      if (!patientsExist(patientId)) {
+        patientsToCreate.add(patientId);
+      } else {
+        patientsToUpdate.add(patientId);
+      }
+    }
+
+    if (!patientsToCreate.isEmpty()) {
+      builder.setPatientCreationFlag(true);
+    }
+
+    Set<String> patientQueries = Sets.newHashSet();
+    for (Set<String> patientRefSet : patientsInBundleUnfiltered.getReferencedPatients()) {
+      if (Collections.disjoint(patientRefSet, patientsToCreate)) {
+        String orQuery = queryBuilder(patientRefSet, "Patient/", ",");
+        patientQueries.add(orQuery);
+      }
+    }
+
+    if (!patientsToUpdate.isEmpty()) {
+      for (String eachPatient : patientsToUpdate) {
+        String andQuery = String.format("Patient/%s", eachPatient);
+        patientQueries.add(andQuery);
+      }
+    }
+
+    if (!patientQueries.isEmpty() && !serverListIncludesAllPatients(patientQueries)) {
+      logger.error("Reference Patients not in List!");
+      return null;
+    }
+
+    return builder.addUpdatePatients(patientsToUpdate).build();
+  }
+
+  private String queryBuilder(Set<String> patientSet, String prefix, String delimiter) {
+    return patientSet.stream()
+        .filter(Objects::nonNull)
+        .map(p -> prefix + p)
+        .collect(Collectors.joining(delimiter));
   }
 
   public static class Factory implements AccessCheckerFactory {
