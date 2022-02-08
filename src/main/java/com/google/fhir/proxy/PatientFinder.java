@@ -122,6 +122,13 @@ public class PatientFinder {
     return patientId;
   }
 
+  /**
+   * Finds the patient ID from the query if it is a direct Patient fetch (i.e., /Patient/PID) or the
+   * patient can be inferred from query parameters.
+   *
+   * @param requestDetails the request
+   * @return the id of the patient that this query belongs to or null if it cannot be inferred.
+   */
   @Nullable
   String findPatientId(RequestDetails requestDetails) {
     String resourceName = requestDetails.getResourceName();
@@ -133,6 +140,12 @@ public class PatientFinder {
     // if we need to batch multiple patients together in one query.
     if (FhirUtil.isSameResourceType(resourceName, ResourceType.Patient)) {
       return FhirUtil.getIdOrNull(requestDetails);
+    }
+    if (FhirUtil.getIdOrNull(requestDetails) != null) {
+      // Block any direct, non-patient resource fetches (e.g. Encounter/EID).
+      // Since it is specifying a resource directly, we cannot know if this belongs to an
+      // authorized patient.
+      return null;
     }
     String patientId = findPatientIdFromParams(resourceName, requestDetails.getParameters());
     if (patientId == null) {

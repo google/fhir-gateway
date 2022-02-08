@@ -17,6 +17,7 @@ package com.google.fhir.proxy;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 import ca.uhn.fhir.context.FhirContext;
@@ -50,6 +51,7 @@ public abstract class AccessCheckerTestBase {
 
   @Mock protected Claim claimMock;
 
+  // TODO consider making a real request object from a URL string to avoid over-mocking.
   @Mock protected RequestDetails requestMock;
 
   // Note this is an expensive class to instantiate, so we only do this once for all tests.
@@ -72,6 +74,7 @@ public abstract class AccessCheckerTestBase {
 
   @Test
   public void canAccessTest() {
+    // Query: GET /Patient/PATIENT_AUTHORIZED_ID
     when(requestMock.getResourceName()).thenReturn("Patient");
     when(requestMock.getId()).thenReturn(PATIENT_AUTHORIZED_ID);
     AccessChecker testInstance = getInstance(serverMock);
@@ -80,6 +83,7 @@ public abstract class AccessCheckerTestBase {
 
   @Test
   public void canAccessNotAuthorized() {
+    // Query: GET /Patient/PATIENT_NON_AUTHORIZED_ID
     when(requestMock.getResourceName()).thenReturn("Patient");
     when(requestMock.getId()).thenReturn(PATIENT_NON_AUTHORIZED_ID);
     AccessChecker testInstance = getInstance(serverMock);
@@ -87,7 +91,30 @@ public abstract class AccessCheckerTestBase {
   }
 
   @Test
+  public void canAccessDirectResourceNotAuthorized() {
+    // Query: GET /Observation/a-random-id
+    when(requestMock.getResourceName()).thenReturn("Observation");
+    when(requestMock.getId()).thenReturn(new IdDt("a-random-id"));
+    AccessChecker testInstance = getInstance(serverMock);
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
+  }
+
+  @Test
+  public void canAccessDirectResourceWithParamNotAuthorized() {
+    // Query: GET /Observation/a-random-id?subject=PATIENT_AUTHORIZED
+    when(requestMock.getResourceName()).thenReturn("Observation");
+    when(requestMock.getId()).thenReturn(new IdDt("a-random-id"));
+    // This is to make sure that the presence of patient search params does not make any difference.
+    Map<String, String[]> params = Maps.newHashMap();
+    params.put("subject", new String[] {PATIENT_AUTHORIZED});
+    lenient().when(requestMock.getParameters()).thenReturn(params);
+    AccessChecker testInstance = getInstance(serverMock);
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
+  }
+
+  @Test
   public void canAccessSearchQuery() {
+    // Query: GET /Observation?subject=PATIENT_AUTHORIZED
     when(requestMock.getResourceName()).thenReturn("Observation");
     Map<String, String[]> params = Maps.newHashMap();
     params.put("subject", new String[] {PATIENT_AUTHORIZED});
@@ -98,6 +125,7 @@ public abstract class AccessCheckerTestBase {
 
   @Test
   public void canAccessSearchQueryNotAuthorized() {
+    // Query: GET /Observation?subject=PATIENT_AUTHORIZED
     when(requestMock.getResourceName()).thenReturn("Observation");
     AccessChecker testInstance = getInstance(serverMock);
     assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
@@ -105,6 +133,7 @@ public abstract class AccessCheckerTestBase {
 
   @Test
   public void canAccessPutObservation() throws IOException {
+    // Query: PUT /Observation -d @test_obs.json
     when(requestMock.getResourceName()).thenReturn("Observation");
     URL listUrl = Resources.getResource("test_obs.json");
     byte[] obsBytes = Resources.toByteArray(listUrl);
@@ -116,6 +145,7 @@ public abstract class AccessCheckerTestBase {
 
   @Test
   public void canAccessPutObservationUnauthorized() throws IOException {
+    // Query: PUT /Observation -d @test_obs_unauthorized.json
     when(requestMock.getResourceName()).thenReturn("Observation");
     URL listUrl = Resources.getResource("test_obs_unauthorized.json");
     byte[] obsBytes = Resources.toByteArray(listUrl);
@@ -127,6 +157,7 @@ public abstract class AccessCheckerTestBase {
 
   @Test
   public void canAccessPostObservation() throws IOException {
+    // Query: POST /Observation -d @test_obs.json
     when(requestMock.getResourceName()).thenReturn("Observation");
     URL listUrl = Resources.getResource("test_obs.json");
     byte[] obsBytes = Resources.toByteArray(listUrl);
@@ -138,6 +169,7 @@ public abstract class AccessCheckerTestBase {
 
   @Test
   public void canAccessPostObservationWithPerformer() throws IOException {
+    // Query: POST /Observation -d @test_obs_performers.json
     // The sample Observation resource below has a few `performers` references in it. This is to see
     // if the `Patient` performer references are properly extracted and passed to the List query.
     when(requestMock.getResourceName()).thenReturn("Observation");
@@ -151,6 +183,7 @@ public abstract class AccessCheckerTestBase {
 
   @Test
   public void canAccessPostObservationNoSubject() throws IOException {
+    // Query: POST /Observation -d @test_obs_no_subject.json
     when(requestMock.getResourceName()).thenReturn("Observation");
     URL listUrl = Resources.getResource("test_obs_no_subject.json");
     byte[] obsBytes = Resources.toByteArray(listUrl);
@@ -162,6 +195,7 @@ public abstract class AccessCheckerTestBase {
 
   @Test
   public void canAccessPostWrongQueryPath() throws IOException {
+    // Query: POST /Observation -d @test_obs.json
     when(requestMock.getResourceName()).thenReturn("Encounter");
     URL listUrl = Resources.getResource("test_obs.json");
     byte[] obsBytes = Resources.toByteArray(listUrl);
@@ -173,6 +207,7 @@ public abstract class AccessCheckerTestBase {
 
   @Test
   public void canAccessPutPatientNoId() {
+    // Query: PUT /Patient ...
     when(requestMock.getResourceName()).thenReturn("Patient");
     when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.PUT);
     when(requestMock.getId()).thenReturn(null);
@@ -182,6 +217,7 @@ public abstract class AccessCheckerTestBase {
 
   @Test
   public void canAccessBundleNonPatientResourcesNoPatientRefUnauthorized() throws IOException {
+    // Query: POST / -d @bundle_transaction_no_patient_ref.json
     setUpFhirBundle("bundle_transaction_no_patient_ref.json");
     AccessChecker testInstance = getInstance(serverMock);
     assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
@@ -189,6 +225,7 @@ public abstract class AccessCheckerTestBase {
 
   @Test
   public void canAccessBundleDeletePatient() throws IOException {
+    // Query: POST / -d @bundle_transaction_delete.json
     setUpFhirBundle("bundle_transaction_delete.json");
     AccessChecker testInstance = getInstance(serverMock);
     assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
