@@ -21,6 +21,7 @@ import ca.uhn.fhir.model.primitive.IdDt;
 import ca.uhn.fhir.parser.IParser;
 import ca.uhn.fhir.rest.api.server.RequestDetails;
 import ca.uhn.fhir.rest.server.exceptions.ForbiddenOperationException;
+import ca.uhn.fhir.rest.server.exceptions.InvalidRequestException;
 import ca.uhn.fhir.util.UrlUtil;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
@@ -57,24 +58,27 @@ import org.hl7.fhir.r4.model.StringType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class PatientFinder {
-  private static final Logger logger = LoggerFactory.getLogger(PatientFinder.class);
-  private static PatientFinder instance = null;
+public class FhirParamUtil {
+  private static final Logger logger = LoggerFactory.getLogger(FhirParamUtil.class);
+  private static FhirParamUtil instance = null;
 
   private final IFhirPath fhirPath;
   private final Map<String, List<String>> patientSearchParams;
   private final Map<String, List<String>> patientFhirPaths;
   private final FhirContext fhirContext;
+  private final boolean blockJoins;
 
   // This is supposed to be instantiated with getInstance method only.
-  private PatientFinder(
+  private FhirParamUtil(
       FhirContext fhirContext,
       Map<String, List<String>> patientFhirPaths,
-      Map<String, List<String>> patientSearchParams) {
+      Map<String, List<String>> patientSearchParams,
+      boolean blockJoins) {
     this.fhirContext = fhirContext;
     this.fhirPath = fhirContext.newFhirPath();
     this.patientFhirPaths = patientFhirPaths;
     this.patientSearchParams = patientSearchParams;
+    this.blockJoins = blockJoins;
   }
 
   @Nullable
@@ -101,7 +105,32 @@ public class PatientFinder {
     return null;
   }
 
-  @Nullable
+  private void checkFhirJoinParams(Map<String, String[]> queryParams) {
+    // TODO decide whether to expose `blockJoins` as a configuration parameter or not. If we want to
+    // expose this and make it more customizable (e.g., what joins to accept and what to reject) or
+    // add more parameter sanity-checking, we should move this join logic to a separate class.
+    if (blockJoins) {
+      for (String queryParam : queryParams.keySet()) {
+        // This follows the pattern in `QualifierDetails` of HAPI to match params chaining rules.
+        if (queryParam.indexOf('.') >= 0) {
+          ExceptionUtil.throwRuntimeExceptionAndLog(
+              logger,
+              "Search with chaining is blocked in param: " + queryParam,
+              InvalidRequestException.class);
+        }
+        // Other "joins"
+        if (queryParam.equals("_has")
+            || queryParam.equals("_include")
+            || queryParam.equals("_revinclude")) {
+          ExceptionUtil.throwRuntimeExceptionAndLog(
+              logger,
+              String.format("Search with %s is blocked!", queryParam),
+              InvalidRequestException.class);
+        }
+      }
+    }
+  }
+
   private String findPatientId(BundleEntryRequestComponent requestComponent)
       throws URISyntaxException {
     String patientId = null;
@@ -113,11 +142,15 @@ public class PatientFinder {
       }
       if (referenceElement.getResourceType() == null) {
         Map<String, String[]> queryParams = UrlUtil.parseQueryString(resourceUri.getQuery());
+        checkFhirJoinParams(queryParams);
         patientId = findPatientIdFromParams(resourceUri.getPath(), queryParams);
       }
     }
     if (patientId == null) {
-      logger.warn("Patient ID cannot be found in " + requestComponent.getUrl());
+      ExceptionUtil.throwRuntimeExceptionAndLog(
+          logger,
+          "Patient ID cannot be found in " + requestComponent.getUrl(),
+          InvalidRequestException.class);
     }
     return patientId;
   }
@@ -128,13 +161,16 @@ public class PatientFinder {
    *
    * @param requestDetails the request
    * @return the id of the patient that this query belongs to or null if it cannot be inferred.
+   * @throws InvalidRequestException for various reasons when unexpected parameters or content are
+   *     encountered. Callers are expected to deny access when this happens.
    */
-  @Nullable
-  String findPatientId(RequestDetails requestDetails) {
+  public String findPatientId(RequestDetails requestDetails) {
     String resourceName = requestDetails.getResourceName();
     if (resourceName == null) {
-      logger.error("No resource specified for request " + requestDetails.getRequestPath());
-      return null;
+      ExceptionUtil.throwRuntimeExceptionAndLog(
+          logger,
+          "No resource specified for request " + requestDetails.getRequestPath(),
+          InvalidRequestException.class);
     }
     // Note we only let fetching data for one patient in each query; we may want to revisit this
     // if we need to batch multiple patients together in one query.
@@ -145,12 +181,20 @@ public class PatientFinder {
       // Block any direct, non-patient resource fetches (e.g. Encounter/EID).
       // Since it is specifying a resource directly, we cannot know if this belongs to an
       // authorized patient.
+      ExceptionUtil.throwRuntimeExceptionAndLog(
+          logger,
+          "Direct resource fetch is only supported for Patient; use search for " + resourceName,
+          InvalidRequestException.class);
       return null;
     }
-    String patientId = findPatientIdFromParams(resourceName, requestDetails.getParameters());
+    Map<String, String[]> queryParams = requestDetails.getParameters();
+    checkFhirJoinParams(queryParams);
+    String patientId = findPatientIdFromParams(resourceName, queryParams);
     if (patientId == null) {
-      logger.warn("Patient ID cannot be found in " + requestDetails.getCompleteUrl());
-      return null;
+      ExceptionUtil.throwRuntimeExceptionAndLog(
+          logger,
+          "Patient ID cannot be found in " + requestDetails.getCompleteUrl(),
+          InvalidRequestException.class);
     }
     return patientId;
   }
@@ -186,14 +230,26 @@ public class PatientFinder {
     return patientIds;
   }
 
-  @Nullable
-  BundlePatients findPatientsInBundle(RequestDetails request) {
-    Bundle bundle = (Bundle) createResourceFromRequest(request);
+  /**
+   * Find all patients referenced or updated in a Bundle.
+   *
+   * @param request that is expected to have a Bundle content.
+   * @return the {@link BundlePatients} that wraps all found patients.
+   * @throws InvalidRequestException for various reasons when unexpected content is encountered.
+   *     Callers are expected to deny access when this happens.
+   */
+  public BundlePatients findPatientsInBundle(RequestDetails request) {
+    IBaseResource resource = createResourceFromRequest(request);
+    if (!(resource instanceof Bundle)) {
+      ExceptionUtil.throwRuntimeExceptionAndLog(
+          logger, "The provided resource is not a Bundle!", InvalidRequestException.class);
+    }
+    Bundle bundle = (Bundle) resource;
 
     if (bundle.getType() != BundleType.TRANSACTION) {
       // Currently, support only for transaction bundles (b/217392030)
-      logger.error("Bundle type needs to be transaction");
-      return null;
+      ExceptionUtil.throwRuntimeExceptionAndLog(
+          logger, "Bundle type needs to be transaction!", InvalidRequestException.class);
     }
 
     BundlePatientsBuilder builder = new BundlePatientsBuilder();
@@ -215,17 +271,16 @@ public class PatientFinder {
             ExceptionUtil.throwRuntimeExceptionAndLog(
                 logger,
                 String.format("HTTP request method %s is not supported!", httpMethod),
-                ForbiddenOperationException.class);
+                InvalidRequestException.class);
         }
       }
       return builder.build();
-    } catch (NullPointerException
-        | ForbiddenOperationException
-        | ClassCastException
-        | URISyntaxException e) {
-      logger.error("Exception while processing Bundle; denying access! ", e);
-      return null;
+    } catch (URISyntaxException e) {
+      ExceptionUtil.throwRuntimeExceptionAndLog(
+          logger, "Error parsing URI in Bundle!", e, InvalidRequestException.class);
     }
+    // It should never reach here!
+    return null;
   }
 
   private void processGet(BundleEntryComponent entryComponent, BundlePatientsBuilder builder)
@@ -259,23 +314,34 @@ public class PatientFinder {
     Set<String> referencePatientIds = parseReferencesForPatientIds(resource);
     if (referencePatientIds.isEmpty()) {
       ExceptionUtil.throwRuntimeExceptionAndLog(
-          logger, "Patient reference must exist in resource", ForbiddenOperationException.class);
+          logger, "Patient reference must exist in resource", InvalidRequestException.class);
     }
     builder.addReferencedPatients(referencePatientIds);
   }
 
-  Set<String> findPatientsInResource(RequestDetails request) {
+  /**
+   * Finds all patients in the content of a request.
+   *
+   * @param request that is expected to have a Bundle content.
+   * @return the {@link BundlePatients} that wraps all found patients.
+   * @throws InvalidRequestException for various reasons when unexpected content is encountered.
+   *     Callers are expected to deny access when this happens.
+   */
+  public Set<String> findPatientsInResource(RequestDetails request) {
     IBaseResource resource = createResourceFromRequest(request);
     if (!resource.fhirType().equals(request.getResourceName())) {
-      logger.error(
-          "The provided resource is different from what is on the path; stopping parsing.");
-      return Sets.newHashSet();
+      ExceptionUtil.throwRuntimeExceptionAndLog(
+          logger,
+          String.format(
+              "The provided resource %s is different from what is on the path: %s ",
+              resource.fhirType(), request.getResourceName()),
+          InvalidRequestException.class);
     }
     return parseReferencesForPatientIds(resource);
   }
 
   // A singleton instance of this class should be used, hence the constructor is private.
-  static synchronized PatientFinder getInstance(FhirContext fhirContext) {
+  static synchronized FhirParamUtil getInstance(FhirContext fhirContext) {
     if (instance != null) {
       return instance;
     }
@@ -295,7 +361,7 @@ public class PatientFinder {
     String pathsJson = readResource("patient_paths.json");
     Gson gson = new Gson();
     final Map<String, List<String>> patientFhirPaths = gson.fromJson(pathsJson, Map.class);
-    instance = new PatientFinder(fhirContext, patientFhirPaths, patientSearchParams);
+    instance = new FhirParamUtil(fhirContext, patientFhirPaths, patientSearchParams, true);
     return instance;
   }
 

@@ -25,6 +25,7 @@ import ca.uhn.fhir.model.primitive.IdDt;
 import ca.uhn.fhir.rest.api.RequestTypeEnum;
 import ca.uhn.fhir.rest.api.server.RequestDetails;
 import ca.uhn.fhir.rest.server.RestfulServer;
+import ca.uhn.fhir.rest.server.exceptions.InvalidRequestException;
 import com.auth0.jwt.interfaces.Claim;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import com.google.common.collect.Maps;
@@ -90,16 +91,16 @@ public abstract class AccessCheckerTestBase {
     assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
   }
 
-  @Test
+  @Test(expected = InvalidRequestException.class)
   public void canAccessDirectResourceNotAuthorized() {
     // Query: GET /Observation/a-random-id
     when(requestMock.getResourceName()).thenReturn("Observation");
     when(requestMock.getId()).thenReturn(new IdDt("a-random-id"));
     AccessChecker testInstance = getInstance(serverMock);
-    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
+    testInstance.checkAccess(requestMock).canAccess();
   }
 
-  @Test
+  @Test(expected = InvalidRequestException.class)
   public void canAccessDirectResourceWithParamNotAuthorized() {
     // Query: GET /Observation/a-random-id?subject=PATIENT_AUTHORIZED
     when(requestMock.getResourceName()).thenReturn("Observation");
@@ -109,7 +110,7 @@ public abstract class AccessCheckerTestBase {
     params.put("subject", new String[] {PATIENT_AUTHORIZED});
     lenient().when(requestMock.getParameters()).thenReturn(params);
     AccessChecker testInstance = getInstance(serverMock);
-    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
+    testInstance.checkAccess(requestMock).canAccess();
   }
 
   @Test
@@ -123,12 +124,12 @@ public abstract class AccessCheckerTestBase {
     assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(true));
   }
 
-  @Test
+  @Test(expected = InvalidRequestException.class)
   public void canAccessSearchQueryNotAuthorized() {
     // Query: GET /Observation?subject=PATIENT_AUTHORIZED
     when(requestMock.getResourceName()).thenReturn("Observation");
     AccessChecker testInstance = getInstance(serverMock);
-    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
+    testInstance.checkAccess(requestMock).canAccess();
   }
 
   @Test
@@ -193,7 +194,7 @@ public abstract class AccessCheckerTestBase {
     assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
   }
 
-  @Test
+  @Test(expected = InvalidRequestException.class)
   public void canAccessPostWrongQueryPath() throws IOException {
     // Query: POST /Observation -d @test_obs.json
     when(requestMock.getResourceName()).thenReturn("Encounter");
@@ -202,7 +203,7 @@ public abstract class AccessCheckerTestBase {
     when(requestMock.loadRequestContents()).thenReturn(obsBytes);
     when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.POST);
     AccessChecker testInstance = getInstance(serverMock);
-    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
+    testInstance.checkAccess(requestMock).canAccess();
   }
 
   @Test
@@ -215,19 +216,69 @@ public abstract class AccessCheckerTestBase {
     assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
   }
 
-  @Test
+  @Test(expected = InvalidRequestException.class)
   public void canAccessBundleNonPatientResourcesNoPatientRefUnauthorized() throws IOException {
     // Query: POST / -d @bundle_transaction_no_patient_ref.json
     setUpFhirBundle("bundle_transaction_no_patient_ref.json");
     AccessChecker testInstance = getInstance(serverMock);
-    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
+    testInstance.checkAccess(requestMock).canAccess();
   }
 
-  @Test
+  @Test(expected = InvalidRequestException.class)
   public void canAccessBundleDeletePatient() throws IOException {
     // Query: POST / -d @bundle_transaction_delete.json
     setUpFhirBundle("bundle_transaction_delete.json");
     AccessChecker testInstance = getInstance(serverMock);
-    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
+    testInstance.checkAccess(requestMock).canAccess();
+  }
+
+  @Test(expected = InvalidRequestException.class)
+  public void canAccessBundleGetNullPatientUnauthorized() throws IOException {
+    setUpFhirBundle("bundle_transaction_get_multiple_with_null_patient.json");
+    AccessChecker testInstance = getInstance(serverMock);
+    testInstance.checkAccess(requestMock).canAccess();
+  }
+
+  @Test(expected = InvalidRequestException.class)
+  public void canAccessSearchChaining() {
+    when(requestMock.getResourceName()).thenReturn("Observation");
+    Map<String, String[]> params = Maps.newHashMap();
+    params.put("subject:Patient.name", new String[] {"random-name"});
+    when(requestMock.getParameters()).thenReturn(params);
+    AccessChecker testInstance = getInstance(serverMock);
+    testInstance.checkAccess(requestMock).canAccess();
+  }
+
+  @Test(expected = InvalidRequestException.class)
+  public void canAccessSearchReverseChaining() {
+    when(requestMock.getResourceName()).thenReturn("Observation");
+    Map<String, String[]> params = Maps.newHashMap();
+    params.put("subject", new String[] {PATIENT_AUTHORIZED});
+    params.put("_has", new String[] {"something"});
+    when(requestMock.getParameters()).thenReturn(params);
+    AccessChecker testInstance = getInstance(serverMock);
+    testInstance.checkAccess(requestMock).canAccess();
+  }
+
+  @Test(expected = InvalidRequestException.class)
+  public void canAccessSearchInclude() {
+    when(requestMock.getResourceName()).thenReturn("Observation");
+    Map<String, String[]> params = Maps.newHashMap();
+    params.put("subject", new String[] {PATIENT_AUTHORIZED});
+    params.put("_include", new String[] {"something"});
+    when(requestMock.getParameters()).thenReturn(params);
+    AccessChecker testInstance = getInstance(serverMock);
+    testInstance.checkAccess(requestMock).canAccess();
+  }
+
+  @Test(expected = InvalidRequestException.class)
+  public void canAccessSearchRevinclude() {
+    when(requestMock.getResourceName()).thenReturn("Observation");
+    Map<String, String[]> params = Maps.newHashMap();
+    params.put("subject", new String[] {PATIENT_AUTHORIZED});
+    params.put("_revinclude", new String[] {"something"});
+    when(requestMock.getParameters()).thenReturn(params);
+    AccessChecker testInstance = getInstance(serverMock);
+    testInstance.checkAccess(requestMock).canAccess();
   }
 }

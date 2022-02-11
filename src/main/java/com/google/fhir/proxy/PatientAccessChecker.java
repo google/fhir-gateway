@@ -36,18 +36,18 @@ public class PatientAccessChecker implements AccessChecker {
   private static final Logger logger = LoggerFactory.getLogger(PatientAccessChecker.class);
 
   private final String authorizedPatientId;
-  private final PatientFinder patientFinder;
+  private final FhirParamUtil fhirParamUtil;
 
-  private PatientAccessChecker(String authorizedPatientId, PatientFinder patientFinder) {
+  private PatientAccessChecker(String authorizedPatientId, FhirParamUtil fhirParamUtil) {
     Preconditions.checkNotNull(authorizedPatientId);
-    Preconditions.checkNotNull(patientFinder);
+    Preconditions.checkNotNull(fhirParamUtil);
     this.authorizedPatientId = authorizedPatientId;
-    this.patientFinder = patientFinder;
+    this.fhirParamUtil = fhirParamUtil;
   }
 
   public AccessDecision checkAccess(RequestDetails requestDetails) {
     if (requestDetails.getRequestType() == RequestTypeEnum.GET) {
-      String patientId = patientFinder.findPatientId(requestDetails);
+      String patientId = fhirParamUtil.findPatientId(requestDetails);
       return new NoOpAccessDecision(authorizedPatientId.equals(patientId));
     }
     // This AccessChecker does not accept new patients.
@@ -76,7 +76,7 @@ public class PatientAccessChecker implements AccessChecker {
     // Creating/updating a non-Patient resource
     if (requestDetails.getRequestType() == RequestTypeEnum.PUT
         || requestDetails.getRequestType() == RequestTypeEnum.POST) {
-      Set<String> patientIds = patientFinder.findPatientsInResource(requestDetails);
+      Set<String> patientIds = fhirParamUtil.findPatientsInResource(requestDetails);
       return new NoOpAccessDecision(patientIds.contains(authorizedPatientId));
     }
 
@@ -85,7 +85,7 @@ public class PatientAccessChecker implements AccessChecker {
   }
 
   private AccessDecision checkBundleAccess(RequestDetails requestDetails) {
-    BundlePatients patientsInBundle = patientFinder.findPatientsInBundle(requestDetails);
+    BundlePatients patientsInBundle = fhirParamUtil.findPatientsInBundle(requestDetails);
 
     if (patientsInBundle == null || patientsInBundle.areTherePatientToCreate()) {
       return NoOpAccessDecision.accessDenied();
@@ -120,8 +120,8 @@ public class PatientAccessChecker implements AccessChecker {
     }
 
     public AccessChecker create(DecodedJWT jwt, HttpFhirClient httpFhirClient) {
-      PatientFinder patientFinder = PatientFinder.getInstance(fhirContext);
-      return new PatientAccessChecker(getPatientId(jwt), patientFinder);
+      FhirParamUtil fhirParamUtil = FhirParamUtil.getInstance(fhirContext);
+      return new PatientAccessChecker(getPatientId(jwt), fhirParamUtil);
     }
   }
 }

@@ -23,6 +23,7 @@ import static org.mockito.Mockito.when;
 import ca.uhn.fhir.model.primitive.IdDt;
 import ca.uhn.fhir.rest.api.RequestTypeEnum;
 import ca.uhn.fhir.rest.server.RestfulServer;
+import ca.uhn.fhir.rest.server.exceptions.InvalidRequestException;
 import com.google.common.io.Resources;
 import java.io.IOException;
 import java.net.URL;
@@ -156,13 +157,13 @@ public class ListAccessCheckerTest extends AccessCheckerTestBase {
     assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
   }
 
-  @Test
+  @Test(expected = InvalidRequestException.class)
   public void canAccessBundleGetPatientNonAuthorized() throws IOException {
     setUpFhirBundle("bundle_transaction_get_patient_unauthorized.json");
     setUpFhirListSearchMock(
         "item=Patient/db6e42c7-04fc-4d9d-b394-9ff33a41e178", "bundle_empty.json");
     AccessChecker testInstance = getInstance(serverMock);
-    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
+    testInstance.checkAccess(requestMock).canAccess();
   }
 
   @Test

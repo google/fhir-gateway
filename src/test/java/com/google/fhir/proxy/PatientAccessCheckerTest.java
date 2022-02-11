@@ -70,7 +70,7 @@ public class PatientAccessCheckerTest extends AccessCheckerTestBase {
   }
 
   @Test
-  public void canAccessBundleGetNonPatientUnAuthorized() throws IOException {
+  public void canAccessBundleGetNonPatientUnauthorized() throws IOException {
     setUpFhirBundle("bundle_transaction_get_non_patient_unauthorized.json");
     AccessChecker testInstance = getInstance(serverMock);
     assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));

@@ -22,7 +22,7 @@ import com.google.common.collect.Sets;
 import java.util.List;
 import java.util.Set;
 
-class BundlePatients {
+public class BundlePatients {
 
   private final ImmutableList<ImmutableSet<String>> referencedPatients;
   private final ImmutableSet<String> updatedPatients;
