@@ -68,6 +68,9 @@ public class BearerAuthorizationInterceptor {
   // See https://hl7.org/fhir/smart-app-launch/conformance.html#using-well-known
   @VisibleForTesting static final String WELL_KNOWN_CONF_PATH = ".well-known/smart-configuration";
 
+  // For fetching CapabilityStatement: https://www.hl7.org/fhir/http.html#capabilities
+  @VisibleForTesting static final String METADATA_PATH = "metadata";
+
   // TODO: Make this configurable or based on the given JWT; we should at least support some other
   // RSA* and ES* algorithms (requires ECDSA512 JWT algorithm).
   private static final String SIGN_ALGORITHM = "RS256";
@@ -189,8 +192,21 @@ public class BearerAuthorizationInterceptor {
     return verifiedJwt;
   }
 
-  private AccessDecision checkAuthorization(DecodedJWT jwt, RequestDetails requestDetails) {
-    AccessChecker accessChecker = accessFactory.create(jwt, fhirClient);
+  private AccessDecision checkAuthorization(RequestDetails requestDetails) {
+    if (METADATA_PATH.equals(requestDetails.getRequestPath())) {
+      // No further check is required; provide CapabilityStatement with security information.
+      // Note this is potentially an expensive resource to produce because of its size and parsings.
+      // Abuse of this open endpoint should be blocked by DDOS prevention means.
+      return CapabilityPostProcessor.getInstance(server.getFhirContext());
+    }
+    // Check the Bearer token to be a valid JWT with required claims.
+    String authHeader = requestDetails.getHeader("Authorization");
+    if (authHeader == null) {
+      ExceptionUtil.throwRuntimeExceptionAndLog(
+          logger, "No Authorization header provided!", AuthenticationException.class);
+    }
+    DecodedJWT decodedJwt = decodeAndVerifyBearerToken(authHeader);
+    AccessChecker accessChecker = accessFactory.create(decodedJwt, fhirClient);
     AccessDecision outcome = accessChecker.checkAccess(requestDetails);
     if (!outcome.canAccess()) {
       ExceptionUtil.throwRuntimeExceptionAndLog(
@@ -217,14 +233,7 @@ public class BearerAuthorizationInterceptor {
       serveWellKnown(servletDetails);
       return false;
     }
-    // Check the Bearer token to be a valid JWT with required claims.
-    String authHeader = requestDetails.getHeader("Authorization");
-    if (authHeader == null) {
-      ExceptionUtil.throwRuntimeExceptionAndLog(
-          logger, "No Authorization header provided!", AuthenticationException.class);
-    }
-    DecodedJWT decodedJwt = decodeAndVerifyBearerToken(authHeader);
-    AccessDecision outcome = checkAuthorization(decodedJwt, requestDetails);
+    AccessDecision outcome = checkAuthorization(requestDetails);
     logger.debug("Authorized request path " + requestPath);
     try {
       HttpResponse response = fhirClient.handleRequest(servletDetails);

@@ -17,12 +17,15 @@ package com.google.fhir.proxy;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.instanceOf;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
+import ca.uhn.fhir.context.FhirContext;
+import ca.uhn.fhir.parser.IParser;
 import ca.uhn.fhir.rest.api.server.IRestfulResponse;
 import ca.uhn.fhir.rest.server.RestfulServer;
 import ca.uhn.fhir.rest.server.exceptions.AuthenticationException;
@@ -50,7 +53,8 @@ import java.util.Base64;
 import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
 import org.apache.http.HttpResponse;
-import org.apache.http.entity.StringEntity;
+import org.hl7.fhir.instance.model.api.IBaseResource;
+import org.hl7.fhir.r4.model.CapabilityStatement;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -65,6 +69,8 @@ public class BearerAuthorizationInterceptorTest {
 
   private static final Logger logger =
       LoggerFactory.getLogger(BearerAuthorizationInterceptorTest.class);
+
+  private static final FhirContext fhirContext = FhirContext.forR4();
 
   private BearerAuthorizationInterceptor testInstance;
 
@@ -109,13 +115,10 @@ public class BearerAuthorizationInterceptorTest {
     HttpResponse responseMock = Mockito.mock(HttpResponse.class);
     when(serverMock.getServerBaseForRequest(any(ServletRequestDetails.class))).thenReturn(BASE_URL);
     when(httpUtilMock.getResourceOrFail(any(URI.class))).thenReturn(responseMock);
-    StringEntity testEntity =
-        new StringEntity(
-            String.format("{public_key: '%s'}", publicKeyBase64), StandardCharsets.UTF_8);
-    when(responseMock.getEntity()).thenReturn(testEntity);
+    TestUtil.setUpFhirResponseMock(
+        responseMock, String.format("{public_key: '%s'}", publicKeyBase64));
     when(fhirClientMock.handleRequest(requestMock)).thenReturn(fhirResponseMock);
     when(fhirClientMock.getBaseUrl()).thenReturn(FHIR_STORE);
-    TestUtil.setUpFhirResponseMock(fhirResponseMock, null);
     testInstance =
         new BearerAuthorizationInterceptor(
             fhirClientMock,
@@ -200,18 +203,21 @@ public class BearerAuthorizationInterceptorTest {
     assertThat(replaced, equalTo(writerStub.toString()));
   }
 
-  @Test
-  public void authorizeRequestWellKnow() throws IOException {
+  void noAuthRequestSetup(String requestPath) throws IOException {
     IRestfulResponse proxyResponseMock = Mockito.mock(IRestfulResponse.class);
     when(requestMock.getResponse()).thenReturn(proxyResponseMock);
     when(proxyResponseMock.getResponseWriter(
             anyInt(), anyString(), anyString(), anyString(), anyBoolean()))
         .thenReturn(writerStub);
+    when(requestMock.getRequestPath()).thenReturn(requestPath);
+  }
+
+  @Test
+  public void authorizeRequestWellKnow() throws IOException {
+    noAuthRequestSetup(BearerAuthorizationInterceptor.WELL_KNOWN_CONF_PATH);
     HttpServletRequest servletRequestMock = Mockito.mock(HttpServletRequest.class);
     when(requestMock.getServletRequest()).thenReturn(servletRequestMock);
     when(servletRequestMock.getProtocol()).thenReturn("HTTP/1.1");
-    when(requestMock.getRequestPath())
-        .thenReturn(BearerAuthorizationInterceptor.WELL_KNOWN_CONF_PATH);
     testInstance.authorizeRequest(requestMock);
     Gson gson = new Gson();
     Map<String, Object> jsonMap = Maps.newHashMap();
@@ -222,5 +228,23 @@ public class BearerAuthorizationInterceptorTest {
     assertThat(
         jsonMap.get("token_endpoint"),
         equalTo("https://token.issuer/protocol/openid-connect/token"));
+  }
+
+  @Test
+  public void authorizeRequestMetadata() throws IOException {
+    when(serverMock.getFhirContext()).thenReturn(fhirContext);
+    noAuthRequestSetup(BearerAuthorizationInterceptor.METADATA_PATH);
+    URL capabilityUrl = Resources.getResource("capability.json");
+    String capabilityJson = Resources.toString(capabilityUrl, StandardCharsets.UTF_8);
+    authorizeRequestCommonSetUp(capabilityJson);
+    testInstance.authorizeRequest(requestMock);
+    IParser parser = fhirContext.newJsonParser();
+    IBaseResource resource = parser.parseResource(writerStub.toString());
+    assertThat(resource, instanceOf(CapabilityStatement.class));
+    CapabilityStatement capability = (CapabilityStatement) resource;
+    assertThat(capability.getRest().get(0).getSecurity().getCors(), equalTo(true));
+    assertThat(
+        capability.getRest().get(0).getSecurity().getService().get(0).getCoding().get(0).getCode(),
+        equalTo("OAuth"));
   }
 }

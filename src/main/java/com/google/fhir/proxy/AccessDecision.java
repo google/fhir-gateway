@@ -29,8 +29,9 @@ public interface AccessDecision {
    * is finished successfully.
    *
    * @param response the response returned from the FHIR store
-   * @return the response entity content if this reads it; otherwise null. Note that we should try
-   *     to avoid reading the whole content in memory whenever it is not needed for post-processing.
+   * @return the response entity content (with any post-processing modifications needed) if this
+   *     reads the response; otherwise null. Note that we should try to avoid reading the whole
+   *     content in memory whenever it is not needed for post-processing.
    */
   String postProcess(HttpResponse response) throws IOException;
 }
