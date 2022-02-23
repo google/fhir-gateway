@@ -12,6 +12,5 @@ set -e
 # Code under repo is checked out to ${KOKORO_ARTIFACTS_DIR}/git.
 # The final directory name in this path is determined by the scm name specified
 # in the job configuration.
-export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
 cd "${KOKORO_ARTIFACTS_DIR}/git/fhir-proxy"
 ./build.sh
