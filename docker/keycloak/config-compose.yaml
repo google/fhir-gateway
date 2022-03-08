@@ -1,0 +1,90 @@
+#  Copyright 2021-2022 Google LLC
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#        http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+
+# This is for easy creation and setup of a test Keycloak instance that can
+# support both a list based access control and a single-patient based
+# SMART-on-FHIR app (in two separate realms).
+#
+# The Keycloak instance uses port 9080 for http and 9443 for https traffic by
+# default (configurable through environment variables, see below). Note
+# there is no valid certificate set for this instance and hence it should never
+# be used in production.
+#
+# The relevant environment variables are (see `keycloak_setup.sh` for details
+# and `.env` file for default values):
+#
+# HTTP_PORT: the port on the host machine mapped to Keycloak's http port;
+#  default: 9080
+#
+# HTTPS_PORT: same as above for https; default: 9443
+#
+# KEYCLOAK_USER: the admin user for the Keycloak instance; default: "admin"
+#
+# KEYCLOAK_PASSWORD: the password for the admin user; default: "adminpass"
+#
+# TEST_REALM: the name of the realm for list based access; default: "test"
+#
+# TEST_USER: the username used for both realms; default: "testuser"
+#
+# TEST_PASS: the password for the test user; default: "testpass"
+#
+# SMART_REALM: if non-empty, it is the name of the SoF realm; leave this unset
+#  if SoF support is needed; note there is still a default SoF realm configured
+#  in this case which can be ignored; default: "test-smart"
+#
+# SMART_PATIENT_ID: the id of the Patient resource for the created user;
+#  default: "8eb95e44-627f-4899-9ea3-097d4f7be57b"
+
+version: "3.0"
+
+services:
+  keycloak:
+    image: quay.io/alvearie/smart-keycloak:latest
+    ports:
+    - "${HTTP_PORT}:8080"
+    - "${HTTPS_PORT}:8443"
+    environment:
+    - KEYCLOAK_USER
+    - KEYCLOAK_PASSWORD
+    healthcheck:
+      test: curl --fail http://localhost:8080/auth/realms/master
+      start_period: 35s
+      interval: 10s
+      retries: 5
+      timeout: 10s
+
+  smart-config:
+    image: alvearie/keycloak-config
+    depends_on:
+      keycloak:
+        condition: service_healthy
+    environment:
+    - KEYCLOAK_BASE_URL=http://keycloak:8080/auth
+    - KEYCLOAK_USER
+    - KEYCLOAK_PASSWORD
+    - KEYCLOAK_REALM=${SMART_REALM:-dummy-smart}
+
+  proxy-config:
+    image: gcr.io/fhir-sdk/keycloak-config:latest
+    depends_on:
+      smart-config:
+        condition: service_completed_successfully
+    environment:
+    - KEYCLOAK_BASE_URL=http://keycloak:8080/auth
+    - KEYCLOAK_USER
+    - KEYCLOAK_PASSWORD
+    - TEST_REALM
+    - TEST_USER
+    - TEST_PASS
+    - SMART_REALM
