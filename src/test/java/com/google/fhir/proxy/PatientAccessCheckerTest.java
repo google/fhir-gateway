@@ -20,7 +20,7 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.mockito.Mockito.when;
 
 import ca.uhn.fhir.rest.api.RequestTypeEnum;
-import ca.uhn.fhir.rest.server.RestfulServer;
+import com.google.fhir.proxy.interfaces.AccessChecker;
 import java.io.IOException;
 import org.junit.Before;
 import org.junit.Test;
@@ -32,22 +32,22 @@ public class PatientAccessCheckerTest extends AccessCheckerTestBase {
 
   @Before
   public void setUp() throws IOException {
-    when(serverMock.getFhirContext()).thenReturn(fhirContext);
     when(jwtMock.getClaim(PatientAccessChecker.Factory.PATIENT_CLAIM)).thenReturn(claimMock);
     when(claimMock.asString()).thenReturn(PATIENT_AUTHORIZED);
     when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.GET);
   }
 
   @Override
-  protected AccessChecker getInstance(RestfulServer server) {
-    return new PatientAccessChecker.Factory(server).create(jwtMock, null);
+  protected AccessChecker getInstance() {
+    return new PatientAccessChecker.Factory()
+        .create(jwtMock, null, fhirContext, PatientFinderImp.getInstance(fhirContext));
   }
 
   @Test
   public void canAccessPostPatient() {
     when(requestMock.getResourceName()).thenReturn("Patient");
     when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.POST);
-    AccessChecker testInstance = getInstance(serverMock);
+    AccessChecker testInstance = getInstance();
     assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
   }
 
@@ -56,7 +56,7 @@ public class PatientAccessCheckerTest extends AccessCheckerTestBase {
     when(requestMock.getResourceName()).thenReturn("Patient");
     when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.PUT);
     when(requestMock.getId()).thenReturn(PATIENT_AUTHORIZED_ID);
-    AccessChecker testInstance = getInstance(serverMock);
+    AccessChecker testInstance = getInstance();
     assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(true));
   }
 
@@ -65,21 +65,21 @@ public class PatientAccessCheckerTest extends AccessCheckerTestBase {
     when(requestMock.getResourceName()).thenReturn("Patient");
     when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.PUT);
     when(requestMock.getId()).thenReturn(PATIENT_NON_AUTHORIZED_ID);
-    AccessChecker testInstance = getInstance(serverMock);
+    AccessChecker testInstance = getInstance();
     assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
   }
 
   @Test
   public void canAccessBundleGetNonPatientUnauthorized() throws IOException {
     setUpFhirBundle("bundle_transaction_get_non_patient_unauthorized.json");
-    AccessChecker testInstance = getInstance(serverMock);
+    AccessChecker testInstance = getInstance();
     assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
   }
 
   @Test
   public void canAccessBundlePostPatientUnAuthorized() throws IOException {
     setUpFhirBundle("bundle_transaction_post_patient.json");
-    AccessChecker testInstance = getInstance(serverMock);
+    AccessChecker testInstance = getInstance();
     assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
   }
 }

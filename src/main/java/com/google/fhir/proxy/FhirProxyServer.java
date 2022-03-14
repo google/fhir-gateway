@@ -19,6 +19,7 @@ import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.rest.api.Constants;
 import ca.uhn.fhir.rest.server.RestfulServer;
 import ca.uhn.fhir.rest.server.interceptor.CorsInterceptor;
+import com.google.fhir.proxy.interfaces.AccessCheckerFactory;
 import java.io.IOException;
 import java.util.ArrayList;
 import javax.servlet.ServletException;
@@ -84,11 +85,11 @@ public class FhirProxyServer extends RestfulServer {
     String accessCheckerType = System.getenv(ACCESS_CHECKER_ENV);
     if (LIST_ACCESS_CHECKER.equals(accessCheckerType)) {
       logger.info(String.format("Access-checker is '%s'", accessCheckerType));
-      return new ListAccessChecker.Factory(this);
+      return new ListAccessChecker.Factory();
     }
     if (PATIENT_ACCESS_CHECKER.equals(accessCheckerType)) {
       logger.info(String.format("Access-checker is '%s'", accessCheckerType));
-      return new PatientAccessChecker.Factory(this);
+      return new PatientAccessChecker.Factory();
     }
     if (PERMISSIVE_ACCESS_CHECKER.equals(accessCheckerType) && isDevMode()) {
       logger.warn(

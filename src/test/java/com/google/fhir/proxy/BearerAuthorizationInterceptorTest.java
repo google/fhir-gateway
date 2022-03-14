@@ -114,6 +114,7 @@ public class BearerAuthorizationInterceptorTest {
     String publicKeyBase64 = generateKeyPairAndEncode();
     HttpResponse responseMock = Mockito.mock(HttpResponse.class);
     when(serverMock.getServerBaseForRequest(any(ServletRequestDetails.class))).thenReturn(BASE_URL);
+    when(serverMock.getFhirContext()).thenReturn(fhirContext);
     when(httpUtilMock.getResourceOrFail(any(URI.class))).thenReturn(responseMock);
     TestUtil.setUpFhirResponseMock(
         responseMock, String.format("{public_key: '%s'}", publicKeyBase64));
@@ -232,7 +233,6 @@ public class BearerAuthorizationInterceptorTest {
 
   @Test
   public void authorizeRequestMetadata() throws IOException {
-    when(serverMock.getFhirContext()).thenReturn(fhirContext);
     noAuthRequestSetup(BearerAuthorizationInterceptor.METADATA_PATH);
     URL capabilityUrl = Resources.getResource("capability.json");
     String capabilityJson = Resources.toString(capabilityUrl, StandardCharsets.UTF_8);

@@ -19,6 +19,7 @@ import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
 import com.google.common.base.Preconditions;
 import com.google.common.io.CharStreams;
+import com.google.fhir.proxy.interfaces.AccessDecision;
 import java.io.IOException;
 import org.apache.http.HttpResponse;
 import org.hl7.fhir.instance.model.api.IBaseResource;

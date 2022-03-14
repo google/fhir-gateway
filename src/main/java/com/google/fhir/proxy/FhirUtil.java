@@ -17,8 +17,8 @@ package com.google.fhir.proxy;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
-import ca.uhn.fhir.rest.api.server.RequestDetails;
 import com.google.common.base.Preconditions;
+import com.google.fhir.proxy.interfaces.RequestDetailsReader;
 import java.io.IOException;
 import javax.annotation.Nullable;
 import org.apache.http.HttpResponse;
@@ -32,7 +32,7 @@ public class FhirUtil {
     return type.name().equals(resourceType);
   }
 
-  static String getIdOrNull(RequestDetails requestDetails) {
+  static String getIdOrNull(RequestDetailsReader requestDetails) {
     if (requestDetails.getId() == null) {
       return null;
     }

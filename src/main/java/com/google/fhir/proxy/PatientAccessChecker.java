@@ -17,12 +17,15 @@ package com.google.fhir.proxy;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.rest.api.RequestTypeEnum;
-import ca.uhn.fhir.rest.api.server.RequestDetails;
-import ca.uhn.fhir.rest.server.RestfulServer;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
+import com.google.fhir.proxy.interfaces.AccessChecker;
+import com.google.fhir.proxy.interfaces.AccessCheckerFactory;
+import com.google.fhir.proxy.interfaces.AccessDecision;
+import com.google.fhir.proxy.interfaces.PatientFinder;
+import com.google.fhir.proxy.interfaces.RequestDetailsReader;
 import java.util.Set;
 import org.hl7.fhir.r4.model.ResourceType;
 import org.slf4j.Logger;
@@ -36,17 +39,17 @@ public class PatientAccessChecker implements AccessChecker {
   private static final Logger logger = LoggerFactory.getLogger(PatientAccessChecker.class);
 
   private final String authorizedPatientId;
-  private final FhirParamUtil fhirParamUtil;
+  private final PatientFinder patientFinder;
 
-  private PatientAccessChecker(String authorizedPatientId, FhirParamUtil fhirParamUtil) {
+  private PatientAccessChecker(String authorizedPatientId, PatientFinder patientFinder) {
     Preconditions.checkNotNull(authorizedPatientId);
-    Preconditions.checkNotNull(fhirParamUtil);
+    Preconditions.checkNotNull(patientFinder);
     this.authorizedPatientId = authorizedPatientId;
-    this.fhirParamUtil = fhirParamUtil;
+    this.patientFinder = patientFinder;
   }
 
   @Override
-  public AccessDecision checkAccess(RequestDetails requestDetails) {
+  public AccessDecision checkAccess(RequestDetailsReader requestDetails) {
 
     // For a Bundle requestDetails.getResourceName() returns null
     if (requestDetails.getRequestType() == RequestTypeEnum.POST
@@ -67,21 +70,21 @@ public class PatientAccessChecker implements AccessChecker {
     }
   }
 
-  private AccessDecision processGet(RequestDetails requestDetails) {
-    String patientId = fhirParamUtil.findPatientId(requestDetails);
+  private AccessDecision processGet(RequestDetailsReader requestDetails) {
+    String patientId = patientFinder.findPatientFromParams(requestDetails);
     return new NoOpAccessDecision(authorizedPatientId.equals(patientId));
   }
 
-  private AccessDecision processPost(RequestDetails requestDetails) {
+  private AccessDecision processPost(RequestDetailsReader requestDetails) {
     // This AccessChecker does not accept new patients.
     if (FhirUtil.isSameResourceType(requestDetails.getResourceName(), ResourceType.Patient)) {
       return NoOpAccessDecision.accessDenied();
     }
-    Set<String> patientIds = fhirParamUtil.findPatientsInResource(requestDetails);
+    Set<String> patientIds = patientFinder.findPatientsInResource(requestDetails);
     return new NoOpAccessDecision(patientIds.contains(authorizedPatientId));
   }
 
-  private AccessDecision processPut(RequestDetails requestDetails) {
+  private AccessDecision processPut(RequestDetailsReader requestDetails) {
     if (FhirUtil.isSameResourceType(requestDetails.getResourceName(), ResourceType.Patient)) {
       String patientId = FhirUtil.getIdOrNull(requestDetails);
       if (patientId == null) {
@@ -91,12 +94,12 @@ public class PatientAccessChecker implements AccessChecker {
       }
       return new NoOpAccessDecision(authorizedPatientId.equals(patientId));
     }
-    Set<String> patientIds = fhirParamUtil.findPatientsInResource(requestDetails);
+    Set<String> patientIds = patientFinder.findPatientsInResource(requestDetails);
     return new NoOpAccessDecision(patientIds.contains(authorizedPatientId));
   }
 
-  private AccessDecision processBundle(RequestDetails requestDetails) {
-    BundlePatients patientsInBundle = fhirParamUtil.findPatientsInBundle(requestDetails);
+  private AccessDecision processBundle(RequestDetailsReader requestDetails) {
+    BundlePatients patientsInBundle = patientFinder.findPatientsInBundle(requestDetails);
 
     if (patientsInBundle == null || patientsInBundle.areTherePatientToCreate()) {
       return NoOpAccessDecision.accessDenied();
@@ -119,20 +122,17 @@ public class PatientAccessChecker implements AccessChecker {
 
     @VisibleForTesting static final String PATIENT_CLAIM = "patient_id";
 
-    private final FhirContext fhirContext;
-
-    Factory(RestfulServer server) {
-      this.fhirContext = server.getFhirContext();
-    }
-
     private String getPatientId(DecodedJWT jwt) {
       // TODO do some sanity checks on the `patientId` (b/207737513).
       return JwtUtil.getClaimOrDie(jwt, PATIENT_CLAIM);
     }
 
-    public AccessChecker create(DecodedJWT jwt, HttpFhirClient httpFhirClient) {
-      FhirParamUtil fhirParamUtil = FhirParamUtil.getInstance(fhirContext);
-      return new PatientAccessChecker(getPatientId(jwt), fhirParamUtil);
+    public AccessChecker create(
+        DecodedJWT jwt,
+        HttpFhirClient httpFhirClient,
+        FhirContext fhirContext,
+        PatientFinder patientFinder) {
+      return new PatientAccessChecker(getPatientId(jwt), patientFinder);
     }
   }
 }

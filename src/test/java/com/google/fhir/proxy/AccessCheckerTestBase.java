@@ -23,13 +23,13 @@ import static org.mockito.Mockito.when;
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.model.primitive.IdDt;
 import ca.uhn.fhir.rest.api.RequestTypeEnum;
-import ca.uhn.fhir.rest.api.server.RequestDetails;
-import ca.uhn.fhir.rest.server.RestfulServer;
 import ca.uhn.fhir.rest.server.exceptions.InvalidRequestException;
 import com.auth0.jwt.interfaces.Claim;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import com.google.common.collect.Maps;
 import com.google.common.io.Resources;
+import com.google.fhir.proxy.interfaces.AccessChecker;
+import com.google.fhir.proxy.interfaces.RequestDetailsReader;
 import java.io.IOException;
 import java.net.URL;
 import java.util.Map;
@@ -46,19 +46,17 @@ public abstract class AccessCheckerTestBase {
   static final IdDt PATIENT_AUTHORIZED_ID = new IdDt("Patient", PATIENT_AUTHORIZED);
   static final IdDt PATIENT_NON_AUTHORIZED_ID = new IdDt("Patient", PATIENT_NON_AUTHORIZED);
 
-  @Mock protected RestfulServer serverMock;
-
   @Mock protected DecodedJWT jwtMock;
 
   @Mock protected Claim claimMock;
 
   // TODO consider making a real request object from a URL string to avoid over-mocking.
-  @Mock protected RequestDetails requestMock;
+  @Mock protected RequestDetailsReader requestMock;
 
   // Note this is an expensive class to instantiate, so we only do this once for all tests.
   protected static final FhirContext fhirContext = FhirContext.forR4();
 
-  protected abstract AccessChecker getInstance(RestfulServer server);
+  protected abstract AccessChecker getInstance();
 
   void setUpFhirBundle(String filename) throws IOException {
     when(requestMock.getResourceName()).thenReturn(null);
@@ -70,7 +68,7 @@ public abstract class AccessCheckerTestBase {
 
   @Test
   public void createTest() {
-    AccessChecker testInstance = getInstance(serverMock);
+    AccessChecker testInstance = getInstance();
   }
 
   @Test
@@ -78,7 +76,7 @@ public abstract class AccessCheckerTestBase {
     // Query: GET /Patient/PATIENT_AUTHORIZED_ID
     when(requestMock.getResourceName()).thenReturn("Patient");
     when(requestMock.getId()).thenReturn(PATIENT_AUTHORIZED_ID);
-    AccessChecker testInstance = getInstance(serverMock);
+    AccessChecker testInstance = getInstance();
     assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(true));
   }
 
@@ -87,7 +85,7 @@ public abstract class AccessCheckerTestBase {
     // Query: GET /Patient/PATIENT_NON_AUTHORIZED_ID
     when(requestMock.getResourceName()).thenReturn("Patient");
     when(requestMock.getId()).thenReturn(PATIENT_NON_AUTHORIZED_ID);
-    AccessChecker testInstance = getInstance(serverMock);
+    AccessChecker testInstance = getInstance();
     assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
   }
 
@@ -96,7 +94,7 @@ public abstract class AccessCheckerTestBase {
     // Query: GET /Observation/a-random-id
     when(requestMock.getResourceName()).thenReturn("Observation");
     when(requestMock.getId()).thenReturn(new IdDt("a-random-id"));
-    AccessChecker testInstance = getInstance(serverMock);
+    AccessChecker testInstance = getInstance();
     testInstance.checkAccess(requestMock).canAccess();
   }
 
@@ -109,7 +107,7 @@ public abstract class AccessCheckerTestBase {
     Map<String, String[]> params = Maps.newHashMap();
     params.put("subject", new String[] {PATIENT_AUTHORIZED});
     lenient().when(requestMock.getParameters()).thenReturn(params);
-    AccessChecker testInstance = getInstance(serverMock);
+    AccessChecker testInstance = getInstance();
     testInstance.checkAccess(requestMock).canAccess();
   }
 
@@ -120,7 +118,7 @@ public abstract class AccessCheckerTestBase {
     Map<String, String[]> params = Maps.newHashMap();
     params.put("subject", new String[] {PATIENT_AUTHORIZED});
     when(requestMock.getParameters()).thenReturn(params);
-    AccessChecker testInstance = getInstance(serverMock);
+    AccessChecker testInstance = getInstance();
     assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(true));
   }
 
@@ -128,7 +126,7 @@ public abstract class AccessCheckerTestBase {
   public void canAccessSearchQueryNotAuthorized() {
     // Query: GET /Observation?subject=PATIENT_AUTHORIZED
     when(requestMock.getResourceName()).thenReturn("Observation");
-    AccessChecker testInstance = getInstance(serverMock);
+    AccessChecker testInstance = getInstance();
     testInstance.checkAccess(requestMock).canAccess();
   }
 
@@ -140,7 +138,7 @@ public abstract class AccessCheckerTestBase {
     byte[] obsBytes = Resources.toByteArray(listUrl);
     when(requestMock.loadRequestContents()).thenReturn(obsBytes);
     when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.PUT);
-    AccessChecker testInstance = getInstance(serverMock);
+    AccessChecker testInstance = getInstance();
     assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(true));
   }
 
@@ -152,7 +150,7 @@ public abstract class AccessCheckerTestBase {
     byte[] obsBytes = Resources.toByteArray(listUrl);
     when(requestMock.loadRequestContents()).thenReturn(obsBytes);
     when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.PUT);
-    AccessChecker testInstance = getInstance(serverMock);
+    AccessChecker testInstance = getInstance();
     assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
   }
 
@@ -164,7 +162,7 @@ public abstract class AccessCheckerTestBase {
     byte[] obsBytes = Resources.toByteArray(listUrl);
     when(requestMock.loadRequestContents()).thenReturn(obsBytes);
     when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.POST);
-    AccessChecker testInstance = getInstance(serverMock);
+    AccessChecker testInstance = getInstance();
     assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(true));
   }
 
@@ -178,7 +176,7 @@ public abstract class AccessCheckerTestBase {
     byte[] obsBytes = Resources.toByteArray(listUrl);
     when(requestMock.loadRequestContents()).thenReturn(obsBytes);
     when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.POST);
-    AccessChecker testInstance = getInstance(serverMock);
+    AccessChecker testInstance = getInstance();
     assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(true));
   }
 
@@ -190,7 +188,7 @@ public abstract class AccessCheckerTestBase {
     byte[] obsBytes = Resources.toByteArray(listUrl);
     when(requestMock.loadRequestContents()).thenReturn(obsBytes);
     when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.POST);
-    AccessChecker testInstance = getInstance(serverMock);
+    AccessChecker testInstance = getInstance();
     assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
   }
 
@@ -202,7 +200,7 @@ public abstract class AccessCheckerTestBase {
     byte[] obsBytes = Resources.toByteArray(listUrl);
     when(requestMock.loadRequestContents()).thenReturn(obsBytes);
     when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.POST);
-    AccessChecker testInstance = getInstance(serverMock);
+    AccessChecker testInstance = getInstance();
     testInstance.checkAccess(requestMock).canAccess();
   }
 
@@ -212,7 +210,7 @@ public abstract class AccessCheckerTestBase {
     when(requestMock.getResourceName()).thenReturn("Patient");
     when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.PUT);
     when(requestMock.getId()).thenReturn(null);
-    AccessChecker testInstance = getInstance(serverMock);
+    AccessChecker testInstance = getInstance();
     assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
   }
 
@@ -220,7 +218,7 @@ public abstract class AccessCheckerTestBase {
   public void canAccessBundleNonPatientResourcesNoPatientRefUnauthorized() throws IOException {
     // Query: POST / -d @bundle_transaction_no_patient_ref.json
     setUpFhirBundle("bundle_transaction_no_patient_ref.json");
-    AccessChecker testInstance = getInstance(serverMock);
+    AccessChecker testInstance = getInstance();
     testInstance.checkAccess(requestMock).canAccess();
   }
 
@@ -228,14 +226,14 @@ public abstract class AccessCheckerTestBase {
   public void canAccessBundleDeletePatient() throws IOException {
     // Query: POST / -d @bundle_transaction_delete.json
     setUpFhirBundle("bundle_transaction_delete.json");
-    AccessChecker testInstance = getInstance(serverMock);
+    AccessChecker testInstance = getInstance();
     testInstance.checkAccess(requestMock).canAccess();
   }
 
   @Test(expected = InvalidRequestException.class)
   public void canAccessBundleGetNullPatientUnauthorized() throws IOException {
     setUpFhirBundle("bundle_transaction_get_multiple_with_null_patient.json");
-    AccessChecker testInstance = getInstance(serverMock);
+    AccessChecker testInstance = getInstance();
     testInstance.checkAccess(requestMock).canAccess();
   }
 
@@ -245,7 +243,7 @@ public abstract class AccessCheckerTestBase {
     Map<String, String[]> params = Maps.newHashMap();
     params.put("subject:Patient.name", new String[] {"random-name"});
     when(requestMock.getParameters()).thenReturn(params);
-    AccessChecker testInstance = getInstance(serverMock);
+    AccessChecker testInstance = getInstance();
     testInstance.checkAccess(requestMock).canAccess();
   }
 
@@ -256,7 +254,7 @@ public abstract class AccessCheckerTestBase {
     params.put("subject", new String[] {PATIENT_AUTHORIZED});
     params.put("_has", new String[] {"something"});
     when(requestMock.getParameters()).thenReturn(params);
-    AccessChecker testInstance = getInstance(serverMock);
+    AccessChecker testInstance = getInstance();
     testInstance.checkAccess(requestMock).canAccess();
   }
 
@@ -267,7 +265,7 @@ public abstract class AccessCheckerTestBase {
     params.put("subject", new String[] {PATIENT_AUTHORIZED});
     params.put("_include", new String[] {"something"});
     when(requestMock.getParameters()).thenReturn(params);
-    AccessChecker testInstance = getInstance(serverMock);
+    AccessChecker testInstance = getInstance();
     testInstance.checkAccess(requestMock).canAccess();
   }
 
@@ -278,7 +276,7 @@ public abstract class AccessCheckerTestBase {
     params.put("subject", new String[] {PATIENT_AUTHORIZED});
     params.put("_revinclude", new String[] {"something"});
     when(requestMock.getParameters()).thenReturn(params);
-    AccessChecker testInstance = getInstance(serverMock);
+    AccessChecker testInstance = getInstance();
     testInstance.checkAccess(requestMock).canAccess();
   }
 }

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.google.fhir.proxy;
+package com.google.fhir.proxy.interfaces;
 
 import java.io.IOException;
 import org.apache.http.HttpResponse;

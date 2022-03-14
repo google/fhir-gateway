@@ -17,13 +17,16 @@ package com.google.fhir.proxy;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.rest.api.RequestTypeEnum;
-import ca.uhn.fhir.rest.api.server.RequestDetails;
-import ca.uhn.fhir.rest.server.RestfulServer;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Sets;
 import com.google.fhir.proxy.BundlePatients.BundlePatientsBuilder;
+import com.google.fhir.proxy.interfaces.AccessChecker;
+import com.google.fhir.proxy.interfaces.AccessCheckerFactory;
+import com.google.fhir.proxy.interfaces.AccessDecision;
+import com.google.fhir.proxy.interfaces.PatientFinder;
+import com.google.fhir.proxy.interfaces.RequestDetailsReader;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.Objects;
@@ -46,17 +49,17 @@ public class ListAccessChecker implements AccessChecker {
   private final FhirContext fhirContext;
   private final HttpFhirClient httpFhirClient;
   private final String patientListId;
-  private final FhirParamUtil fhirParamUtil;
+  private final PatientFinder patientFinder;
 
   private ListAccessChecker(
       HttpFhirClient httpFhirClient,
       String patientListId,
       FhirContext fhirContext,
-      FhirParamUtil fhirParamUtil) {
+      PatientFinder patientFinder) {
     this.fhirContext = fhirContext;
     this.httpFhirClient = httpFhirClient;
     this.patientListId = patientListId;
-    this.fhirParamUtil = fhirParamUtil;
+    this.patientFinder = patientFinder;
   }
 
   /**
@@ -131,7 +134,7 @@ public class ListAccessChecker implements AccessChecker {
    * @return true iff patient is in the patient-list associated to the current user.
    */
   @Override
-  public AccessDecision checkAccess(RequestDetails requestDetails) {
+  public AccessDecision checkAccess(RequestDetailsReader requestDetails) {
     try {
       // For a Bundle requestDetails.getResourceName() returns null
       if (requestDetails.getRequestType() == RequestTypeEnum.POST
@@ -156,7 +159,7 @@ public class ListAccessChecker implements AccessChecker {
     }
   }
 
-  private AccessDecision processGet(RequestDetails requestDetails) {
+  private AccessDecision processGet(RequestDetailsReader requestDetails) {
     // There should be a patient id in search params; the param name is based on the resource.
     if (FhirUtil.isSameResourceType(requestDetails.getResourceName(), ResourceType.List)) {
       if (patientListId.equals(FhirUtil.getIdOrNull(requestDetails))) {
@@ -164,21 +167,21 @@ public class ListAccessChecker implements AccessChecker {
       }
       return NoOpAccessDecision.accessDenied();
     }
-    String patientId = fhirParamUtil.findPatientId(requestDetails);
+    String patientId = patientFinder.findPatientFromParams(requestDetails);
     return new NoOpAccessDecision(serverListIncludesAnyPatient(Sets.newHashSet(patientId)));
   }
 
-  private AccessDecision processPost(RequestDetails requestDetails) {
+  private AccessDecision processPost(RequestDetailsReader requestDetails) {
     // We have decided to let clients add new patients while understanding its security risks.
     if (FhirUtil.isSameResourceType(requestDetails.getResourceName(), ResourceType.Patient)) {
       return AccessGrantedAndUpdateList.forPatientResource(
           patientListId, httpFhirClient, fhirContext);
     }
-    Set<String> patientIds = fhirParamUtil.findPatientsInResource(requestDetails);
+    Set<String> patientIds = patientFinder.findPatientsInResource(requestDetails);
     return new NoOpAccessDecision(serverListIncludesAnyPatient(patientIds));
   }
 
-  private AccessDecision processPut(RequestDetails requestDetails) throws IOException {
+  private AccessDecision processPut(RequestDetailsReader requestDetails) throws IOException {
     if (FhirUtil.isSameResourceType(requestDetails.getResourceName(), ResourceType.Patient)) {
       String patientId = FhirUtil.getIdOrNull(requestDetails);
       if (patientId == null) {
@@ -193,11 +196,11 @@ public class ListAccessChecker implements AccessChecker {
       return AccessGrantedAndUpdateList.forPatientResource(
           patientListId, httpFhirClient, fhirContext);
     }
-    Set<String> patientIds = fhirParamUtil.findPatientsInResource(requestDetails);
+    Set<String> patientIds = patientFinder.findPatientsInResource(requestDetails);
     return new NoOpAccessDecision(serverListIncludesAnyPatient(patientIds));
   }
 
-  private AccessDecision processBundle(RequestDetails requestDetails) throws IOException {
+  private AccessDecision processBundle(RequestDetailsReader requestDetails) throws IOException {
     BundlePatients patientRequestsInBundle = createBundlePatients(requestDetails);
 
     if (patientRequestsInBundle == null) {
@@ -221,8 +224,9 @@ public class ListAccessChecker implements AccessChecker {
   }
 
   @Nullable
-  private BundlePatients createBundlePatients(RequestDetails requestDetails) throws IOException {
-    BundlePatients patientsInBundleUnfiltered = fhirParamUtil.findPatientsInBundle(requestDetails);
+  private BundlePatients createBundlePatients(RequestDetailsReader requestDetails)
+      throws IOException {
+    BundlePatients patientsInBundleUnfiltered = patientFinder.findPatientsInBundle(requestDetails);
 
     if (patientsInBundleUnfiltered == null) {
       return null;
@@ -280,22 +284,19 @@ public class ListAccessChecker implements AccessChecker {
 
     @VisibleForTesting static final String PATIENT_LIST_CLAIM = "patient_list";
 
-    private final FhirContext fhirContext;
-
-    public Factory(RestfulServer server) {
-      this.fhirContext = server.getFhirContext();
-    }
-
     private String getListId(DecodedJWT jwt) {
       // TODO do some sanity checks on the `patientListId` (b/207737513).
       return JwtUtil.getClaimOrDie(jwt, PATIENT_LIST_CLAIM);
     }
 
     @Override
-    public AccessChecker create(DecodedJWT jwt, HttpFhirClient httpFhirClient) {
+    public AccessChecker create(
+        DecodedJWT jwt,
+        HttpFhirClient httpFhirClient,
+        FhirContext fhirContext,
+        PatientFinder patientFinder) {
       String patientListId = getListId(jwt);
-      FhirParamUtil fhirParamUtil = FhirParamUtil.getInstance(fhirContext);
-      return new ListAccessChecker(httpFhirClient, patientListId, fhirContext, fhirParamUtil);
+      return new ListAccessChecker(httpFhirClient, patientListId, fhirContext, patientFinder);
     }
   }
 }

@@ -20,6 +20,7 @@ import ca.uhn.fhir.parser.IParser;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Sets;
 import com.google.common.io.CharStreams;
+import com.google.fhir.proxy.interfaces.AccessDecision;
 import java.io.IOException;
 import java.util.Set;
 import org.apache.http.HttpResponse;

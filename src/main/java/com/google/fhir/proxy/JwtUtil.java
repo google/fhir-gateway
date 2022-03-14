@@ -15,7 +15,7 @@
  */
 package com.google.fhir.proxy;
 
-import ca.uhn.fhir.rest.server.exceptions.ForbiddenOperationException;
+import ca.uhn.fhir.rest.server.exceptions.AuthenticationException;
 import com.auth0.jwt.interfaces.Claim;
 import com.auth0.jwt.interfaces.DecodedJWT;
 
@@ -23,7 +23,7 @@ public class JwtUtil {
   static String getClaimOrDie(DecodedJWT jwt, String claimName) {
     Claim claim = jwt.getClaim(claimName);
     if (claim.asString() == null) {
-      throw new ForbiddenOperationException(
+      throw new AuthenticationException(
           String.format("The provided token has no %s claim!", claimName));
     }
     return claim.asString();

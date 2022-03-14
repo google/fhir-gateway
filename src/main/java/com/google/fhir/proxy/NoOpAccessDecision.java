@@ -15,6 +15,7 @@
  */
 package com.google.fhir.proxy;
 
+import com.google.fhir.proxy.interfaces.AccessDecision;
 import org.apache.http.HttpResponse;
 
 public class NoOpAccessDecision implements AccessDecision {

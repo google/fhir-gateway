@@ -15,19 +15,28 @@
  */
 package com.google.fhir.proxy;
 
-import ca.uhn.fhir.rest.api.server.RequestDetails;
+import ca.uhn.fhir.context.FhirContext;
 import com.auth0.jwt.interfaces.DecodedJWT;
+import com.google.fhir.proxy.interfaces.AccessChecker;
+import com.google.fhir.proxy.interfaces.AccessCheckerFactory;
+import com.google.fhir.proxy.interfaces.AccessDecision;
+import com.google.fhir.proxy.interfaces.PatientFinder;
+import com.google.fhir.proxy.interfaces.RequestDetailsReader;
 
 /** This is the default no-op access-checker which lets all requests to go through. */
 public class PermissiveAccessChecker implements AccessChecker {
   @Override
-  public AccessDecision checkAccess(RequestDetails requestDetails) {
+  public AccessDecision checkAccess(RequestDetailsReader requestDetails) {
     return new NoOpAccessDecision(true);
   }
 
   public static class Factory implements AccessCheckerFactory {
     @Override
-    public AccessChecker create(DecodedJWT jwt, HttpFhirClient httpFhirClient) {
+    public AccessChecker create(
+        DecodedJWT jwt,
+        HttpFhirClient httpFhirClient,
+        FhirContext fhirContext,
+        PatientFinder patientFinder) {
       return new PermissiveAccessChecker();
     }
   }

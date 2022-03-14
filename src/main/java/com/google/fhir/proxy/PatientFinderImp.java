@@ -19,7 +19,6 @@ import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.fhirpath.IFhirPath;
 import ca.uhn.fhir.model.primitive.IdDt;
 import ca.uhn.fhir.parser.IParser;
-import ca.uhn.fhir.rest.api.server.RequestDetails;
 import ca.uhn.fhir.rest.server.exceptions.ForbiddenOperationException;
 import ca.uhn.fhir.rest.server.exceptions.InvalidRequestException;
 import ca.uhn.fhir.util.UrlUtil;
@@ -30,6 +29,8 @@ import com.google.common.collect.Sets;
 import com.google.common.io.Resources;
 import com.google.fhir.proxy.BundlePatients.BundlePatientsBuilder;
 import com.google.fhir.proxy.BundlePatients.BundlePatientsBuilder.PatientOp;
+import com.google.fhir.proxy.interfaces.PatientFinder;
+import com.google.fhir.proxy.interfaces.RequestDetailsReader;
 import com.google.gson.Gson;
 import java.io.IOException;
 import java.net.URI;
@@ -58,9 +59,9 @@ import org.hl7.fhir.r4.model.StringType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class FhirParamUtil {
-  private static final Logger logger = LoggerFactory.getLogger(FhirParamUtil.class);
-  private static FhirParamUtil instance = null;
+public final class PatientFinderImp implements PatientFinder {
+  private static final Logger logger = LoggerFactory.getLogger(PatientFinderImp.class);
+  private static PatientFinderImp instance = null;
 
   private final IFhirPath fhirPath;
   private final Map<String, List<String>> patientSearchParams;
@@ -69,7 +70,7 @@ public class FhirParamUtil {
   private final boolean blockJoins;
 
   // This is supposed to be instantiated with getInstance method only.
-  private FhirParamUtil(
+  private PatientFinderImp(
       FhirContext fhirContext,
       Map<String, List<String>> patientFhirPaths,
       Map<String, List<String>> patientSearchParams,
@@ -155,16 +156,8 @@ public class FhirParamUtil {
     return patientId;
   }
 
-  /**
-   * Finds the patient ID from the query if it is a direct Patient fetch (i.e., /Patient/PID) or the
-   * patient can be inferred from query parameters.
-   *
-   * @param requestDetails the request
-   * @return the id of the patient that this query belongs to or null if it cannot be inferred.
-   * @throws InvalidRequestException for various reasons when unexpected parameters or content are
-   *     encountered. Callers are expected to deny access when this happens.
-   */
-  public String findPatientId(RequestDetails requestDetails) {
+  @Override
+  public String findPatientFromParams(RequestDetailsReader requestDetails) {
     String resourceName = requestDetails.getResourceName();
     if (resourceName == null) {
       ExceptionUtil.throwRuntimeExceptionAndLog(
@@ -199,7 +192,7 @@ public class FhirParamUtil {
     return patientId;
   }
 
-  private IBaseResource createResourceFromRequest(RequestDetails request) {
+  private IBaseResource createResourceFromRequest(RequestDetailsReader request) {
     byte[] requestContentBytes = request.loadRequestContents();
     Charset charset = request.getCharset();
     if (charset == null) {
@@ -230,15 +223,8 @@ public class FhirParamUtil {
     return patientIds;
   }
 
-  /**
-   * Find all patients referenced or updated in a Bundle.
-   *
-   * @param request that is expected to have a Bundle content.
-   * @return the {@link BundlePatients} that wraps all found patients.
-   * @throws InvalidRequestException for various reasons when unexpected content is encountered.
-   *     Callers are expected to deny access when this happens.
-   */
-  public BundlePatients findPatientsInBundle(RequestDetails request) {
+  @Override
+  public BundlePatients findPatientsInBundle(RequestDetailsReader request) {
     IBaseResource resource = createResourceFromRequest(request);
     if (!(resource instanceof Bundle)) {
       ExceptionUtil.throwRuntimeExceptionAndLog(
@@ -319,15 +305,8 @@ public class FhirParamUtil {
     builder.addReferencedPatients(referencePatientIds);
   }
 
-  /**
-   * Finds all patients in the content of a request.
-   *
-   * @param request that is expected to have a Bundle content.
-   * @return the {@link BundlePatients} that wraps all found patients.
-   * @throws InvalidRequestException for various reasons when unexpected content is encountered.
-   *     Callers are expected to deny access when this happens.
-   */
-  public Set<String> findPatientsInResource(RequestDetails request) {
+  @Override
+  public Set<String> findPatientsInResource(RequestDetailsReader request) {
     IBaseResource resource = createResourceFromRequest(request);
     if (!resource.fhirType().equals(request.getResourceName())) {
       ExceptionUtil.throwRuntimeExceptionAndLog(
@@ -341,7 +320,7 @@ public class FhirParamUtil {
   }
 
   // A singleton instance of this class should be used, hence the constructor is private.
-  static synchronized FhirParamUtil getInstance(FhirContext fhirContext) {
+  static synchronized PatientFinderImp getInstance(FhirContext fhirContext) {
     if (instance != null) {
       return instance;
     }
@@ -361,7 +340,7 @@ public class FhirParamUtil {
     String pathsJson = readResource("patient_paths.json");
     Gson gson = new Gson();
     final Map<String, List<String>> patientFhirPaths = gson.fromJson(pathsJson, Map.class);
-    instance = new FhirParamUtil(fhirContext, patientFhirPaths, patientSearchParams, true);
+    instance = new PatientFinderImp(fhirContext, patientFhirPaths, patientSearchParams, true);
     return instance;
   }
 

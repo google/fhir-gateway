@@ -13,11 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.google.fhir.proxy;
+package com.google.fhir.proxy.interfaces;
 
-import ca.uhn.fhir.rest.api.server.RequestDetails;
-
-interface AccessChecker {
+public interface AccessChecker {
 
   /**
    * Checks whether the current user has access to requested resources.
@@ -25,5 +23,5 @@ interface AccessChecker {
    * @param requestDetails details about the resource and operation requested
    * @return the outcome of access checking
    */
-  AccessDecision checkAccess(RequestDetails requestDetails);
+  AccessDecision checkAccess(RequestDetailsReader requestDetails);
 }

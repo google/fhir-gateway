@@ -15,6 +15,7 @@
  */
 package com.google.fhir.proxy;
 
+import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.interceptor.api.Hook;
 import ca.uhn.fhir.interceptor.api.Interceptor;
 import ca.uhn.fhir.interceptor.api.Pointcut;
@@ -32,6 +33,9 @@ import com.auth0.jwt.interfaces.DecodedJWT;
 import com.auth0.jwt.interfaces.Verification;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.fhir.proxy.interfaces.AccessChecker;
+import com.google.fhir.proxy.interfaces.AccessCheckerFactory;
+import com.google.fhir.proxy.interfaces.AccessDecision;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import java.io.IOException;
@@ -206,8 +210,15 @@ public class BearerAuthorizationInterceptor {
           logger, "No Authorization header provided!", AuthenticationException.class);
     }
     DecodedJWT decodedJwt = decodeAndVerifyBearerToken(authHeader);
-    AccessChecker accessChecker = accessFactory.create(decodedJwt, fhirClient);
-    AccessDecision outcome = accessChecker.checkAccess(requestDetails);
+    FhirContext fhirContext = server.getFhirContext();
+    PatientFinderImp patientFinder = PatientFinderImp.getInstance(fhirContext);
+    AccessChecker accessChecker =
+        accessFactory.create(decodedJwt, fhirClient, fhirContext, patientFinder);
+    if (accessChecker == null) {
+      ExceptionUtil.throwRuntimeExceptionAndLog(
+          logger, "Cannot create an AccessChecker!", AuthenticationException.class);
+    }
+    AccessDecision outcome = accessChecker.checkAccess(new RequestDetailsToReader(requestDetails));
     if (!outcome.canAccess()) {
       ExceptionUtil.throwRuntimeExceptionAndLog(
           logger,
