@@ -45,19 +45,44 @@ public class PatientAccessChecker implements AccessChecker {
     this.fhirParamUtil = fhirParamUtil;
   }
 
+  @Override
   public AccessDecision checkAccess(RequestDetails requestDetails) {
-    if (requestDetails.getRequestType() == RequestTypeEnum.GET) {
-      String patientId = fhirParamUtil.findPatientId(requestDetails);
-      return new NoOpAccessDecision(authorizedPatientId.equals(patientId));
-    }
-    // This AccessChecker does not accept new patients.
+
+    // For a Bundle requestDetails.getResourceName() returns null
     if (requestDetails.getRequestType() == RequestTypeEnum.POST
-        && FhirUtil.isSameResourceType(requestDetails.getResourceName(), ResourceType.Patient)) {
+        && requestDetails.getResourceName() == null) {
+      return processBundle(requestDetails);
+    }
+
+    switch (requestDetails.getRequestType()) {
+      case GET:
+        return processGet(requestDetails);
+      case POST:
+        return processPost(requestDetails);
+      case PUT:
+        return processPut(requestDetails);
+      default:
+        // TODO handle other cases like PATCH and DELETE
+        return NoOpAccessDecision.accessDenied();
+    }
+  }
+
+  private AccessDecision processGet(RequestDetails requestDetails) {
+    String patientId = fhirParamUtil.findPatientId(requestDetails);
+    return new NoOpAccessDecision(authorizedPatientId.equals(patientId));
+  }
+
+  private AccessDecision processPost(RequestDetails requestDetails) {
+    // This AccessChecker does not accept new patients.
+    if (FhirUtil.isSameResourceType(requestDetails.getResourceName(), ResourceType.Patient)) {
       return NoOpAccessDecision.accessDenied();
     }
-    // Updating Patient resource
-    if (requestDetails.getRequestType() == RequestTypeEnum.PUT
-        && FhirUtil.isSameResourceType(requestDetails.getResourceName(), ResourceType.Patient)) {
+    Set<String> patientIds = fhirParamUtil.findPatientsInResource(requestDetails);
+    return new NoOpAccessDecision(patientIds.contains(authorizedPatientId));
+  }
+
+  private AccessDecision processPut(RequestDetails requestDetails) {
+    if (FhirUtil.isSameResourceType(requestDetails.getResourceName(), ResourceType.Patient)) {
       String patientId = FhirUtil.getIdOrNull(requestDetails);
       if (patientId == null) {
         // This is an invalid PUT request; note we are not supporting "conditional updates".
@@ -66,25 +91,11 @@ public class PatientAccessChecker implements AccessChecker {
       }
       return new NoOpAccessDecision(authorizedPatientId.equals(patientId));
     }
-
-    // For a Bundle requestDetails.getResourceName() returns null
-    if (requestDetails.getRequestType() == RequestTypeEnum.POST
-        && requestDetails.getResourceName() == null) {
-      return checkBundleAccess(requestDetails);
-    }
-
-    // Creating/updating a non-Patient resource
-    if (requestDetails.getRequestType() == RequestTypeEnum.PUT
-        || requestDetails.getRequestType() == RequestTypeEnum.POST) {
-      Set<String> patientIds = fhirParamUtil.findPatientsInResource(requestDetails);
-      return new NoOpAccessDecision(patientIds.contains(authorizedPatientId));
-    }
-
-    // TODO handle other cases like PATCH and DELETE
-    return NoOpAccessDecision.accessDenied();
+    Set<String> patientIds = fhirParamUtil.findPatientsInResource(requestDetails);
+    return new NoOpAccessDecision(patientIds.contains(authorizedPatientId));
   }
 
-  private AccessDecision checkBundleAccess(RequestDetails requestDetails) {
+  private AccessDecision processBundle(RequestDetails requestDetails) {
     BundlePatients patientsInBundle = fhirParamUtil.findPatientsInBundle(requestDetails);
 
     if (patientsInBundle == null || patientsInBundle.areTherePatientToCreate()) {

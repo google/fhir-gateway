@@ -132,62 +132,72 @@ public class ListAccessChecker implements AccessChecker {
    */
   @Override
   public AccessDecision checkAccess(RequestDetails requestDetails) {
-    if (requestDetails.getRequestType() == RequestTypeEnum.GET) {
-      // There should be a patient id in search params; the param name is based on the resource.
-      if (FhirUtil.isSameResourceType(requestDetails.getResourceName(), ResourceType.List)) {
-        if (patientListId.equals(FhirUtil.getIdOrNull(requestDetails))) {
-          return NoOpAccessDecision.accessGranted();
-        }
-        return NoOpAccessDecision.accessDenied();
-      }
-      String patientId = fhirParamUtil.findPatientId(requestDetails);
-      return new NoOpAccessDecision(serverListIncludesAnyPatient(Sets.newHashSet(patientId)));
-    }
-    // We have decided to let clients add new patients while understanding its security risks.
-    if (requestDetails.getRequestType() == RequestTypeEnum.POST
-        && FhirUtil.isSameResourceType(requestDetails.getResourceName(), ResourceType.Patient)) {
-      return AccessGrantedAndUpdateList.forPatientResource(
-          patientListId, httpFhirClient, fhirContext);
-    }
-
     try {
       // For a Bundle requestDetails.getResourceName() returns null
       if (requestDetails.getRequestType() == RequestTypeEnum.POST
           && requestDetails.getResourceName() == null) {
-        return checkBundleAccess(requestDetails);
+        return processBundle(requestDetails);
       }
-
-      if (requestDetails.getRequestType() == RequestTypeEnum.PUT
-          && FhirUtil.isSameResourceType(requestDetails.getResourceName(), ResourceType.Patient)) {
-        String patientId = FhirUtil.getIdOrNull(requestDetails);
-        if (patientId == null) {
-          // This is an invalid PUT request; note we are not supporting "conditional updates".
-          logger.error("The provided Patient resource has no ID; denying access!");
+      // Process non-Bundle requests
+      switch (requestDetails.getRequestType()) {
+        case GET:
+          return processGet(requestDetails);
+        case POST:
+          return processPost(requestDetails);
+        case PUT:
+          return processPut(requestDetails);
+        default:
+          // TODO decide what to do for other methods like PATCH and DELETE.
           return NoOpAccessDecision.accessDenied();
-        }
-        if (patientsExist(patientId)) {
-          logger.info("Updating existing patient {}, so no need to update access list.", patientId);
-          return new NoOpAccessDecision(serverListIncludesAnyPatient(Sets.newHashSet(patientId)));
-        }
-        return AccessGrantedAndUpdateList.forPatientResource(
-            patientListId, httpFhirClient, fhirContext);
       }
-
-      // Creating/updating a non-Patient resource
-      if (requestDetails.getRequestType() == RequestTypeEnum.PUT
-          || requestDetails.getRequestType() == RequestTypeEnum.POST) {
-        Set<String> patientIds = fhirParamUtil.findPatientsInResource(requestDetails);
-        return new NoOpAccessDecision(serverListIncludesAnyPatient(patientIds));
-      }
-      // TODO decide what to do for other methods like PATCH and DELETE.
-      return NoOpAccessDecision.accessDenied();
     } catch (IOException e) {
       logger.error("Exception while checking patient existence; denying access! ", e);
       return NoOpAccessDecision.accessDenied();
     }
   }
 
-  private AccessDecision checkBundleAccess(RequestDetails requestDetails) throws IOException {
+  private AccessDecision processGet(RequestDetails requestDetails) {
+    // There should be a patient id in search params; the param name is based on the resource.
+    if (FhirUtil.isSameResourceType(requestDetails.getResourceName(), ResourceType.List)) {
+      if (patientListId.equals(FhirUtil.getIdOrNull(requestDetails))) {
+        return NoOpAccessDecision.accessGranted();
+      }
+      return NoOpAccessDecision.accessDenied();
+    }
+    String patientId = fhirParamUtil.findPatientId(requestDetails);
+    return new NoOpAccessDecision(serverListIncludesAnyPatient(Sets.newHashSet(patientId)));
+  }
+
+  private AccessDecision processPost(RequestDetails requestDetails) {
+    // We have decided to let clients add new patients while understanding its security risks.
+    if (FhirUtil.isSameResourceType(requestDetails.getResourceName(), ResourceType.Patient)) {
+      return AccessGrantedAndUpdateList.forPatientResource(
+          patientListId, httpFhirClient, fhirContext);
+    }
+    Set<String> patientIds = fhirParamUtil.findPatientsInResource(requestDetails);
+    return new NoOpAccessDecision(serverListIncludesAnyPatient(patientIds));
+  }
+
+  private AccessDecision processPut(RequestDetails requestDetails) throws IOException {
+    if (FhirUtil.isSameResourceType(requestDetails.getResourceName(), ResourceType.Patient)) {
+      String patientId = FhirUtil.getIdOrNull(requestDetails);
+      if (patientId == null) {
+        // This is an invalid PUT request; note we are not supporting "conditional updates".
+        logger.error("The provided Patient resource has no ID; denying access!");
+        return NoOpAccessDecision.accessDenied();
+      }
+      if (patientsExist(patientId)) {
+        logger.info("Updating existing patient {}, so no need to update access list.", patientId);
+        return new NoOpAccessDecision(serverListIncludesAnyPatient(Sets.newHashSet(patientId)));
+      }
+      return AccessGrantedAndUpdateList.forPatientResource(
+          patientListId, httpFhirClient, fhirContext);
+    }
+    Set<String> patientIds = fhirParamUtil.findPatientsInResource(requestDetails);
+    return new NoOpAccessDecision(serverListIncludesAnyPatient(patientIds));
+  }
+
+  private AccessDecision processBundle(RequestDetails requestDetails) throws IOException {
     BundlePatients patientRequestsInBundle = createBundlePatients(requestDetails);
 
     if (patientRequestsInBundle == null) {
