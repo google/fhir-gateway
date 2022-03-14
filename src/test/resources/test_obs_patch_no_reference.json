@@ -1,0 +1,14 @@
+[
+  {
+    "op": "replace",
+    "path": "/subject",
+    "value": {
+      "type": "Patient"
+    }
+  },
+  {
+    "op":    "replace",
+    "path":  "/status",
+    "value": "final"
+  }
+]

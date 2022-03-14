@@ -58,6 +58,7 @@ import org.hl7.fhir.r4.model.CapabilityStatement;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.Answers;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnitRunner;
@@ -90,7 +91,8 @@ public class BearerAuthorizationInterceptorTest {
 
   @Mock private ServletRequestDetails requestMock;
 
-  @Mock private HttpResponse fhirResponseMock;
+  @Mock(answer = Answers.RETURNS_DEEP_STUBS)
+  private HttpResponse fhirResponseMock;
 
   private final Writer writerStub = new StringWriter();
 
@@ -112,7 +114,7 @@ public class BearerAuthorizationInterceptorTest {
   @Before
   public void setUp() throws IOException {
     String publicKeyBase64 = generateKeyPairAndEncode();
-    HttpResponse responseMock = Mockito.mock(HttpResponse.class);
+    HttpResponse responseMock = Mockito.mock(HttpResponse.class, Answers.RETURNS_DEEP_STUBS);
     when(serverMock.getServerBaseForRequest(any(ServletRequestDetails.class))).thenReturn(BASE_URL);
     when(serverMock.getFhirContext()).thenReturn(fhirContext);
     when(httpUtilMock.getResourceOrFail(any(URI.class))).thenReturn(responseMock);

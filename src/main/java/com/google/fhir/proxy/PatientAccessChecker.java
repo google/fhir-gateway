@@ -21,12 +21,14 @@ import com.auth0.jwt.interfaces.DecodedJWT;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import com.google.fhir.proxy.interfaces.AccessChecker;
 import com.google.fhir.proxy.interfaces.AccessCheckerFactory;
 import com.google.fhir.proxy.interfaces.AccessDecision;
 import com.google.fhir.proxy.interfaces.PatientFinder;
 import com.google.fhir.proxy.interfaces.RequestDetailsReader;
 import java.util.Set;
+import org.hl7.fhir.r4.model.Bundle.HTTPVerb;
 import org.hl7.fhir.r4.model.ResourceType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -64,8 +66,10 @@ public class PatientAccessChecker implements AccessChecker {
         return processPost(requestDetails);
       case PUT:
         return processPut(requestDetails);
+      case PATCH:
+        return processPatch(requestDetails);
       default:
-        // TODO handle other cases like PATCH and DELETE
+        // TODO handle other cases like DELETE
         return NoOpAccessDecision.accessDenied();
     }
   }
@@ -86,16 +90,48 @@ public class PatientAccessChecker implements AccessChecker {
 
   private AccessDecision processPut(RequestDetailsReader requestDetails) {
     if (FhirUtil.isSameResourceType(requestDetails.getResourceName(), ResourceType.Patient)) {
-      String patientId = FhirUtil.getIdOrNull(requestDetails);
-      if (patientId == null) {
-        // This is an invalid PUT request; note we are not supporting "conditional updates".
-        logger.error("The provided Patient resource has no ID; denying access!");
-        return NoOpAccessDecision.accessDenied();
-      }
-      return new NoOpAccessDecision(authorizedPatientId.equals(patientId));
+      return checkPatientAccessInUpdate(requestDetails);
     }
-    Set<String> patientIds = patientFinder.findPatientsInResource(requestDetails);
+    return checkNonPatientAccessInUpdate(requestDetails, HTTPVerb.PUT);
+  }
+
+  private AccessDecision processPatch(RequestDetailsReader requestDetails) {
+    if (FhirUtil.isSameResourceType(requestDetails.getResourceName(), ResourceType.Patient)) {
+      return checkPatientAccessInUpdate(requestDetails);
+    }
+    return checkNonPatientAccessInUpdate(requestDetails, HTTPVerb.PATCH);
+  }
+
+  private AccessDecision checkNonPatientAccessInUpdate(
+      RequestDetailsReader requestDetails, HTTPVerb updateMethod) {
+    // We do not allow direct resource PUT/PATCH, so Patient ID must be returned
+    String patientId = patientFinder.findPatientFromParams(requestDetails);
+    if (!patientId.equals(authorizedPatientId)) {
+      return NoOpAccessDecision.accessDenied();
+    }
+
+    Set<String> patientIds = Sets.newHashSet();
+    if (updateMethod == HTTPVerb.PATCH) {
+      patientIds =
+          patientFinder.findPatientsInPatch(requestDetails, requestDetails.getResourceName());
+      if (patientIds.isEmpty()) {
+        return NoOpAccessDecision.accessGranted();
+      }
+    }
+    if (updateMethod == HTTPVerb.PUT) {
+      patientIds = patientFinder.findPatientsInResource(requestDetails);
+    }
     return new NoOpAccessDecision(patientIds.contains(authorizedPatientId));
+  }
+
+  private AccessDecision checkPatientAccessInUpdate(RequestDetailsReader requestDetails) {
+    String patientId = FhirUtil.getIdOrNull(requestDetails);
+    if (patientId == null) {
+      // This is an invalid PUT request; note we are not supporting "conditional updates".
+      logger.error("The provided Patient resource has no ID; denying access!");
+      return NoOpAccessDecision.accessDenied();
+    }
+    return new NoOpAccessDecision(authorizedPatientId.equals(patientId));
   }
 
   private AccessDecision processBundle(RequestDetailsReader requestDetails) {

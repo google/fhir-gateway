@@ -1,0 +1,22 @@
+[
+  {
+    "op": "replace",
+    "path": "/subject/reference",
+    "value": "Patient/be92a43f-de46-affa-b131-bbf9eea51140"
+  },
+  {
+    "op": "replace",
+    "path": "/subject/display",
+    "value": "MyName"
+  },
+  {
+    "op": "add",
+    "path": "/performer",
+    "value":[]
+  },
+  {
+    "op": "replace",
+    "path": "/valueQuantity/value",
+    "value": 30
+  }
+]

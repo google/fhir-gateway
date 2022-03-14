@@ -24,6 +24,7 @@ import org.apache.http.HttpResponse;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.Answers;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnitRunner;
 
@@ -34,7 +35,8 @@ public class AccessGrantedAndUpdateListTest {
 
   @Mock private HttpFhirClient httpFhirClientMock;
 
-  @Mock private HttpResponse responseMock;
+  @Mock(answer = Answers.RETURNS_DEEP_STUBS)
+  private HttpResponse responseMock;
 
   private static final FhirContext fhirContext = FhirContext.forR4();
 

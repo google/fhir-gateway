@@ -20,8 +20,11 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.mockito.Mockito.when;
 
 import ca.uhn.fhir.rest.api.RequestTypeEnum;
+import com.google.common.io.Resources;
 import com.google.fhir.proxy.interfaces.AccessChecker;
 import java.io.IOException;
+import java.net.URL;
+import java.util.Map;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -79,6 +82,21 @@ public class PatientAccessCheckerTest extends AccessCheckerTestBase {
   @Test
   public void canAccessBundlePostPatientUnAuthorized() throws IOException {
     setUpFhirBundle("bundle_transaction_post_patient.json");
+    AccessChecker testInstance = getInstance();
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
+  }
+
+  @Test
+  public void canAccessPatchObservationUnauthorizedPatient() throws IOException {
+    // Query: PATCH /Observation?subject=Patient/PATIENT_AUTHORIZED -d \
+    // @test_obs_patch_unauthorized_patient.json
+    when(requestMock.getResourceName()).thenReturn("Observation");
+    when(requestMock.getParameters())
+        .thenReturn(Map.of("subject", new String[] {"be92a43f-de46-affa-b131-bbf9eea51140"}));
+    URL listUrl = Resources.getResource("test_obs_patch_unauthorized_patient.json");
+    byte[] obsBytes = Resources.toByteArray(listUrl);
+    when(requestMock.loadRequestContents()).thenReturn(obsBytes);
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.PATCH);
     AccessChecker testInstance = getInstance();
     assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
   }

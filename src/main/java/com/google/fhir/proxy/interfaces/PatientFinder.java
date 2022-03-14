@@ -50,4 +50,15 @@ public interface PatientFinder {
    *     Callers are expected to deny access when this happens.
    */
   Set<String> findPatientsInResource(RequestDetailsReader request);
+
+  /**
+   * Finds all patients in the body of a patch request
+   *
+   * @param request that is expected to have a body with a patch
+   * @param resourceName the FHIR resource being patched
+   * @return the set of patient ids in the patch
+   * @throws InvalidRequestException for various reasons when unexpected content is encountered.
+   *     Callers are expected to deny access when this happens.
+   */
+  Set<String> findPatientsInPatch(RequestDetailsReader request, String resourceName);
 }

@@ -28,10 +28,12 @@ import com.google.fhir.proxy.interfaces.AccessChecker;
 import java.io.IOException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
 import org.apache.http.HttpResponse;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.Answers;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnitRunner;
@@ -49,7 +51,7 @@ public class ListAccessCheckerTest extends AccessCheckerTestBase {
       throws IOException {
     URL listUrl = Resources.getResource(resourceFileToReturn);
     String testListJson = Resources.toString(listUrl, StandardCharsets.UTF_8);
-    HttpResponse fhirResponseMock = Mockito.mock(HttpResponse.class);
+    HttpResponse fhirResponseMock = Mockito.mock(HttpResponse.class, Answers.RETURNS_DEEP_STUBS);
     when(httpFhirClientMock.getResource(
             String.format("/List?_id=%s&_elements=id&%s", TEST_LIST_ID, itemParam)))
         .thenReturn(fhirResponseMock);
@@ -60,7 +62,7 @@ public class ListAccessCheckerTest extends AccessCheckerTestBase {
       throws IOException {
     URL listUrl = Resources.getResource(resourceFileToReturn);
     String testListJson = Resources.toString(listUrl, StandardCharsets.UTF_8);
-    HttpResponse fhirResponseMock = Mockito.mock(HttpResponse.class);
+    HttpResponse fhirResponseMock = Mockito.mock(HttpResponse.class, Answers.RETURNS_DEEP_STUBS);
     doReturn(fhirResponseMock)
         .when(httpFhirClientMock)
         .getResource(String.format("/Patient?_id=%s&_elements=id", patientParam));
@@ -124,7 +126,7 @@ public class ListAccessCheckerTest extends AccessCheckerTestBase {
     when(requestMock.getId()).thenReturn(PATIENT_AUTHORIZED_ID);
     URL url = Resources.getResource("patient_id_search_single.json");
     String testJson = Resources.toString(url, StandardCharsets.UTF_8);
-    HttpResponse fhirResponseMock = Mockito.mock(HttpResponse.class);
+    HttpResponse fhirResponseMock = Mockito.mock(HttpResponse.class, Answers.RETURNS_DEEP_STUBS);
     TestUtil.setUpFhirResponseMock(fhirResponseMock, testJson);
     when(httpFhirClientMock.getResource(
             String.format("/Patient?_id=%s&_elements=id", PATIENT_AUTHORIZED)))
@@ -140,7 +142,7 @@ public class ListAccessCheckerTest extends AccessCheckerTestBase {
     when(requestMock.getId()).thenReturn(PATIENT_AUTHORIZED_ID);
     URL url = Resources.getResource("bundle_empty.json");
     String testJson = Resources.toString(url, StandardCharsets.UTF_8);
-    HttpResponse fhirResponseMock = Mockito.mock(HttpResponse.class);
+    HttpResponse fhirResponseMock = Mockito.mock(HttpResponse.class, Answers.RETURNS_DEEP_STUBS);
     TestUtil.setUpFhirResponseMock(fhirResponseMock, testJson);
     when(httpFhirClientMock.getResource(
             String.format("/Patient?_id=%s&_elements=id", PATIENT_AUTHORIZED)))
@@ -239,6 +241,23 @@ public class ListAccessCheckerTest extends AccessCheckerTestBase {
     setUpFhirBundle("bundle_transaction_post_patient.json");
     AccessChecker testInstance = getInstance();
     assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(true));
+  }
+
+  @Test
+  public void canAccessPatchObservationUnauthorizedPatient() throws IOException {
+    // Query: PATCH /Observation?subject=Patient/PATIENT_AUTHORIZED -d \
+    // @test_obs_patch_unauthorized_patient.json
+    when(requestMock.getResourceName()).thenReturn("Observation");
+    when(requestMock.getParameters())
+        .thenReturn(Map.of("subject", new String[] {"be92a43f-de46-affa-b131-bbf9eea51140"}));
+    URL listUrl = Resources.getResource("test_obs_patch_unauthorized_patient.json");
+    byte[] obsBytes = Resources.toByteArray(listUrl);
+    when(requestMock.loadRequestContents()).thenReturn(obsBytes);
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.PATCH);
+    AccessChecker testInstance = getInstance();
+    setUpFhirListSearchMock(
+        "item=Patient/michael,Patient/bob&item=Patient/" + PATIENT_AUTHORIZED, "bundle_empty.json");
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
   }
   // TODO add an Appointment POST
 }

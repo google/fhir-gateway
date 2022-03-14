@@ -1,0 +1,18 @@
+[
+  {
+    "op": "replace",
+    "path": "/subject/reference",
+    "value": "Patient/bob"
+  },{
+  "op": "add",
+  "path": "/performer",
+  "value":[]
+},
+  {
+    "op": "add",
+    "path" : "/performer/0",
+    "value" : {
+      "reference": "Patient/michael"
+    }
+  }
+]

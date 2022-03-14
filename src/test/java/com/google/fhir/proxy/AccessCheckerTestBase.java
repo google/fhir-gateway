@@ -132,8 +132,10 @@ public abstract class AccessCheckerTestBase {
 
   @Test
   public void canAccessPutObservation() throws IOException {
-    // Query: PUT /Observation -d @test_obs.json
+    // Query: PUT /Observation?subject=Patient/PATIENT_AUTHORIZED -d @test_obs.json
     when(requestMock.getResourceName()).thenReturn("Observation");
+    when(requestMock.getParameters())
+        .thenReturn(Map.of("subject", new String[] {"be92a43f-de46-affa-b131-bbf9eea51140"}));
     URL listUrl = Resources.getResource("test_obs.json");
     byte[] obsBytes = Resources.toByteArray(listUrl);
     when(requestMock.loadRequestContents()).thenReturn(obsBytes);
@@ -142,16 +144,70 @@ public abstract class AccessCheckerTestBase {
     assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(true));
   }
 
-  @Test
+  @Test(expected = InvalidRequestException.class)
   public void canAccessPutObservationUnauthorized() throws IOException {
     // Query: PUT /Observation -d @test_obs_unauthorized.json
     when(requestMock.getResourceName()).thenReturn("Observation");
-    URL listUrl = Resources.getResource("test_obs_unauthorized.json");
-    byte[] obsBytes = Resources.toByteArray(listUrl);
-    when(requestMock.loadRequestContents()).thenReturn(obsBytes);
     when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.PUT);
     AccessChecker testInstance = getInstance();
-    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
+    testInstance.checkAccess(requestMock).canAccess();
+  }
+
+  @Test
+  public void canAccessPatchObservation() throws IOException {
+    // Query: PATCH /Observation?subject=Patient/PATIENT_AUTHORIZED -d @test_obs_patch.json
+    when(requestMock.getResourceName()).thenReturn("Observation");
+    when(requestMock.getParameters())
+        .thenReturn(Map.of("subject", new String[] {"be92a43f-de46-affa-b131-bbf9eea51140"}));
+    URL listUrl = Resources.getResource("test_obs_patch.json");
+    byte[] obsBytes = Resources.toByteArray(listUrl);
+    when(requestMock.loadRequestContents()).thenReturn(obsBytes);
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.PATCH);
+    AccessChecker testInstance = getInstance();
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(true));
+  }
+
+  @Test(expected = InvalidRequestException.class)
+  public void canAccessPatchObservationInvalidOpRemove() throws IOException {
+    // Query: PATCH /Observation?subject=Patient/PATIENT_AUTHORIZED -d \
+    // @test_obs_patch_unauthorized_remove.json
+    when(requestMock.getResourceName()).thenReturn("Observation");
+    when(requestMock.getParameters())
+        .thenReturn(Map.of("subject", new String[] {"be92a43f-de46-affa-b131-bbf9eea51140"}));
+    URL listUrl = Resources.getResource("test_obs_patch_unauthorized_remove.json");
+    byte[] obsBytes = Resources.toByteArray(listUrl);
+    when(requestMock.loadRequestContents()).thenReturn(obsBytes);
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.PATCH);
+    AccessChecker testInstance = getInstance();
+    testInstance.checkAccess(requestMock).canAccess();
+  }
+
+  @Test
+  public void canAccessPatchObservationNoReferenceAuthorized() throws IOException {
+    // Query: PATCH /Observation?subject=ID -d @test_obs_patch_no_reference.json
+    when(requestMock.getResourceName()).thenReturn("Observation");
+    when(requestMock.getParameters())
+        .thenReturn(Map.of("subject", new String[] {PATIENT_AUTHORIZED}));
+    URL listUrl = Resources.getResource("test_obs_patch_no_reference.json");
+    byte[] obsBytes = Resources.toByteArray(listUrl);
+    when(requestMock.loadRequestContents()).thenReturn(obsBytes);
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.PATCH);
+    AccessChecker testInstance = getInstance();
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(true));
+  }
+
+  @Test(expected = InvalidRequestException.class)
+  public void canAccessPatchObservationNoPatientIdUnauthorized() throws IOException {
+    // Query: PATCH /Observation?subject=ID -d @test_obs_patch_unauthorized_no_patient_id.json
+    when(requestMock.getResourceName()).thenReturn("Observation");
+    when(requestMock.getParameters())
+        .thenReturn(Map.of("subject", new String[] {PATIENT_AUTHORIZED}));
+    URL listUrl = Resources.getResource("test_obs_patch_unauthorized_no_patient_id.json");
+    byte[] obsBytes = Resources.toByteArray(listUrl);
+    when(requestMock.loadRequestContents()).thenReturn(obsBytes);
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.PATCH);
+    AccessChecker testInstance = getInstance();
+    testInstance.checkAccess(requestMock).canAccess();
   }
 
   @Test
@@ -188,6 +244,20 @@ public abstract class AccessCheckerTestBase {
     byte[] obsBytes = Resources.toByteArray(listUrl);
     when(requestMock.loadRequestContents()).thenReturn(obsBytes);
     when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.POST);
+    AccessChecker testInstance = getInstance();
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
+  }
+
+  @Test
+  public void canAccessPutObservationNoSubjectUnauthorized() throws IOException {
+    // Query: PUT /Observation?subject=ID -d @test_obs_no_subject.json
+    when(requestMock.getResourceName()).thenReturn("Observation");
+    when(requestMock.getParameters())
+        .thenReturn(Map.of("subject", new String[] {PATIENT_AUTHORIZED}));
+    URL listUrl = Resources.getResource("test_obs_no_subject.json");
+    byte[] obsBytes = Resources.toByteArray(listUrl);
+    when(requestMock.loadRequestContents()).thenReturn(obsBytes);
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.PUT);
     AccessChecker testInstance = getInstance();
     assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
   }

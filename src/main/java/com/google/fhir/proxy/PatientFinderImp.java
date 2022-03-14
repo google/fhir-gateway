@@ -32,6 +32,10 @@ import com.google.fhir.proxy.BundlePatients.BundlePatientsBuilder.PatientOp;
 import com.google.fhir.proxy.interfaces.PatientFinder;
 import com.google.fhir.proxy.interfaces.RequestDetailsReader;
 import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -62,6 +66,11 @@ import org.slf4j.LoggerFactory;
 public final class PatientFinderImp implements PatientFinder {
   private static final Logger logger = LoggerFactory.getLogger(PatientFinderImp.class);
   private static PatientFinderImp instance = null;
+  private static final String PATCH_OPERATION = "op";
+  private static final String PATCH_OP_REPLACE = "replace";
+  private static final String PATCH_OP_ADD = "add";
+  private static final String PATCH_VALUE = "value";
+  private static final String PATCH_PATH = "path";
 
   private final IFhirPath fhirPath;
   private final Map<String, List<String>> patientSearchParams;
@@ -203,6 +212,16 @@ public final class PatientFinderImp implements PatientFinder {
     return jsonParser.parseResource(requestContent);
   }
 
+  private JsonArray createJsonArrayFromRequest(RequestDetailsReader request) {
+    byte[] requestContentBytes = request.loadRequestContents();
+    Charset charset = request.getCharset();
+    if (charset == null) {
+      charset = StandardCharsets.UTF_8;
+    }
+    String requestContent = new String(requestContentBytes, charset);
+    return JsonParser.parseString(requestContent).getAsJsonArray();
+  }
+
   private Set<String> parseReferencesForPatientIds(IBaseResource resource) {
     List<String> fhirPaths = patientFhirPaths.get(resource.fhirType());
     if (fhirPaths == null) {
@@ -269,6 +288,72 @@ public final class PatientFinderImp implements PatientFinder {
     return null;
   }
 
+  @Nullable
+  private String parsePatchForPatientId(JsonObject patch, String resourceName) {
+    if (patch.get(PATCH_PATH) == null || patch.get(PATCH_OPERATION) == null) {
+      ExceptionUtil.throwRuntimeExceptionAndLog(
+          logger, "Invalid patch!", InvalidRequestException.class);
+    }
+    List<String> fhirPaths = patientFhirPaths.get(resourceName);
+    if (fhirPaths == null) {
+      return null;
+    }
+    boolean containsPatientCompartment =
+        fhirPaths.stream()
+            .map(r -> String.format("/%s", r))
+            .anyMatch(patch.get(PATCH_PATH).getAsString()::startsWith);
+    if (!containsPatientCompartment) {
+      return null;
+    }
+
+    if (patch.get(PATCH_OPERATION).getAsString().equals(PATCH_OP_REPLACE)
+        || patch.get(PATCH_OPERATION).getAsString().equals(PATCH_OP_ADD)) {
+      JsonElement valueField = patch.get(PATCH_VALUE);
+
+      Reference reference = null;
+      if (valueField.isJsonArray() && !valueField.getAsJsonArray().isEmpty()) {
+        ExceptionUtil.throwRuntimeExceptionAndLog(
+            logger,
+            "non-empty JsonArray in 'value' for Patient Compartment is not supported!",
+            InvalidRequestException.class);
+      }
+
+      if (valueField.isJsonObject() && valueField.getAsJsonObject().has("reference")) {
+        reference = new Reference(valueField.getAsJsonObject().get("reference").getAsString());
+      }
+
+      if (valueField.isJsonPrimitive()
+          && patch.get(PATCH_PATH).getAsString().contains("/reference")) {
+        reference = new Reference(valueField.getAsString());
+      }
+
+      if (reference == null) {
+        return null;
+      }
+
+      if (!FhirUtil.isSameResourceType(
+          reference.getReferenceElement().getResourceType(), ResourceType.Patient)) {
+        ExceptionUtil.throwRuntimeExceptionAndLog(
+            logger, "Expected patient reference!", InvalidRequestException.class);
+      }
+
+      String patientId = reference.getReferenceElement().getIdPart();
+      if (patientId.isEmpty()) {
+        ExceptionUtil.throwRuntimeExceptionAndLog(
+            logger, "Expected patient id!", InvalidRequestException.class);
+      }
+      return patientId;
+    }
+
+    ExceptionUtil.throwRuntimeExceptionAndLog(
+        logger,
+        String.format(
+            "%s operation on Patient Compartment is not supported!",
+            patch.get(PATCH_OPERATION).getAsString()),
+        InvalidRequestException.class);
+    return null;
+  }
+
   private void processGet(BundleEntryComponent entryComponent, BundlePatientsBuilder builder)
       throws URISyntaxException {
     // Ignore body content and just look at request (b/217237806)
@@ -317,6 +402,20 @@ public final class PatientFinderImp implements PatientFinder {
           InvalidRequestException.class);
     }
     return parseReferencesForPatientIds(resource);
+  }
+
+  @Override
+  public Set<String> findPatientsInPatch(RequestDetailsReader request, String resourceName) {
+    JsonArray jsonArray = createJsonArrayFromRequest(request);
+    Set<String> patientIds = Sets.newHashSet();
+
+    for (JsonElement jsonElement : jsonArray) {
+      String patientId = parsePatchForPatientId(jsonElement.getAsJsonObject(), resourceName);
+      if (patientId != null) {
+        patientIds.add(patientId);
+      }
+    }
+    return patientIds;
   }
 
   // A singleton instance of this class should be used, hence the constructor is private.
