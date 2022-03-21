@@ -28,10 +28,12 @@ ENV PROXY_TO="https://healthcare.googleapis.com/v1alpha2/projects/fhir-sdk/locat
 ENV ACCESS_CHECKER="list"
 ENV RUN_MODE="PROD"
 
-COPY src ./src
-COPY resources ./resources
+COPY server/src ./server/src
+COPY server/pom.xml ./server/
+COPY plugins/src ./plugins/src
+COPY plugins/pom.xml ./plugins/
 COPY license-header.txt .
 COPY pom.xml .
 RUN mvn --batch-mode package
-# TODO: Make a standalone java app with the web container (jetty) embedded.
-ENTRYPOINT mvn jetty:run -Djetty.http.port=${PROXY_PORT} -Djetty.host=0.0.0.0
+ENTRYPOINT java -Dloader.path="plugins/target/plugins-0.0.1.jar" \
+  -jar server/target/server-0.0.1-exec.jar --server.port=${PROXY_PORT}

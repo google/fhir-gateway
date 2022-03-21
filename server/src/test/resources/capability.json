@@ -1,0 +1,82 @@
+{
+  "resourceType": "CapabilityStatement",
+  "id": "test",
+  "name": "modified from sample instance /metadata",
+  "status": "draft",
+  "date": "2022-02-18",
+  "publisher": "Google",
+  "description": "A CapabilityStatement for testing proxy functionality",
+  "kind": "instance",
+  "fhirVersion": "4.0.1",
+  "format": [
+    "json"
+  ],
+  "rest": [
+    {
+      "documentation": "Main FHIR endpoint for FHIR store fhir_r4_1M_a",
+      "interaction": [
+        {
+          "code": "batch"
+        },
+        {
+          "code": "transaction"
+        },
+        {
+          "code": "search-system"
+        }
+      ],
+      "mode": "server",
+      "operation": [
+        {
+          "definition": "OperationDefinition/Patient-everything",
+          "name": "everything"
+        },
+        {
+          "definition": "OperationDefinition/Observation-lastn",
+          "name": "lastn"
+        },
+        {
+          "definition": "OperationDefinition/ConceptMap-translate",
+          "name": "translate"
+        }
+      ],
+      "resource": [
+        {
+          "type": "Patient",
+          "conditionalCreate": false,
+          "conditionalDelete": "not-supported",
+          "conditionalRead": "full-support",
+          "conditionalUpdate": false,
+          "documentation": "Creating identities is not allowed if allow_create_update of the FHIR store is set to false.",
+          "interaction": [
+            {
+              "code": "read"
+            },
+            {
+              "code": "update"
+            },
+            {
+              "code": "delete"
+            },
+            {
+              "code": "create"
+            }
+          ],
+          "readHistory": true,
+          "searchInclude": [
+            "Patient.general-practitioner",
+            "Patient.link",
+            "Patient.organization"
+          ],
+          "searchParam": [
+            {
+              "definition": "http://hl7.org/fhir/SearchParameter/Patient-active",
+              "name": "active",
+              "type": "token"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

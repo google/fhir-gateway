@@ -2,70 +2,29 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <parent>
-    <groupId>org.springframework.boot</groupId>
-    <artifactId>spring-boot-starter-parent</artifactId>
-    <version>2.6.4</version>
-    <relativePath/>
-    <!-- lookup parent from repository -->
-  </parent>
-
   <groupId>com.google.fhir.proxy</groupId>
   <artifactId>fhir-proxy</artifactId>
   <version>0.0.1</version>
-  <packaging>jar</packaging>
+  <packaging>pom</packaging>
 
   <name>FHIR Access Proxy</name>
+  <modules>
+    <module>plugins</module>
+    <module>server</module>
+  </modules>
 
   <properties>
     <hapifhir_version>5.5.3</hapifhir_version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <spotless.version>2.17.4</spotless.version>
+    <root.basedir>${project.basedir}</root.basedir>
+    <maven.compiler.source>11</maven.compiler.source>
+    <maven.compiler.target>11</maven.compiler.target>
   </properties>
 
   <dependencies>
 
-    <!-- This dependency includes the core HAPI-FHIR classes -->
-    <dependency>
-      <groupId>ca.uhn.hapi.fhir</groupId>
-      <artifactId>hapi-fhir-base</artifactId>
-      <version>${hapifhir_version}</version>
-    </dependency>
-
-    <!-- This dependency includes the HAPI FHIR Server Framework -->
-    <dependency>
-      <groupId>ca.uhn.hapi.fhir</groupId>
-      <artifactId>hapi-fhir-server</artifactId>
-      <version>${hapifhir_version}</version>
-    </dependency>
-
-    <!-- At least one "structures" JAR must also be included -->
-    <dependency>
-      <groupId>ca.uhn.hapi.fhir</groupId>
-      <artifactId>hapi-fhir-structures-r4</artifactId>
-      <version>${hapifhir_version}</version>
-    </dependency>
-
-    <!-- Used for validation  -->
-    <dependency>
-      <groupId>ca.uhn.hapi.fhir</groupId>
-      <artifactId>hapi-fhir-validation-resources-r4</artifactId>
-      <version>${hapifhir_version}</version>
-    </dependency>
-
-    <!-- This is needed for CORS interceptor -->
-    <dependency>
-      <groupId>org.springframework</groupId>
-      <artifactId>spring-web</artifactId>
-      <version>5.3.14</version>
-      <exclusions>
-        <exclusion>
-          <groupId>commons-logging</groupId>
-          <artifactId>commons-logging</artifactId>
-        </exclusion>
-      </exclusions>
-    </dependency>
-
+    <!-- TODO consolidate between logback and log4j in Spring dependencies -->
     <!--
     HAPI-FHIR uses Logback for logging support. The logback library is included
     automatically by Maven as a part of the hapi-fhir-base dependency, but you
@@ -78,73 +37,11 @@
       <version>1.2.0</version>
     </dependency>
 
-    <!-- Needed for JEE/Servlet support -->
+    <!-- For Dependency Injection annotations -->
     <dependency>
-      <groupId>javax.servlet</groupId>
-      <artifactId>javax.servlet-api</artifactId>
-      <version>4.0.1</version>
-      <scope>provided</scope>
-    </dependency>
-
-    <!-- For Spring -->
-    <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-web</artifactId>
-    </dependency>
-
-    <!-- TODO add when needed after checking the implications!
-    <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-test</artifactId>
-      <scope>test</scope>
-    </dependency -->
-
-    <!-- For GCP APIs -->
-    <dependency>
-      <groupId>com.google.http-client</groupId>
-      <artifactId>google-http-client</artifactId>
-      <version>1.40.0</version>
-    </dependency>
-
-    <dependency>
-      <groupId>com.google.http-client</groupId>
-      <artifactId>google-http-client-gson</artifactId>
-      <version>1.40.0</version>
-    </dependency>
-
-    <dependency>
-      <groupId>com.google.auth</groupId>
-      <artifactId>google-auth-library-oauth2-http</artifactId>
-      <version>1.0.0</version>
-    </dependency>
-
-    <!-- JWT and token verification -->
-    <dependency>
-      <groupId>com.auth0</groupId>
-      <artifactId>java-jwt</artifactId>
-      <version>3.18.2</version>
-    </dependency>
-
-    <!-- These are needed for the FhirPath and FHIRPathEngine of HAPI.
-    These are "optional" dependencies for `hapi-fhir-structures-r4`. -->
-    <dependency>
-      <groupId>org.fhir</groupId>
-      <artifactId>ucum</artifactId>
-      <version>1.0.3</version>
-    </dependency>
-    <dependency>
-      <groupId>com.github.ben-manes.caffeine</groupId>
-      <artifactId>caffeine</artifactId>
-      <!-- 3.0.* version causes a UnsupportedOperationException in Jetty
-      annotation parsing stage! -->
-      <version>2.9.3</version>
-    </dependency>
-
-    <!-- Gson -->
-    <dependency>
-      <groupId>com.google.code.gson</groupId>
-      <artifactId>gson</artifactId>
-      <version>2.8.9</version>
+      <groupId>javax.inject</groupId>
+      <artifactId>javax.inject</artifactId>
+      <version>1</version>
     </dependency>
 
     <!-- Test deps -->
@@ -186,12 +83,6 @@
       </plugins>
     </pluginManagement>
     <plugins>
-      <!-- With this we can create a standalone executable JAR. -->
-      <plugin>
-        <groupId>org.springframework.boot</groupId>
-        <artifactId>spring-boot-maven-plugin</artifactId>
-      </plugin>
-
       <plugin>
         <groupId>com.diffplug.spotless</groupId>
         <artifactId>spotless-maven-plugin</artifactId>
@@ -258,7 +149,7 @@
               <reflowLongStrings>true</reflowLongStrings>
             </googleJavaFormat>
             <licenseHeader>
-              <file>${project.basedir}/license-header.txt</file>
+              <file>${root.basedir}/license-header.txt</file>
             </licenseHeader>
           </java>
         </configuration>
