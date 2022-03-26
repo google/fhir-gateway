@@ -4,7 +4,7 @@
   <parent>
     <groupId>com.google.fhir.proxy</groupId>
     <artifactId>fhir-proxy</artifactId>
-    <version>0.0.1</version>
+    <version>0.1.0</version>
   </parent>
 
   <artifactId>server</artifactId>
@@ -12,7 +12,6 @@
 
   <properties>
     <root.basedir>${project.parent.basedir}</root.basedir>
-    <spring.version>2.6.4</spring.version>
   </properties>
 
   <dependencyManagement>
@@ -22,10 +21,9 @@
       https://docs.spring.io/spring-boot/docs/current/maven-plugin/reference/htmlsingle/#using.import
       -->
       <dependency>
-        <!-- Import dependency management from Spring Boot -->
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-dependencies</artifactId>
-        <version>${spring.version}</version>
+        <version>${spring-boot.version}</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
@@ -54,20 +52,6 @@
       <version>${hapifhir_version}</version>
     </dependency>
 
-    <!-- This is needed for CORS interceptor -->
-    <!-- TODO remove this if not needed after adding Spring Boot. -->
-    <dependency>
-      <groupId>org.springframework</groupId>
-      <artifactId>spring-web</artifactId>
-      <version>5.3.14</version>
-      <exclusions>
-        <exclusion>
-          <groupId>commons-logging</groupId>
-          <artifactId>commons-logging</artifactId>
-        </exclusion>
-      </exclusions>
-    </dependency>
-
     <!-- Needed for JEE/Servlet support -->
     <dependency>
       <groupId>javax.servlet</groupId>
@@ -80,7 +64,6 @@
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-web</artifactId>
-      <version>${spring.version}</version>
     </dependency>
 
     <!-- TODO add when needed after checking the implications!

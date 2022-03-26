@@ -4,7 +4,7 @@
 
   <groupId>com.google.fhir.proxy</groupId>
   <artifactId>fhir-proxy</artifactId>
-  <version>0.0.1</version>
+  <version>0.1.0</version>
   <packaging>pom</packaging>
 
   <name>FHIR Access Proxy</name>
@@ -14,12 +14,13 @@
   </modules>
 
   <properties>
-    <hapifhir_version>5.5.3</hapifhir_version>
+    <hapifhir_version>5.7.1</hapifhir_version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <spotless.version>2.17.4</spotless.version>
     <root.basedir>${project.basedir}</root.basedir>
     <maven.compiler.source>11</maven.compiler.source>
     <maven.compiler.target>11</maven.compiler.target>
+    <spring-boot.version>2.6.4</spring-boot.version>
   </properties>
 
   <dependencies>
@@ -27,7 +28,7 @@
     <!-- TODO consolidate between logback and log4j in Spring dependencies -->
     <!--
     HAPI-FHIR uses Logback for logging support. The logback library is included
-    automatically by Maven as a part of the hapi-fhir-base dependency, but you
+    automatically by Maven as part of the hapi-fhir-base dependencies, but we
     also need to include a logging library. Logback is used here, but log4j
     would also be fine.
     -->
