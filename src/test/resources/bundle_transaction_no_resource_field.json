@@ -54,45 +54,6 @@
     },
     {
       "fullUrl": "Encounter/encounter-jamess-bond-id-1",
-      "resource": {
-        "class": {
-          "code": "AMB",
-          "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode"
-        },
-        "id": "encounter-jamess-bond-id-1",
-        "period": {
-          "end": "2015-07-01T19:11:10-04:00",
-          "start": "2015-07-01T18:56:10-04:00"
-        },
-        "reasonCode": [
-          {
-            "coding": [
-              {
-                "code": "444814009",
-                "display": "Viral sinusitis (disorder)",
-                "system": "http://snomed.info/sct"
-              }
-            ]
-          }
-        ],
-        "resourceType": "Encounter",
-        "status": "finished",
-        "subject": {
-          "reference": "Patient/420e791b-e419-c19b-3144-29e101c2c12f"
-        },
-        "type": [
-          {
-            "coding": [
-              {
-                "code": "185345009",
-                "display": "Encounter for symptom",
-                "system": "http://snomed.info/sct"
-              }
-            ],
-            "text": "Encounter for symptom"
-          }
-        ]
-      },
       "request": {
         "method": "PUT",
         "url": "Encounter?_id=encounter-jamess-bond-id-1&patient=Patient/420e791b-e419-c19b-3144-29e101c2c12f"
@@ -126,5 +87,5 @@
         "url": "Patient/db6e42c7-04fc-4d9d-b394-9ff33a41e178"
       }
     }
-      ]
+  ]
 }

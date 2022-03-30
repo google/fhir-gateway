@@ -301,8 +301,23 @@ public abstract class AccessCheckerTestBase {
   }
 
   @Test(expected = InvalidRequestException.class)
+  public void canAccessBundleNoResourceFieldUnauthorized() throws IOException {
+    // Query: POST / -d @bundle_transaction_no_resource_field.json
+    setUpFhirBundle("bundle_transaction_no_resource_field.json");
+    AccessChecker testInstance = getInstance();
+    testInstance.checkAccess(requestMock).canAccess();
+  }
+
+  @Test(expected = InvalidRequestException.class)
   public void canAccessBundleGetNullPatientUnauthorized() throws IOException {
     setUpFhirBundle("bundle_transaction_get_multiple_with_null_patient.json");
+    AccessChecker testInstance = getInstance();
+    testInstance.checkAccess(requestMock).canAccess();
+  }
+
+  @Test(expected = InvalidRequestException.class)
+  public void canAccessBundlePatchNoBinaryResourceUnauthorized() throws IOException {
+    setUpFhirBundle("bundle_transaction_patch_not_binary.json");
     AccessChecker testInstance = getInstance();
     testInstance.checkAccess(requestMock).canAccess();
   }

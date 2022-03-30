@@ -1,0 +1,30 @@
+{
+  "resourceType": "Bundle",
+  "type": "transaction",
+  "entry": [
+    {
+      "fullUrl": "Patient/be92a43f-de46-affa-b131-bbf9eea51140",
+      "resource": {
+        "resourceType": "Binary",
+        "contentType": "application/json-patch+json",
+        "data": "WyB7ICJvcCI6InJlcGxhY2UiLCAicGF0aCI6Ii9hY3RpdmUiLCAidmFsdWUiOnRydWUgfSBd"
+      },
+      "request": {
+        "method": "PATCH",
+        "url": "Patient/be92a43f-de46-affa-b131-bbf9eea51140"
+      }
+    },
+    {
+      "fullUrl": "Observation/observation-jamess-bond-id-1",
+      "resource": {
+        "resourceType": "Binary",
+        "contentType": "application/json-patch+json",
+        "data": "WwogIHsKICAgICJvcCI6ICJyZXBsYWNlIiwKICAgICJwYXRoIjogIi9zdWJqZWN0L3JlZmVyZW5jZSIsCiAgICAidmFsdWUiOiAiUGF0aWVudC9ib2IiCiAgfSx7CiAgIm9wIjogImFkZCIsCiAgInBhdGgiOiAiL3BlcmZvcm1lciIsCiAgInZhbHVlIjpbXQp9LAogIHsKICAgICJvcCI6ICJhZGQiLAogICAgInBhdGgiIDogIi9wZXJmb3JtZXIvMCIsCiAgICAidmFsdWUiIDogewogICAgICAicmVmZXJlbmNlIjogIlBhdGllbnQvbWljaGFlbCIKICAgIH0KICB9Cl0="
+      },
+      "request": {
+        "method": "PATCH",
+        "url": "Observation?_id=observation-jamess-bond-id-1&subject=Patient/420e791b-e419-c19b-3144-29e101c2c12f"
+      }
+    }
+  ]
+}

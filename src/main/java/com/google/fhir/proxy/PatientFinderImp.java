@@ -19,6 +19,7 @@ import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.fhirpath.IFhirPath;
 import ca.uhn.fhir.model.primitive.IdDt;
 import ca.uhn.fhir.parser.IParser;
+import ca.uhn.fhir.rest.api.Constants;
 import ca.uhn.fhir.rest.server.exceptions.ForbiddenOperationException;
 import ca.uhn.fhir.rest.server.exceptions.InvalidRequestException;
 import ca.uhn.fhir.util.UrlUtil;
@@ -49,6 +50,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.instance.model.api.IIdType;
+import org.hl7.fhir.r4.model.Binary;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Bundle.BundleEntryComponent;
 import org.hl7.fhir.r4.model.Bundle.BundleEntryRequestComponent;
@@ -258,10 +260,17 @@ public final class PatientFinderImp implements PatientFinder {
     }
 
     BundlePatientsBuilder builder = new BundlePatientsBuilder();
-    try {
+    if (!bundle.hasEntry()) {
+      return builder.build();
+    }
 
+    try {
       for (BundleEntryComponent entryComponent : bundle.getEntry()) {
         HTTPVerb httpMethod = entryComponent.getRequest().getMethod();
+        if (httpMethod != HTTPVerb.GET && !entryComponent.hasResource()) {
+          ExceptionUtil.throwRuntimeExceptionAndLog(
+              logger, "Bundle entry requires a resource field!", InvalidRequestException.class);
+        }
         switch (httpMethod) {
           case GET:
             processGet(entryComponent, builder);
@@ -271,6 +280,9 @@ public final class PatientFinderImp implements PatientFinder {
             break;
           case PUT:
             processPut(entryComponent, builder);
+            break;
+          case PATCH:
+            processPatch(entryComponent, builder);
             break;
           default:
             ExceptionUtil.throwRuntimeExceptionAndLog(
@@ -361,13 +373,49 @@ public final class PatientFinderImp implements PatientFinder {
     builder.addPatient(PatientOp.READ, patientId);
   }
 
+  private void processPatch(BundleEntryComponent entryComponent, BundlePatientsBuilder builder)
+      throws URISyntaxException {
+
+    // Find patient id in request.url
+    String patientId = findPatientId(entryComponent.getRequest());
+    String resourceType =
+        new Reference(entryComponent.getResource().getId()).getReferenceElement().getResourceType();
+    if (FhirUtil.isSameResourceType(resourceType, ResourceType.Patient)) {
+      builder.addPatient(PatientOp.UPDATE, patientId);
+    } else {
+      builder.addReferencedPatients(Sets.newHashSet(patientId));
+    }
+    // Find patient ids in body
+    if (!FhirUtil.isSameResourceType(
+        entryComponent.getResource().fhirType(), ResourceType.Binary)) {
+      ExceptionUtil.throwRuntimeExceptionAndLog(
+          logger, "PATCH resource type must be Binary", InvalidRequestException.class);
+    }
+
+    Binary binaryResource = (Binary) entryComponent.getResource();
+    if (!binaryResource.getContentType().equals(Constants.CT_JSON_PATCH)) {
+      ExceptionUtil.throwRuntimeExceptionAndLog(
+          logger,
+          String.format("PATCH content type must be %s", Constants.CT_JSON_PATCH),
+          InvalidRequestException.class);
+    }
+
+    JsonArray jsonArray =
+        JsonParser.parseString(new String(binaryResource.getData())).getAsJsonArray();
+    Set<String> patientsInPatch = parseJsonArrayForPatch(jsonArray, resourceType);
+    if (!patientsInPatch.isEmpty()) {
+      builder.addReferencedPatients(patientsInPatch);
+    }
+  }
+
   private void processPut(BundleEntryComponent entryComponent, BundlePatientsBuilder builder)
       throws URISyntaxException {
     Resource resource = entryComponent.getResource();
+    String patientId = findPatientId(entryComponent.getRequest());
     if (FhirUtil.isSameResourceType(resource.fhirType(), ResourceType.Patient)) {
-      String patientId = findPatientId(entryComponent.getRequest());
       builder.addPatient(PatientOp.UPDATE, patientId);
     } else {
+      builder.addReferencedPatients(Sets.newHashSet(patientId));
       addPatientReference(resource, builder);
     }
   }
@@ -407,8 +455,11 @@ public final class PatientFinderImp implements PatientFinder {
   @Override
   public Set<String> findPatientsInPatch(RequestDetailsReader request, String resourceName) {
     JsonArray jsonArray = createJsonArrayFromRequest(request);
-    Set<String> patientIds = Sets.newHashSet();
+    return parseJsonArrayForPatch(jsonArray, resourceName);
+  }
 
+  private Set<String> parseJsonArrayForPatch(JsonArray jsonArray, String resourceName) {
+    Set<String> patientIds = Sets.newHashSet();
     for (JsonElement jsonElement : jsonArray) {
       String patientId = parsePatchForPatientId(jsonElement.getAsJsonObject(), resourceName);
       if (patientId != null) {

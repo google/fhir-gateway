@@ -202,26 +202,9 @@ public class ListAccessCheckerTest extends AccessCheckerTestBase {
     assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
   }
 
-  @Test
-  public void canAccessBundleNonPatientResources() throws IOException {
-    setUpFhirBundle("bundle_transaction_non_patients.json");
-    setUpFhirListSearchMock(
-        String.format(
-            "item=Patient/%s,Patient/%s&item=Patient/%s",
-            PATIENT_IN_BUNDLE_1, PATIENT_IN_BUNDLE_2, PATIENT_AUTHORIZED),
-        "bundle_list_patient_item.json");
-    AccessChecker testInstance = getInstance();
-    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(true));
-  }
-
-  @Test
+  @Test(expected = InvalidRequestException.class)
   public void canAccessBundleNonPatientResourcesUnauthorized() throws IOException {
-    setUpFhirBundle("bundle_transaction_non_patients.json");
-    setUpFhirListSearchMock(
-        String.format(
-            "item=Patient/%s,Patient/%s&item=Patient/%s",
-            PATIENT_IN_BUNDLE_1, PATIENT_IN_BUNDLE_2, PATIENT_AUTHORIZED),
-        "bundle_empty.json");
+    setUpFhirBundle("bundle_transaction_no_patient_in_url.json");
     AccessChecker testInstance = getInstance();
     assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
   }
@@ -230,10 +213,26 @@ public class ListAccessCheckerTest extends AccessCheckerTestBase {
   public void canAccessBundleNonPatientResourcesAndNewPatient() throws IOException {
     setUpFhirBundle("bundle_transaction_patient_and_non_patients.json");
     setUpFhirListSearchMock(
-        String.format("item=Patient/%s", PATIENT_IN_BUNDLE_1), "bundle_list_patient_item.json");
+        String.format(
+            "item=Patient/%s&item=Patient/%s,Patient/%s",
+            PATIENT_IN_BUNDLE_1, PATIENT_IN_BUNDLE_1, PATIENT_AUTHORIZED),
+        "bundle_list_patient_item.json");
     setUpPatientSearchMock(PATIENT_IN_BUNDLE_2, "bundle_empty.json");
     AccessChecker testInstance = getInstance();
     assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(true));
+  }
+
+  @Test
+  public void canAccessBundlePatchUnauthorized() throws IOException {
+    setUpFhirBundle("bundle_transaction_patch_unauthorized.json");
+    setUpPatientSearchMock(PATIENT_AUTHORIZED, "bundle_list_patient_item.json");
+    setUpFhirListSearchMock(
+        String.format(
+            "item=Patient/michael,Patient/bob&item=Patient/%s&item=Patient/%s",
+            PATIENT_IN_BUNDLE_1, PATIENT_AUTHORIZED),
+        "bundle_empty.json");
+    AccessChecker testInstance = getInstance();
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
   }
 
   @Test

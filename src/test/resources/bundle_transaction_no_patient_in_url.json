@@ -35,10 +35,10 @@
         "resourceType": "Observation",
         "status": "final",
         "subject": {
-          "reference": "Patient/db6e42c7-04fc-4d9d-b394-9ff33a41e178"
+          "reference": "Patient/420e791b-e419-c19b-3144-29e101c2c12f"
         },
         "performer":[{
-          "reference": "Patient/420e791b-e419-c19b-3144-29e101c2c12f"
+          "reference": "Patient/be92a43f-de46-affa-b131-bbf9eea51140"
         }],
         "valueQuantity": {
           "code": "mL/min/{1.73_m2}",
@@ -49,7 +49,7 @@
       },
       "request": {
         "method": "PUT",
-        "url": "Observation/observation-jamess-bond-id-1"
+        "url": "Observation?_id=observation-jamess-bond-id-1&subject=Patient/420e791b-e419-c19b-3144-29e101c2c12f"
       }
     },
     {
@@ -78,7 +78,7 @@
         "resourceType": "Encounter",
         "status": "finished",
         "subject": {
-          "reference": "Patient/be92a43f-de46-affa-b131-bbf9eea51140"
+          "reference": "Patient/420e791b-e419-c19b-3144-29e101c2c12f"
         },
         "type": [
           {
@@ -95,8 +95,8 @@
       },
       "request": {
         "method": "PUT",
-        "url": "Encounter/encounter-jamess-bond-id-1"
+        "url": "Encounter?_id=encounter-jamess-bond-id-1"
       }
     }
-      ]
+  ]
 }
