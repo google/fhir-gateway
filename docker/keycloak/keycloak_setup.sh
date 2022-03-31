@@ -132,4 +132,3 @@ sh kcadm.sh create users -r ${SMART_REALM} -s username=${TEST_USER} \
   -s credentials='[{"type":"password","value":"'${TEST_PASS}'","temporary":false}]'
 
 echo "Setting up patient-based ${SMART_REALM} realm is complete."
-

@@ -197,6 +197,12 @@
         <artifactId>spotless-maven-plugin</artifactId>
         <version>${spotless.version}</version>
         <configuration>
+          <!-- TODO: either fix license generation for other file types or
+            switch to another license management plugin. -->
+          <!--licenseHeader>
+            <file>${project.basedir}/license-header.xml</file>
+            <delimiter>&lt;?</delimiter>
+          </licenseHeader-->
           <pom>
             <sortPom>
               <expandEmptyElements>false</expandEmptyElements>
@@ -212,6 +218,7 @@
             <format>
               <!-- define the files to apply to -->
               <includes>
+                <include>**/*.sh</include>
                 <include>**/*.md</include>
                 <include>**/*.xml</include>
                 <include>.gitignore</include>
@@ -220,8 +227,9 @@
               <excludes>
                 <exclude>.idea/**</exclude>
                 <exclude>.settings/**</exclude>
-                <exclude>target/**</exclude>
+                <exclude>**/target/**</exclude>
                 <exclude>bin/**</exclude>
+                <exclude>tmp/**</exclude>
               </excludes>
               <trimTrailingWhitespace/>
               <endWithNewline/>
