@@ -19,6 +19,7 @@ import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.rest.api.Constants;
 import ca.uhn.fhir.rest.server.RestfulServer;
 import ca.uhn.fhir.rest.server.interceptor.CorsInterceptor;
+import com.google.fhir.proxy.GenericFhirClient.GenericFhirClientBuilder;
 import com.google.fhir.proxy.interfaces.AccessCheckerFactory;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -40,6 +41,7 @@ public class FhirProxyServer extends RestfulServer {
   private static final String TOKEN_ISSUER_ENV = "TOKEN_ISSUER";
   private static final String ACCESS_CHECKER_ENV = "ACCESS_CHECKER";
   private static final String PERMISSIVE_ACCESS_CHECKER = "permissive";
+  private static final String BACKEND_TYPE = "BACKEND_TYPE";
 
   @Autowired private Map<String, AccessCheckerFactory> accessCheckerFactories;
   // @Autowired AccessCheckerFactory accessCheckerFactory;
@@ -51,8 +53,13 @@ public class FhirProxyServer extends RestfulServer {
 
   @Override
   protected void initialize() throws ServletException {
-    String gcpFhirStore = System.getenv(PROXY_TO_ENV);
-    if (gcpFhirStore == null) {
+    String backendType = System.getenv(BACKEND_TYPE);
+    if (backendType == null) {
+      throw new ServletException(
+          String.format("The environment variable %s is not set!", BACKEND_TYPE));
+    }
+    String fhirStore = System.getenv(PROXY_TO_ENV);
+    if (fhirStore == null) {
       throw new ServletException(
           String.format("The environment variable %s is not set!", PROXY_TO_ENV));
     }
@@ -72,14 +79,19 @@ public class FhirProxyServer extends RestfulServer {
     try {
       logger.info("Adding BearerAuthorizationInterceptor ");
       AccessCheckerFactory checkerFactory = chooseAccessCheckerFactory();
-
+      HttpFhirClient httpFhirClient;
+      if (backendType.equals("GCP")) {
+        httpFhirClient = new GcpFhirClient(fhirStore, GcpFhirClient.createCredentials());
+      } else if (backendType.equals("HAPI")) {
+        httpFhirClient = new GenericFhirClientBuilder().setFhirStore(fhirStore).build();
+      } else {
+        throw new ServletException(
+            String.format(
+                "The environment variable %s is not set to either GCP or HAPI!", BACKEND_TYPE));
+      }
       registerInterceptor(
           new BearerAuthorizationInterceptor(
-              new GcpFhirClient(gcpFhirStore, GcpFhirClient.createCredentials()),
-              tokenIssuer,
-              this,
-              new HttpUtil(),
-              checkerFactory));
+              httpFhirClient, tokenIssuer, this, new HttpUtil(), checkerFactory));
     } catch (IOException e) {
       ExceptionUtil.throwRuntimeExceptionAndLog(logger, "IOException while initializing", e);
     }

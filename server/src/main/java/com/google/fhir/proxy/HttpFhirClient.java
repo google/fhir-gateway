@@ -19,6 +19,7 @@ import ca.uhn.fhir.rest.api.Constants;
 import ca.uhn.fhir.rest.server.servlet.ServletRequestDetails;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import java.io.IOException;
 import java.net.URI;
@@ -40,13 +41,15 @@ public abstract class HttpFhirClient {
 
   private static final Logger logger = LoggerFactory.getLogger(HttpFhirClient.class);
 
+  // The list of header names to keep in a response sent from the proxy; use lower case only.
+  // Note we don't copy content-length/type because we may modify the response.
+  static final Set<String> HEADERS_TO_KEEP = Sets.newHashSet("last-modified", "date");
+
   protected abstract String getBaseUrl();
 
   protected abstract URI getUriForResource(String resourcePath) throws URISyntaxException;
 
   protected abstract Header getAuthHeader();
-
-  public abstract List<Header> responseHeadersToKeep(HttpResponse response);
 
   private void setUri(RequestBuilder builder, String resourcePath) {
     try {
@@ -115,6 +118,16 @@ public abstract class HttpFhirClient {
               response.getStatusLine().toString()));
     }
     return response;
+  }
+
+  List<Header> responseHeadersToKeep(HttpResponse response) {
+    List<Header> headers = Lists.newArrayList();
+    for (Header header : response.getAllHeaders()) {
+      if (HEADERS_TO_KEEP.contains(header.getName().toLowerCase())) {
+        headers.add(header);
+      }
+    }
+    return headers;
   }
 
   @VisibleForTesting

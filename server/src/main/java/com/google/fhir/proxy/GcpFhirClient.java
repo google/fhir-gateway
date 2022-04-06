@@ -17,16 +17,11 @@ package com.google.fhir.proxy;
 
 import com.google.auth.oauth2.AccessToken;
 import com.google.auth.oauth2.GoogleCredentials;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Sets;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Collections;
-import java.util.List;
-import java.util.Set;
 import org.apache.http.Header;
-import org.apache.http.HttpResponse;
 import org.apache.http.client.utils.URIBuilder;
 import org.apache.http.message.BasicHeader;
 import org.slf4j.Logger;
@@ -39,10 +34,6 @@ public class GcpFhirClient extends HttpFhirClient {
 
   private static final String CLOUD_PLATFORM_SCOPE =
       "https://www.googleapis.com/auth/cloud-platform";
-
-  // The list of header names to keep in a response sent from the proxy; use lower case only.
-  // Note we don't copy content-length/type because we may modify the response.
-  private static final Set<String> HEADERS_TO_KEEP = Sets.newHashSet("last-modified", "date");
 
   private final GoogleCredentials credentials;
   private final String gcpFhirStore;
@@ -86,17 +77,6 @@ public class GcpFhirClient extends HttpFhirClient {
   protected Header getAuthHeader() {
     String authToken = String.format("Bearer %s", getAccessToken());
     return new BasicHeader("Authorization", authToken);
-  }
-
-  @Override
-  public List<Header> responseHeadersToKeep(HttpResponse response) {
-    List<Header> headers = Lists.newArrayList();
-    for (Header header : response.getAllHeaders()) {
-      if (HEADERS_TO_KEEP.contains(header.getName().toLowerCase())) {
-        headers.add(header);
-      }
-    }
-    return headers;
   }
 
   public static GoogleCredentials createCredentials() throws IOException {
