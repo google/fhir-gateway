@@ -26,5 +26,18 @@ set -e
 # Code under repo is checked out to ${KOKORO_ARTIFACTS_DIR}/git.
 # The final directory name in this path is determined by the scm name specified
 # in the job configuration.
+
+function setup() {
+  # Resize partition from 100 GB to max
+  sudo apt -y install cloud-guest-utils
+  sudo growpart /dev/sda 1
+  sudo resize2fs /dev/sda1
+
+  sudo curl -L "https://github.com/docker/compose/releases/download/v2.5.0/docker-compose-$(uname -s)-$(uname -m)" \
+    -o /usr/local/bin/docker-compose
+  sudo chmod +x /usr/local/bin/docker-compose
+}
+
+setup
 cd "${KOKORO_ARTIFACTS_DIR}/git/fhir-proxy"
 ./build.sh

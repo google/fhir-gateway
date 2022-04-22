@@ -23,6 +23,7 @@ set -e
 #  Additionally, recursive invocation with credentials as command-line
 #  parameters, will print the full command, with credentials, in the build logs.
 # set -x
-docker build -t gcr.io/fhir-sdk/fhir-proxy:${KOKORO_BUILD_ID:-local} .
+export BUILD_ID=${KOKORO_BUILD_ID:-local}
 gcloud auth configure-docker
-docker push gcr.io/fhir-sdk/fhir-proxy:${KOKORO_BUILD_ID:-local}
+./e2e-test/e2e.sh
+docker push gcr.io/fhir-sdk/fhir-proxy:${BUILD_ID}

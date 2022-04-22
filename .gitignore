@@ -16,5 +16,8 @@ local.properties
 bin/
 gen/
 
+# Python cache files
+__pycache__/
+
 # MacOS
 .DS_Store

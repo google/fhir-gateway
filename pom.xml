@@ -153,6 +153,12 @@
               <file>${root.basedir}/license-header.txt</file>
             </licenseHeader>
           </java>
+          <python>
+            <includes>
+              <include>e2e-test/*.py</include>
+            </includes>
+            <black/>
+          </python>
         </configuration>
         <executions>
           <execution>
@@ -163,6 +169,7 @@
           </execution>
         </executions>
       </plugin>
+      <!-- TODO(omarismail) Add plugin that can run pylint for Python code. -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
