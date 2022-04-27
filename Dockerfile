@@ -35,6 +35,6 @@ COPY plugins/src ./plugins/src
 COPY plugins/pom.xml ./plugins/
 COPY license-header.txt .
 COPY pom.xml .
-RUN mvn --batch-mode package
-ENTRYPOINT java -Dloader.path="plugins/target/plugins-0.0.1.jar" \
-  -jar server/target/server-0.0.1-exec.jar --server.port=${PROXY_PORT}
+RUN mvn --batch-mode package -Pstandalone-app
+ENTRYPOINT java -jar plugins/target/plugins-0.1.0-exec.jar \
+  --server.port=${PROXY_PORT}
