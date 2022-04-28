@@ -19,7 +19,9 @@ import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Sets;
+import com.google.common.escape.Escaper;
 import com.google.common.io.CharStreams;
+import com.google.common.net.UrlEscapers;
 import com.google.fhir.proxy.FhirUtil;
 import com.google.fhir.proxy.HttpFhirClient;
 import com.google.fhir.proxy.HttpUtil;
@@ -45,6 +47,7 @@ class AccessGrantedAndUpdateList implements AccessDecision {
   private final String patientListId;
   private final Set<String> existPutPatients;
   private final ResourceType resourceTypeExpected;
+  private final Escaper PARAM_ESCAPER = UrlEscapers.urlFormParameterEscaper();
 
   private AccessGrantedAndUpdateList(
       String patientListId,
@@ -124,7 +127,8 @@ class AccessGrantedAndUpdateList implements AccessDecision {
             newPatient);
     logger.info("Updating access list {} with patch {}", patientListId, jsonPatch);
     // TODO decide how to handle failures in access list updates (b/211243404).
-    httpFhirClient.patchResource(String.format("List/%s", patientListId), jsonPatch);
+    httpFhirClient.patchResource(
+        String.format("List/%s", PARAM_ESCAPER.escape(patientListId)), jsonPatch);
   }
 
   public static AccessGrantedAndUpdateList forPatientResource(

@@ -21,6 +21,8 @@ import com.auth0.jwt.interfaces.DecodedJWT;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Sets;
+import com.google.common.escape.Escaper;
+import com.google.common.net.UrlEscapers;
 import com.google.fhir.proxy.BundlePatients;
 import com.google.fhir.proxy.BundlePatients.BundlePatientsBuilder;
 import com.google.fhir.proxy.FhirUtil;
@@ -58,6 +60,7 @@ public class ListAccessChecker implements AccessChecker {
   private final HttpFhirClient httpFhirClient;
   private final String patientListId;
   private final PatientFinder patientFinder;
+  private final Escaper PARAM_ESCAPER = UrlEscapers.urlFormParameterEscaper();
 
   private ListAccessChecker(
       HttpFhirClient httpFhirClient,
@@ -73,7 +76,8 @@ public class ListAccessChecker implements AccessChecker {
   /**
    * Sends query to backend with user supplied parameters
    *
-   * @param itemsParam resources to search for in the list. Must start with "item="
+   * @param itemsParam resources to search for in the list. Must start with "item=". It is assumed
+   *     that this is properly escaped to be added to the URL string.
    * @return the outcome of access checking. Returns false if no parameter is provided, or if the
    *     parameter does not start with "item=", or if the query does not return exactly one match.
    */
@@ -85,7 +89,8 @@ public class ListAccessChecker implements AccessChecker {
     // We cannot use `_summary` parameter because it is not implemented on GCP yet; so to prevent a
     // potentially huge list to be fetched each time, we add `_elements=id`.
     String searchQuery =
-        String.format("/List?_id=%s&_elements=id&%s", this.patientListId, itemsParam);
+        String.format(
+            "/List?_id=%s&_elements=id&%s", PARAM_ESCAPER.escape(this.patientListId), itemsParam);
     logger.debug("Search query for patient access authorization check is: {}", searchQuery);
     try {
       HttpResponse httpResponse = httpFhirClient.getResource(searchQuery);
@@ -102,16 +107,20 @@ public class ListAccessChecker implements AccessChecker {
   // The rationale is that a user should have access to a resource iff they are authorized to access
   // at least one of the patients referenced in that resource. This is a subjective decision, so we
   // may want to revisit it in the future.
+  // Note patientIds are expected NOT to include the `Patient/` prefix (pure IDs only).
   private boolean serverListIncludesAnyPatient(Set<String> patientIds) {
     if (patientIds == null) {
       return false;
     }
     // TODO consider using the HAPI FHIR client instead (b/211231483).
-    String patientParam = queryBuilder(patientIds, "Patient/", ",");
+    String patientParam =
+        queryBuilder(patientIds, PARAM_ESCAPER.escape("Patient/"), PARAM_ESCAPER.escape(","));
     return listIncludesItems("item=" + patientParam);
   }
 
-  // Note this returns true iff all the patient IDs are found in the associated list.
+  // Returns true iff all the patient IDs are found in the associated list.
+  // Note patientIds are expected to include the `Patient/` prefix.
+  // TODO fix the above inconsistency with `serverListIncludesAnyPatient`.
   private boolean serverListIncludesAllPatients(Set<String> patientIds) {
     if (patientIds == null) {
       return false;
@@ -122,7 +131,8 @@ public class ListAccessChecker implements AccessChecker {
 
   private boolean patientsExist(String patientId) throws IOException {
     // TODO consider using the HAPI FHIR client instead (b/211231483).
-    String searchQuery = String.format("/Patient?_id=%s&_elements=id", patientId);
+    String searchQuery =
+        String.format("/Patient?_id=%s&_elements=id", PARAM_ESCAPER.escape(patientId));
     HttpResponse response = httpFhirClient.getResource(searchQuery);
     Bundle bundle = FhirUtil.parseResponseToBundle(fhirContext, response);
     if (bundle.getTotal() > 1) {
@@ -224,6 +234,7 @@ public class ListAccessChecker implements AccessChecker {
     // We do not allow direct resource PUT/PATCH, so Patient ID must be returned
     String patientId = patientFinder.findPatientFromParams(requestDetails);
     Set<String> patientQueries = Sets.newHashSet();
+    // Escaping is not needed here as the set elements will be escaped later.
     patientQueries.add(String.format("Patient/%s", patientId));
 
     Set<String> patientSet = Sets.newHashSet();
@@ -338,7 +349,7 @@ public class ListAccessChecker implements AccessChecker {
     return patientSet.stream()
         .filter(Objects::nonNull)
         .filter(Predicate.not(String::isEmpty))
-        .map(p -> prefix + p)
+        .map(p -> prefix + PARAM_ESCAPER.escape(p))
         .collect(Collectors.joining(delimiter));
   }
 

@@ -28,10 +28,10 @@ public class ExceptionUtil {
       @Nullable Exception origException,
       Class<T> runTimeExceptionClass) {
     Preconditions.checkNotNull(runTimeExceptionClass);
+    // logging the error message followed by the stack trace.
     if (origException == null) {
-      logger.error(errorMessage);
+      logger.error(errorMessage, new Exception("stack-trace"));
     } else {
-      // logging the stack trace too
       logger.error(errorMessage, origException);
     }
     try {
