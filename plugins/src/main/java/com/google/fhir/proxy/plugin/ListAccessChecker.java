@@ -258,10 +258,10 @@ public class ListAccessChecker implements AccessChecker {
   private AccessDecision checkPatientAccessInUpdate(RequestDetailsReader requestDetails)
       throws IOException {
     String patientId = FhirUtil.getIdOrNull(requestDetails);
-    if (patientId == null) {
+    if (patientId == null || !FhirUtil.isValidId(patientId)) {
       // This is an invalid PUT/PATCH request; note we are not supporting "conditional updates" for
       // Patient resources.
-      logger.error("The provided Patient resource has no ID; denying access!");
+      logger.error("The provided Patient resource has no ID or it is invalid; denying access!");
       return NoOpAccessDecision.accessDenied();
     }
     if (patientsExist(patientId)) {
@@ -359,8 +359,7 @@ public class ListAccessChecker implements AccessChecker {
     @VisibleForTesting static final String PATIENT_LIST_CLAIM = "patient_list";
 
     private String getListId(DecodedJWT jwt) {
-      // TODO do some sanity checks on the `patientListId` (b/207737513).
-      return JwtUtil.getClaimOrDie(jwt, PATIENT_LIST_CLAIM);
+      return FhirUtil.checkIdOrFail(JwtUtil.getClaimOrDie(jwt, PATIENT_LIST_CLAIM));
     }
 
     @Override

@@ -94,12 +94,11 @@ public final class PatientFinderImp implements PatientFinder {
   }
 
   @Nullable
-  private String findPatientIdFromParams(
+  private String checkParamsAndFindPatientId(
       String resourceName, Map<String, String[]> queryParameters) {
+    checkFhirJoinParams(queryParameters);
     List<String> searchParams = patientSearchParams.get(resourceName);
     if (searchParams != null) {
-      // TODO make sure that complexities in FHIR search spec (like `_revinclude`) does not
-      // cause unauthorized access issues here; maybe we should restrict search queries further.
       for (String param : searchParams) {
         String[] paramValues = queryParameters.get(param);
         // We ignore if multiple search parameters match compartment definition.
@@ -108,8 +107,7 @@ public final class PatientFinderImp implements PatientFinder {
           IIdType id = new IdDt(paramValues[0]);
           // TODO add test for null/non-Patient cases.
           if (id.getResourceType() == null || id.getResourceType().equals("Patient")) {
-            // TODO do some sanity checks on the returned value (b/207737513).
-            return id.getIdPart();
+            return FhirUtil.checkIdOrFail(id.getIdPart());
           }
         }
       }
@@ -150,12 +148,11 @@ public final class PatientFinderImp implements PatientFinder {
       URI resourceUri = new URI(requestComponent.getUrl());
       IIdType referenceElement = new Reference(resourceUri.getPath()).getReferenceElement();
       if (FhirUtil.isSameResourceType(referenceElement.getResourceType(), ResourceType.Patient)) {
-        return referenceElement.getIdPart();
+        return FhirUtil.checkIdOrFail(referenceElement.getIdPart());
       }
       if (referenceElement.getResourceType() == null) {
         Map<String, String[]> queryParams = UrlUtil.parseQueryString(resourceUri.getQuery());
-        checkFhirJoinParams(queryParams);
-        patientId = findPatientIdFromParams(resourceUri.getPath(), queryParams);
+        patientId = checkParamsAndFindPatientId(resourceUri.getPath(), queryParams);
       }
     }
     if (patientId == null) {
@@ -192,8 +189,7 @@ public final class PatientFinderImp implements PatientFinder {
       return null;
     }
     Map<String, String[]> queryParams = requestDetails.getParameters();
-    checkFhirJoinParams(queryParams);
-    String patientId = findPatientIdFromParams(resourceName, queryParams);
+    String patientId = checkParamsAndFindPatientId(resourceName, queryParams);
     if (patientId == null) {
       ExceptionUtil.throwRuntimeExceptionAndLog(
           logger,
@@ -238,7 +234,7 @@ public final class PatientFinderImp implements PatientFinder {
                   r ->
                       FhirUtil.isSameResourceType(
                           r.getReferenceElement().getResourceType(), ResourceType.Patient))
-              .map(r -> r.getReferenceElement().getIdPart())
+              .map(r -> FhirUtil.checkIdOrFail(r.getReferenceElement().getIdPart()))
               .collect(Collectors.toList()));
     }
     return patientIds;
@@ -349,12 +345,7 @@ public final class PatientFinderImp implements PatientFinder {
             logger, "Expected patient reference!", InvalidRequestException.class);
       }
 
-      String patientId = reference.getReferenceElement().getIdPart();
-      if (patientId.isEmpty()) {
-        ExceptionUtil.throwRuntimeExceptionAndLog(
-            logger, "Expected patient id!", InvalidRequestException.class);
-      }
-      return patientId;
+      return FhirUtil.checkIdOrFail(reference.getReferenceElement().getIdPart());
     }
 
     ExceptionUtil.throwRuntimeExceptionAndLog(
