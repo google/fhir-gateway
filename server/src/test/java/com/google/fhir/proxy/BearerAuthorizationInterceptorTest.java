@@ -34,6 +34,7 @@ import com.auth0.jwt.JWT;
 import com.auth0.jwt.JWTCreator;
 import com.auth0.jwt.algorithms.Algorithm;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.io.Resources;
 import com.google.gson.Gson;
@@ -120,12 +121,16 @@ public class BearerAuthorizationInterceptorTest {
     when(httpUtilMock.getResourceOrFail(any(URI.class))).thenReturn(responseMock);
     TestUtil.setUpFhirResponseMock(
         responseMock, String.format("{public_key: '%s'}", publicKeyBase64));
+    URL idpUrl = Resources.getResource("idp_keycloak_config.json");
+    String testIdpConfig = Resources.toString(idpUrl, StandardCharsets.UTF_8);
+    when(httpUtilMock.fetchWellKnownConfig(anyString(), anyString())).thenReturn(testIdpConfig);
     when(fhirClientMock.handleRequest(requestMock)).thenReturn(fhirResponseMock);
     when(fhirClientMock.getBaseUrl()).thenReturn(FHIR_STORE);
     testInstance =
         new BearerAuthorizationInterceptor(
             fhirClientMock,
             TOKEN_ISSUER,
+            "test",
             serverMock,
             httpUtilMock,
             new PermissiveAccessChecker.Factory());
@@ -216,7 +221,7 @@ public class BearerAuthorizationInterceptorTest {
   }
 
   @Test
-  public void authorizeRequestWellKnow() throws IOException {
+  public void authorizeRequestWellKnown() throws IOException {
     noAuthRequestSetup(BearerAuthorizationInterceptor.WELL_KNOWN_CONF_PATH);
     HttpServletRequest servletRequestMock = Mockito.mock(HttpServletRequest.class);
     when(requestMock.getServletRequest()).thenReturn(servletRequestMock);
@@ -225,12 +230,39 @@ public class BearerAuthorizationInterceptorTest {
     Gson gson = new Gson();
     Map<String, Object> jsonMap = Maps.newHashMap();
     jsonMap = gson.fromJson(writerStub.toString(), jsonMap.getClass());
+    assertThat(jsonMap.get("issuer"), equalTo("https://token.issuer/realms/test"));
     assertThat(
         jsonMap.get("authorization_endpoint"),
         equalTo("https://token.issuer/protocol/openid-connect/auth"));
     assertThat(
         jsonMap.get("token_endpoint"),
         equalTo("https://token.issuer/protocol/openid-connect/token"));
+    assertThat(
+        jsonMap.get("jwks_uri"), equalTo("https://token.issuer/protocol/openid-connect/certs"));
+    assertThat(
+        jsonMap.get("grant_types_supported"), equalTo(Lists.newArrayList("authorization_code")));
+    assertThat(
+        jsonMap.get("response_types_supported"),
+        equalTo(
+            Lists.newArrayList(
+                "code",
+                "none",
+                "id_token",
+                "token",
+                "id_token token",
+                "code id_token",
+                "code token",
+                "code id_token token")));
+    assertThat(
+        jsonMap.get("subject_types_supported"), equalTo(Lists.newArrayList("public", "pairwise")));
+    assertThat(
+        jsonMap.get("id_token_signing_alg_values_supported"),
+        equalTo(
+            Lists.newArrayList(
+                "PS384", "ES384", "RS384", "HS256", "HS512", "ES256", "RS256", "HS384", "ES512",
+                "PS256", "PS512", "RS512")));
+    assertThat(
+        jsonMap.get("code_challenge_methods_supported"), equalTo(Lists.newArrayList("S256")));
   }
 
   @Test

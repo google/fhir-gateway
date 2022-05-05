@@ -79,7 +79,7 @@ sh kcadm.sh update events/config -r ${REALM} \
 # app developed by the FHIR SDK: https://github.com/google/android-fhir/
 CID=$(sh kcadm.sh create clients -r ${REALM} -s clientId=my-fhir-client \
   -s publicClient=true -s directAccessGrantsEnabled=true \
-  -s redirectUris='["com.google.android.fhir.reference:/oauth2redirect"]' -i)
+  -s redirectUris='["com.google.android.fhir.demo:/oauth2redirect"]' -i)
 echo "Created the new 'my-fhir-client' client ${CID}"
 
 # TODO remove the group setup after all proxy uses are upgraded.

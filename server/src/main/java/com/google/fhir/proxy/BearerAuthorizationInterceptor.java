@@ -90,6 +90,7 @@ public class BearerAuthorizationInterceptor {
   BearerAuthorizationInterceptor(
       HttpFhirClient fhirClient,
       String tokenIssuer,
+      String wellKnownEndpoint,
       RestfulServer server,
       HttpUtil httpUtil,
       AccessCheckerFactory accessFactory)
@@ -103,7 +104,7 @@ public class BearerAuthorizationInterceptor {
     this.accessFactory = accessFactory;
     RSAPublicKey issuerPublicKey = fetchAndDecodePublicKey();
     jwtVerifierConfig = JWT.require(Algorithm.RSA256(issuerPublicKey, null));
-    configJson = SmartConfiguration.getConfigJson(tokenIssuer);
+    this.configJson = httpUtil.fetchWellKnownConfig(tokenIssuer, wellKnownEndpoint);
     logger.info("Created proxy to the FHIR store " + this.fhirClient.getBaseUrl());
   }
 

@@ -1,0 +1,36 @@
+{
+  "issuer": "https://token.issuer/realms/test",
+  "authorization_endpoint": "https://token.issuer/protocol/openid-connect/auth",
+  "token_endpoint": "https://token.issuer/protocol/openid-connect/token",
+  "jwks_uri": "https://token.issuer/protocol/openid-connect/certs",
+  "grant_types_supported": ["authorization_code"],
+  "response_types_supported": [
+    "code",
+    "none",
+    "id_token",
+    "token",
+    "id_token token",
+    "code id_token",
+    "code token",
+    "code id_token token"
+  ],
+  "subject_types_supported": [
+    "public",
+    "pairwise"
+  ],
+  "id_token_signing_alg_values_supported": [
+    "PS384",
+    "ES384",
+    "RS384",
+    "HS256",
+    "HS512",
+    "ES256",
+    "RS256",
+    "HS384",
+    "ES512",
+    "PS256",
+    "PS512",
+    "RS512"
+  ],
+  "code_challenge_methods_supported": ["S256"]
+}

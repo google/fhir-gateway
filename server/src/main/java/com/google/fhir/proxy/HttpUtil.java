@@ -20,6 +20,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import org.apache.http.HttpEntity;
@@ -27,8 +28,10 @@ import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.client.methods.RequestBuilder;
+import org.apache.http.client.utils.URIBuilder;
 import org.apache.http.entity.ContentType;
 import org.apache.http.impl.client.HttpClients;
+import org.apache.http.util.EntityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -73,6 +76,19 @@ public class HttpUtil {
               "Error accessing resource %s; status %s",
               resource, response.getStatusLine().toString()));
     }
+  }
+
+  String fetchWellKnownConfig(String tokenIssuer, String wellKnownEndpoint) throws IOException {
+    String uriString = String.format("%s/%s", tokenIssuer, wellKnownEndpoint);
+    try {
+      URI uri = new URIBuilder(uriString).build();
+      HttpResponse response = getResourceOrFail(uri);
+      return EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
+    } catch (URISyntaxException e) {
+      ExceptionUtil.throwRuntimeExceptionAndLog(
+          logger, "Error in building URI for resource " + uriString);
+    }
+    return null;
   }
 
   HttpResponse getResourceOrFail(URI uri) throws IOException {
