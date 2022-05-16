@@ -17,16 +17,25 @@ package com.google.fhir.proxy;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
+import ca.uhn.fhir.rest.server.exceptions.InvalidRequestException;
 import com.google.common.base.Preconditions;
 import com.google.fhir.proxy.interfaces.RequestDetailsReader;
 import java.io.IOException;
+import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 import org.apache.http.HttpResponse;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.ResourceType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class FhirUtil {
+
+  private static final Logger logger = LoggerFactory.getLogger(FhirUtil.class);
+
+  // This is based on https://www.hl7.org/fhir/datatypes.html#id
+  private static final Pattern ID_PATTERN = Pattern.compile("[A-Za-z0-9\\-.]{1,64}");
 
   public static boolean isSameResourceType(@Nullable String resourceType, ResourceType type) {
     return type.name().equals(resourceType);
@@ -47,5 +56,17 @@ public class FhirUtil {
     Preconditions.checkArgument(
         FhirUtil.isSameResourceType(resource.fhirType(), ResourceType.Bundle));
     return (Bundle) resource;
+  }
+
+  public static boolean isValidId(String id) {
+    return ID_PATTERN.matcher(id).matches();
+  }
+
+  public static String checkIdOrFail(String idPart) {
+    if (!isValidId(idPart)) {
+      ExceptionUtil.throwRuntimeExceptionAndLog(
+          logger, String.format("ID %s is invalid!", idPart), InvalidRequestException.class);
+    }
+    return idPart; // This is for convenience.
   }
 }

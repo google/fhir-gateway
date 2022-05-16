@@ -166,8 +166,7 @@ public class PatientAccessChecker implements AccessChecker {
     @VisibleForTesting static final String PATIENT_CLAIM = "patient_id";
 
     private String getPatientId(DecodedJWT jwt) {
-      // TODO do some sanity checks on the `patientId` (b/207737513).
-      return JwtUtil.getClaimOrDie(jwt, PATIENT_CLAIM);
+      return FhirUtil.checkIdOrFail(JwtUtil.getClaimOrDie(jwt, PATIENT_CLAIM));
     }
 
     public AccessChecker create(
