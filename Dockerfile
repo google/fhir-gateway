@@ -37,6 +37,7 @@ COPY plugins/src ./plugins/src
 COPY plugins/pom.xml ./plugins/
 COPY license-header.txt .
 COPY pom.xml .
+RUN mvn spotless:check
 RUN mvn --batch-mode package -Pstandalone-app
 ENTRYPOINT java -jar plugins/target/plugins-0.1.0-exec.jar \
   --server.port=${PROXY_PORT}
