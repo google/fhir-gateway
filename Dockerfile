@@ -22,8 +22,8 @@ WORKDIR /app
 
 ENV PROXY_PORT=8080
 ENV TOKEN_ISSUER="http://localhost/auth/realms/test"
-ENV PROXY_TO="https://healthcare.googleapis.com/v1alpha2/projects/fhir-sdk/locations/us/datasets/synthea-sample-data/fhirStores/gcs-data/fhir"
-ENV BACKEND_TYPE="GCP"
+ENV PROXY_TO="http://localhost:8099/fhir"
+ENV BACKEND_TYPE="HAPI"
 
 # If ACCESS_CHECKER is set to a non-empty value, patient level access checks
 # are enabled; otherwise any valid token issued by TOKEN_ISSUER can be used

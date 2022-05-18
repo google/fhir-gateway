@@ -15,6 +15,21 @@
 #
 
 # This is for easy creation and setup of a FHIR Proxy and HAPI FHIR Server
+#
+# The relevant environment variables are (see `.env` file for default values):
+#
+# TOKEN_ISSUER: URL of the Identity Provider server;
+#  default: "http://localhost:9080/auth/realms/test"
+#
+# PROXY_TO: URL of the FHIR backend the proxy connects to;
+#   default: "http://localhost:8099/fhir"
+#
+# BACKEND_TYPE: the FHIR backend type. Either GCP or HAPI; default: "HAPI"
+#
+# ACCESS_CHECKER: access checker to use when running the proxy; default: "list"
+#
+# RUN_MODE: Enforces proxy's token issuer check when set to "PROD". To bypass
+#   the check, set to "DEV"; default: "PROD"
 
 version: "3.0"
 
@@ -22,11 +37,11 @@ services:
   fhir-proxy:
     image: gcr.io/fhir-sdk/fhir-proxy:${BUILD_ID:-latest}
     environment:
-    - TOKEN_ISSUER=http://localhost:9080/auth/realms/test
-    - PROXY_TO=http://localhost:8099/fhir
-    - BACKEND_TYPE=HAPI
-    - ACCESS_CHECKER=list
-    - RUN_MODE=PROD
+    - TOKEN_ISSUER
+    - PROXY_TO
+    - BACKEND_TYPE
+    - ACCESS_CHECKER
+    - RUN_MODE
     network_mode: "host"
 
   hapi-server:
