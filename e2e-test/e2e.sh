@@ -23,30 +23,10 @@ export BUILD_ID=${KOKORO_BUILD_ID:-local}
 function setup() {
   docker build -t gcr.io/fhir-sdk/fhir-proxy:${BUILD_ID} .
   docker-compose -f docker/keycloak/config-compose.yaml \
-                 up --force-recreate --remove-orphans -d
+                 up --force-recreate --remove-orphans -d --quiet-pull
   docker-compose -f docker/hapi-proxy-compose.yaml \
-                 up --force-recreate --remove-orphans -d
-}
-
-function wait_for_start() {
-  local sink_server='http://localhost:8099'
-  local num_retries=0
-  local status_code=500
-  until [[ ${status_code} -eq 200 ]]; do
-    echo "WAITING FOR FHIR SERVER TO START"
-    sleep 10s
-    status_code=$(curl -o /dev/null --head -w "%{http_code}" -L -X GET \
-      --connect-timeout 5 --max-time 20 \
-      ${sink_server}/fhir/Observation 2>/dev/null) || status_code=500
-    ((num_retries += 1))
-    if [[ num_retries == 18 ]]; then
-      echo "TERMINATING AS FHIR SERVER TOOK TOO LONG TO START"
-      exit 1
-    fi
-  done
-  echo "FHIR SERVER STARTED SUCCESSFULLY"
+                 up --force-recreate --remove-orphans -d --quiet-pull --wait
 }
 
 setup
-wait_for_start
 python3 e2e-test/e2e.py

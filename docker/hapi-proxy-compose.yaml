@@ -43,6 +43,14 @@ services:
     - ACCESS_CHECKER
     - RUN_MODE
     network_mode: "host"
+    healthcheck:
+      # As hapi-server does not support curl, we check here that the
+      # hapi-server is ready to accept requests
+      test: curl --fail http://localhost:8099/fhir/metadata > /dev/null
+      start_period: 35s
+      interval: 10s
+      retries: 5
+      timeout: 10s
 
   hapi-server:
     image: gcr.io/fhir-sdk/synthetic-data:latest
