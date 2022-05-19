@@ -133,7 +133,8 @@ public class BearerAuthorizationInterceptorTest {
             "test",
             serverMock,
             httpUtilMock,
-            new PermissiveAccessChecker.Factory());
+            new PermissiveAccessChecker.Factory(),
+            new AllowedQueriesChecker(null));
   }
 
   private String signJwt(JWTCreator.Builder jwtBuilder) {

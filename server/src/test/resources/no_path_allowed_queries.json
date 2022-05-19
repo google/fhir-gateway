@@ -1,0 +1,11 @@
+{
+  "entries": [
+    {
+      "queryParams": {
+        "_getpages": "ANY_VALUE"
+      },
+      "allowExtraParams": true,
+      "allParamsRequired": true
+    }
+  ]
+}

@@ -42,6 +42,7 @@ services:
     - BACKEND_TYPE
     - ACCESS_CHECKER
     - RUN_MODE
+    - ALLOWED_QUERIES_FILE
     network_mode: "host"
 
   hapi-server:

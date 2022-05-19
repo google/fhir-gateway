@@ -15,6 +15,8 @@
  */
 package com.google.fhir.proxy.interfaces;
 
+// TODO: change this interface to pass the access token and other required objects to `checkAccess`
+// and remove `AccessCheckerFactory` (implementations can choose to have a factory internally).
 public interface AccessChecker {
 
   /**
