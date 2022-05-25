@@ -191,12 +191,6 @@
               <reflowLongStrings>true</reflowLongStrings>
             </googleJavaFormat>
           </java>
-          <python>
-            <includes>
-              <include>e2e-test/*.py</include>
-            </includes>
-            <black/>
-          </python>
         </configuration>
         <executions>
           <execution>

@@ -41,24 +41,26 @@ public class FhirProxyServer extends RestfulServer {
   private static final String TOKEN_ISSUER_ENV = "TOKEN_ISSUER";
   private static final String ACCESS_CHECKER_ENV = "ACCESS_CHECKER";
   private static final String PERMISSIVE_ACCESS_CHECKER = "permissive";
-  private static final String BACKEND_TYPE = "BACKEND_TYPE";
-  private static final String WELL_KNOWN_ENDPOINT = "WELL_KNOWN_ENDPOINT";
+  private static final String BACKEND_TYPE_ENV = "BACKEND_TYPE";
+  private static final String WELL_KNOWN_ENDPOINT_ENV = "WELL_KNOWN_ENDPOINT";
   private static final String WELL_KNOWN_ENDPOINT_DEFAULT = ".well-known/openid-configuration";
+  private static final String ALLOWED_QUERIES_FILE_ENV = "ALLOWED_QUERIES_FILE";
 
   @Autowired private Map<String, AccessCheckerFactory> accessCheckerFactories;
-  // @Autowired AccessCheckerFactory accessCheckerFactory;
 
   static boolean isDevMode() {
     String runMode = System.getenv("RUN_MODE");
     return "DEV".equals(runMode);
   }
 
+  // TODO: force `initialize` to happen once the server started, not after the first query; also
+  // implement a way to kill the server immediately when initialize fails.
   @Override
   protected void initialize() throws ServletException {
-    String backendType = System.getenv(BACKEND_TYPE);
+    String backendType = System.getenv(BACKEND_TYPE_ENV);
     if (backendType == null) {
       throw new ServletException(
-          String.format("The environment variable %s is not set!", BACKEND_TYPE));
+          String.format("The environment variable %s is not set!", BACKEND_TYPE_ENV));
     }
     String fhirStore = System.getenv(PROXY_TO_ENV);
     if (fhirStore == null) {
@@ -71,13 +73,13 @@ public class FhirProxyServer extends RestfulServer {
           String.format("The environment variable %s is not set!", TOKEN_ISSUER_ENV));
     }
 
-    String wellKnownEndpoint = System.getenv(WELL_KNOWN_ENDPOINT);
+    String wellKnownEndpoint = System.getenv(WELL_KNOWN_ENDPOINT_ENV);
     if (wellKnownEndpoint == null) {
       wellKnownEndpoint = WELL_KNOWN_ENDPOINT_DEFAULT;
       logger.info(
           String.format(
               "The environment variable %s is not set! Using default value of %s instead ",
-              WELL_KNOWN_ENDPOINT, WELL_KNOWN_ENDPOINT_DEFAULT));
+              WELL_KNOWN_ENDPOINT_ENV, WELL_KNOWN_ENDPOINT_DEFAULT));
     }
     // TODO make the FHIR version configurable.
     // Create a context for the appropriate version
@@ -97,7 +99,8 @@ public class FhirProxyServer extends RestfulServer {
               wellKnownEndpoint,
               this,
               new HttpUtil(),
-              checkerFactory));
+              checkerFactory,
+              new AllowedQueriesChecker(System.getenv(ALLOWED_QUERIES_FILE_ENV))));
     } catch (IOException e) {
       ExceptionUtil.throwRuntimeExceptionAndLog(logger, "IOException while initializing", e);
     }
@@ -114,7 +117,7 @@ public class FhirProxyServer extends RestfulServer {
     }
     throw new ServletException(
         String.format(
-            "The environment variable %s is not set to either GCP or HAPI!", BACKEND_TYPE));
+            "The environment variable %s is not set to either GCP or HAPI!", BACKEND_TYPE_ENV));
   }
 
   private AccessCheckerFactory chooseAccessCheckerFactory() {

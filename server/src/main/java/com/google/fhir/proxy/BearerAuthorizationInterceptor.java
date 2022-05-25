@@ -36,6 +36,7 @@ import com.google.common.base.Preconditions;
 import com.google.fhir.proxy.interfaces.AccessChecker;
 import com.google.fhir.proxy.interfaces.AccessCheckerFactory;
 import com.google.fhir.proxy.interfaces.AccessDecision;
+import com.google.fhir.proxy.interfaces.RequestDetailsReader;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import java.io.IOException;
@@ -85,6 +86,7 @@ public class BearerAuthorizationInterceptor {
   private final RestfulServer server;
   private final HttpFhirClient fhirClient;
   private final AccessCheckerFactory accessFactory;
+  private final AllowedQueriesChecker allowedQueriesChecker;
   private final String configJson;
 
   BearerAuthorizationInterceptor(
@@ -93,7 +95,8 @@ public class BearerAuthorizationInterceptor {
       String wellKnownEndpoint,
       RestfulServer server,
       HttpUtil httpUtil,
-      AccessCheckerFactory accessFactory)
+      AccessCheckerFactory accessFactory,
+      AllowedQueriesChecker allowedQueriesChecker)
       throws IOException {
     Preconditions.checkNotNull(fhirClient);
     Preconditions.checkNotNull(server);
@@ -102,6 +105,7 @@ public class BearerAuthorizationInterceptor {
     this.httpUtil = httpUtil;
     this.tokenIssuer = tokenIssuer;
     this.accessFactory = accessFactory;
+    this.allowedQueriesChecker = allowedQueriesChecker;
     RSAPublicKey issuerPublicKey = fetchAndDecodePublicKey();
     jwtVerifierConfig = JWT.require(Algorithm.RSA256(issuerPublicKey, null));
     this.configJson = httpUtil.fetchWellKnownConfig(tokenIssuer, wellKnownEndpoint);
@@ -212,6 +216,11 @@ public class BearerAuthorizationInterceptor {
     }
     DecodedJWT decodedJwt = decodeAndVerifyBearerToken(authHeader);
     FhirContext fhirContext = server.getFhirContext();
+    RequestDetailsReader requestDetailsReader = new RequestDetailsToReader(requestDetails);
+    AccessDecision allowedQueriesDecision = allowedQueriesChecker.checkAccess(requestDetailsReader);
+    if (allowedQueriesDecision.canAccess()) {
+      return allowedQueriesDecision;
+    }
     PatientFinderImp patientFinder = PatientFinderImp.getInstance(fhirContext);
     AccessChecker accessChecker =
         accessFactory.create(decodedJwt, fhirClient, fhirContext, patientFinder);
@@ -219,7 +228,7 @@ public class BearerAuthorizationInterceptor {
       ExceptionUtil.throwRuntimeExceptionAndLog(
           logger, "Cannot create an AccessChecker!", AuthenticationException.class);
     }
-    AccessDecision outcome = accessChecker.checkAccess(new RequestDetailsToReader(requestDetails));
+    AccessDecision outcome = accessChecker.checkAccess(requestDetailsReader);
     if (!outcome.canAccess()) {
       ExceptionUtil.throwRuntimeExceptionAndLog(
           logger,
