@@ -35,6 +35,7 @@ COPY server/src ./server/src
 COPY server/pom.xml ./server/
 COPY plugins/src ./plugins/src
 COPY plugins/pom.xml ./plugins/
+COPY resources/hapi_page_url_allowed_queries.json resources/hapi_page_url_allowed_queries.json
 COPY license-header.txt .
 COPY pom.xml .
 RUN mvn spotless:check
