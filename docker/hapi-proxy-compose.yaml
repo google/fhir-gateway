@@ -35,7 +35,7 @@ version: "3.0"
 
 services:
   fhir-proxy:
-    image: gcr.io/fhir-sdk/fhir-proxy:${BUILD_ID:-latest}
+    image: gcr.io/second-scion-309318/fhir-proxy:${BUILD_ID:-latest}
     environment:
     - TOKEN_ISSUER
     - PROXY_TO
@@ -54,6 +54,6 @@ services:
       timeout: 10s
 
   hapi-server:
-    image: gcr.io/fhir-sdk/synthetic-data:latest
+    image: gcr.io/second-scion-309318/synthetic-data:latest
     ports:
     - "8099:8080"
