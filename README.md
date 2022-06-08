@@ -80,7 +80,7 @@ repository, can be selected by either of:
   
 - **AllowedQueriesChecker**: There are URL requests that the server can allow 
    without going through an access checker. [`AllowedQueriesChecker`](https://github.com/google/fhir-access-proxy/blob/main/server/src/main/java/com/google/fhir/proxy/AllowedQueriesChecker.java)
-   compares the incoming request with a configured set of
+   is a special `AccessChecker` that compares the incoming request with a configured set of
    allowed-queries. The intended use of this checker is to override all other
    access-checkers for certain user-defined criteria. The user defines their
    criteria in a config file and if the URL query matches an entry in the
