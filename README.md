@@ -52,12 +52,12 @@ variables:
 - **FHIR store location**: This is set by `PROXY_TO` environment
   variable, using the base url of the FHIR store e.g.:
   ```shell
-  $ export PROXY_TO=https://example.com/fhir
+  export PROXY_TO=https://example.com/fhir
   ```
 
 - **Access token issuer**: This is set by `TOKEN_ISSUER` variable, e.g.:
   ```shell
-  $ export TOKEN_ISSUER=http://localhost:9080/auth/realms/test
+  export TOKEN_ISSUER=http://localhost:9080/auth/realms/test
   ```
   The above example is based on the default config of a test IDP+AuthZ
 [Keycloak](https://github.com/Alvearie/keycloak-extensions-for-fhir) server.
@@ -65,7 +65,7 @@ To see how this server is configured, check the
 [docker/keycloak](docker/keycloak) directory. If you want to use a
 SMART-on-FHIR app use this realm instead:
   ```shell
-  $ export TOKEN_ISSUER=http://localhost:9080/auth/realms/test-smart
+  export TOKEN_ISSUER=http://localhost:9080/auth/realms/test-smart
   ```
 
 - **AccessChecker**: As mentioned above, access-checkers can be provided as
@@ -73,10 +73,23 @@ plugins and easily swapped. Each access-checker has a name
 (see [plugins](plugins) for details) and `ACCESS_CHECKER` variable should
 be set to this name. For example, the two plugins that are provided in this
 repository, can be selected by either of:
-```shell
-export ACCESS_CHECKER=list
-export ACCESS_CHECKER=patient
-```
+  ```shell
+  export ACCESS_CHECKER=list
+  export ACCESS_CHECKER=patient
+  ```
+  
+- **AllowedQueriesChecker**: There are URL requests that the server can allow 
+   without going through an access checker. [`AllowedQueriesChecker`](https://github.com/google/fhir-access-proxy/blob/main/server/src/main/java/com/google/fhir/proxy/AllowedQueriesChecker.java)
+   is a special `AccessChecker` that compares the incoming request with a configured set of
+   allowed-queries. The intended use of this checker is to override all other
+   access-checkers for certain user-defined criteria. The user defines their
+   criteria in a config file and if the URL query matches an entry in the
+   config file, access is granted. An example of this is:
+   [`hapi_page_url_allowed_queries.json`](https://github.com/google/fhir-access-proxy/blob/main/resources/hapi_page_url_allowed_queries.json).
+   To use the file, set the `ALLOWED_QUERIES_FILE` variable:
+    ```shell
+    export ALLOWED_QUERIES_FILE="resources/hapi_page_url_allowed_queries.json"
+    ```
 
 - The proxy makes no assumptions about what the FHIR server is, but the proxy
 should be able to send any FHIR queries to the server. For example, if you use a
@@ -93,7 +106,7 @@ you have the following options:
   * [not-recommended] You can create and download a key file for the above
   service account, then use it with
   ```shell
-  $ export GOOGLE_APPLICATION_CREDENTIALS="PATH_TO_THE_JSON_KEY_FILE"
+  export GOOGLE_APPLICATION_CREDENTIALS="PATH_TO_THE_JSON_KEY_FILE"
   ```
 
 Once you have set all the above, you can run the proxy server. By default, the
