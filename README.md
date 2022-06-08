@@ -84,7 +84,7 @@ repository, can be selected by either of:
    allowed-queries. The intended use of this checker is to override all other
    access-checkers for certain user-defined criteria. The user defines their
    criteria in a config file and if the URL query matches an entry in the
-   config file, access is granted. An example of this is the file:
+   config file, access is granted. An example of this is:
    [`hapi_page_url_allowed_queries.json`](https://github.com/google/fhir-access-proxy/blob/main/resources/hapi_page_url_allowed_queries.json).
    To use the file, set the `ALLOWED_QUERIES_FILE` variable:
     ```shell
