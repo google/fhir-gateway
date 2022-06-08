@@ -122,7 +122,7 @@ The proxy is also available as a [docker image](Dockerfile):
 ```shell
 $ docker run -p 8081:8080 -e TOKEN_ISSUER=[token_issuer_url] \
   -e PROXY_TO=[fhir_server_url] -e ACCESS_CHECKER=list \
-  gcr.io/fhir-sdk/fhir-proxy:latest
+  gcr.io/second-scion-309318/fhir-proxy:latest
 ```
 
 Note if the `TOKEN_ISSUER` is on the `localhost` you need  to bypass proxy's

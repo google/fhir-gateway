@@ -8,7 +8,7 @@ and a single-patient based SMART-on-FHIR app (in two separate realms).
 
 ## Pre-loaded HAPI Server
 
-The [gcr.io/fhir-sdk/synthetic-data:latest](https://console.cloud.google.com/gcr/images/fhir-sdk/global/synthetic-data)
+The [gcr.io/second-scion-309318/synthetic-data:latest](https://console.cloud.google.com/gcr/images/fhir-sdk/global/synthetic-data)
 image is based on the HAPI FHIR [image](https://hub.docker.com/r/hapiproject/hapi) with the
 `1K Sample Synthetic Patient Records, FHIR R4` dataset from [Synthea](https://synthea.mitre.org/downloads) stored in the
 container itself. To load this dataset into the HAPI FHIR image, do the following:
@@ -77,10 +77,10 @@ following to upload the list into the server
 
 6. Commit the Docker container. This saves its state into a new image
    ```
-    docker commit hapi_fhir gcr.io/fhir-sdk/synthetic-data:latest
+    docker commit hapi_fhir gcr.io/second-scion-309318/synthetic-data:latest
     ```
 
 7. Push the image
    ```
-    docker push gcr.io/fhir-sdk/synthetic-data:latest
+    docker push gcr.io/second-scion-309318/synthetic-data:latest
    ```
