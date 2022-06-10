@@ -41,5 +41,5 @@ function setup() {
 }
 
 setup
-cd "${KOKORO_ARTIFACTS_DIR}/git/fhir-proxy"
+cd "${KOKORO_ARTIFACTS_DIR}/github/fhir-proxy"
 ./build.sh
