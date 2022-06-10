@@ -19,7 +19,7 @@ is intended for a SMART on FHIR app with patient scopes.
 - The `alvearie/keycloak-config:latest` docker image to configure a SMART
 enabled realm. This is useful for the `patient` access-checker.
 
-- The `gcr.io/second-scion-309318/keycloak-config:latest` docker image to configure a realm
+- The `us-docker.pkg.dev/fhir-proxy-build/stable/keycloak-config:latest` docker image to configure a realm
 for the `list` access-checker.
 
 You can change the configuration parameters by changing environment variables
