@@ -18,6 +18,9 @@
 
 FROM adoptopenjdk/maven-openjdk11
 
+RUN apt-get update && apt-get install -y nodejs npm
+RUN npm cache clean -f && npm install -g n && n stable
+
 WORKDIR /app
 
 ENV PROXY_PORT=8080
