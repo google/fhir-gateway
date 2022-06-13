@@ -77,8 +77,8 @@ repository, can be selected by either of:
   export ACCESS_CHECKER=list
   export ACCESS_CHECKER=patient
   ```
-  
-- **AllowedQueriesChecker**: There are URL requests that the server can allow 
+
+- **AllowedQueriesChecker**: There are URL requests that the server can allow
    without going through an access checker. [`AllowedQueriesChecker`](https://github.com/google/fhir-access-proxy/blob/main/server/src/main/java/com/google/fhir/proxy/AllowedQueriesChecker.java)
    is a special `AccessChecker` that compares the incoming request with a configured set of
    allowed-queries. The intended use of this checker is to override all other
@@ -122,7 +122,7 @@ The proxy is also available as a [docker image](Dockerfile):
 ```shell
 $ docker run -p 8081:8080 -e TOKEN_ISSUER=[token_issuer_url] \
   -e PROXY_TO=[fhir_server_url] -e ACCESS_CHECKER=list \
-  gcr.io/second-scion-309318/fhir-proxy:latest
+  us-docker.pkg.dev/fhir-proxy-build/stable/fhir-access-proxy:latest
 ```
 
 Note if the `TOKEN_ISSUER` is on the `localhost` you need  to bypass proxy's

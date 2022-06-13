@@ -78,7 +78,7 @@ services:
     - KEYCLOAK_REALM=${SMART_REALM:-dummy-smart}
 
   proxy-config:
-    image: gcr.io/second-scion-309318/keycloak-config:latest
+    image: us-docker.pkg.dev/fhir-proxy-build/stable/keycloak-config:latest
     depends_on:
       smart-config:
         condition: service_completed_successfully
