@@ -34,7 +34,7 @@
   <properties>
     <hapifhir_version>5.7.1</hapifhir_version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <spotless.version>2.17.4</spotless.version>
+    <spotless.version>2.22.8</spotless.version>
     <root.basedir>${project.basedir}</root.basedir>
     <maven.compiler.source>11</maven.compiler.source>
     <maven.compiler.target>11</maven.compiler.target>
@@ -152,7 +152,6 @@
               <!-- define the files to apply to -->
               <includes>
                 <include>**/*.sh</include>
-                <include>**/*.md</include>
                 <include>**/*.xml</include>
                 <include>.gitignore</include>
               </includes>
@@ -169,6 +168,23 @@
               <indent>
                 <spaces>true</spaces>
               </indent>
+            </format>
+            <format>
+              <includes>
+                <include>**/*.md</include>
+              </includes>
+              <excludes>
+                <exclude>**/target/**</exclude>
+              </excludes>
+              <prettier>
+                <!-- Formatter that Spotless supports and can format Markdown:
+                     https://github.com/diffplug/spotless/tree/main/plugin-maven#prettier
+                   Only Spotless-supported formatter that can be configured to
+                   force line wrap -->
+                <config>
+                  <proseWrap>always</proseWrap>
+                </config>
+              </prettier>
             </format>
           </formats>
           <!-- define a language-specific format -->
