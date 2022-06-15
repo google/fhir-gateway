@@ -177,6 +177,10 @@
                 <exclude>**/target/**</exclude>
               </excludes>
               <prettier>
+                <!-- Formatter that Spotless supports and can format Markdown:
+                     https://github.com/diffplug/spotless/tree/main/plugin-maven#prettier
+                   Only Spotless-supported formatter that can be configured to
+                   force line wrap -->
                 <config>
                   <proseWrap>always</proseWrap>
                 </config>
