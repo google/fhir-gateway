@@ -35,11 +35,15 @@ function setup() {
   sudo growpart /dev/sda 1
   sudo resize2fs /dev/sda1
 
+  # Install Docker-Compose v2
   sudo curl -L "https://github.com/docker/compose/releases/download/v2.5.0/docker-compose-$(uname -s)-$(uname -m)" \
     -o /usr/local/bin/docker-compose
   sudo chmod +x /usr/local/bin/docker-compose
+
+  # Update gcloud components
+  gcloud components update
 }
 
 setup
-cd "${KOKORO_ARTIFACTS_DIR}/github/fhir-proxy"
+cd "${KOKORO_ARTIFACTS_DIR}/github/fhir-access-proxy"
 ./build.sh
