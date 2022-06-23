@@ -1,5 +1,9 @@
 # FHIR Access Proxy
 
+<!-- Build status of the main branch -->
+
+[![alt-text](https://storage.googleapis.com/fhir-proxy-build-badges/build.svg)](https://storage.googleapis.com/fhir-proxy-build-badges/build.html)
+
 This is a simple access-control proxy that sits in front of a
 [FHIR](https://www.hl7.org/fhir/) store (e.g., a
 [HAPI FHIR](https://hapifhir.io/) server,
