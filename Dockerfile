@@ -14,14 +14,31 @@
 # limitations under the License.
 #
 
-# This image is for the FHIR proxy with configuration knobs as environment vars.
-
-FROM adoptopenjdk/maven-openjdk11
+# Image for building and running tests against the source code of
+# the FHIR Access Proxy.
+FROM maven:3.8.5-openjdk-11 as build
 
 RUN apt-get update && apt-get install -y nodejs npm
 RUN npm cache clean -f && npm install -g n && n stable
 
 WORKDIR /app
+
+COPY server/src ./server/src
+COPY server/pom.xml ./server/
+COPY plugins/src ./plugins/src
+COPY plugins/pom.xml ./plugins/
+COPY license-header.txt .
+COPY pom.xml .
+
+RUN mvn spotless:check
+RUN mvn --batch-mode package -Pstandalone-app
+
+
+# Image for FHIR Access Proxy binary with configuration knobs as environment vars.
+FROM eclipse-temurin:11-jdk-focal as main
+
+COPY --from=build /app/plugins/target/plugins-0.1.0-exec.jar /
+COPY resources/hapi_page_url_allowed_queries.json resources/hapi_page_url_allowed_queries.json
 
 ENV PROXY_PORT=8080
 ENV TOKEN_ISSUER="http://localhost/auth/realms/test"
@@ -34,14 +51,4 @@ ENV BACKEND_TYPE="HAPI"
 ENV ACCESS_CHECKER="list"
 ENV RUN_MODE="PROD"
 
-COPY server/src ./server/src
-COPY server/pom.xml ./server/
-COPY plugins/src ./plugins/src
-COPY plugins/pom.xml ./plugins/
-COPY resources/hapi_page_url_allowed_queries.json resources/hapi_page_url_allowed_queries.json
-COPY license-header.txt .
-COPY pom.xml .
-RUN mvn spotless:check
-RUN mvn --batch-mode package -Pstandalone-app
-ENTRYPOINT java -jar plugins/target/plugins-0.1.0-exec.jar \
-  --server.port=${PROXY_PORT}
+ENTRYPOINT java -jar plugins-0.1.0-exec.jar --server.port=${PROXY_PORT}
