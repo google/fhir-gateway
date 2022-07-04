@@ -35,8 +35,7 @@ RUN mvn --batch-mode package -Pstandalone-app
 
 
 # Image for FHIR Access Proxy binary with configuration knobs as environment vars.
-FROM eclipse-temurin:11-jre-alpine as main
-RUN apk --no-cache add curl
+FROM eclipse-temurin:11-jdk-focal as main
 
 COPY --from=build /app/plugins/target/plugins-0.1.0-exec.jar /
 COPY resources/hapi_page_url_allowed_queries.json resources/hapi_page_url_allowed_queries.json
