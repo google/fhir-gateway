@@ -2,6 +2,7 @@
   "entries": [
     {
       "path": "",
+      "methodType": "GET",
       "queryParams": {
         "_getpages": "ANY_VALUE"
       },

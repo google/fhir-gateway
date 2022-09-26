@@ -19,6 +19,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.mockito.Mockito.when;
 
+import ca.uhn.fhir.rest.api.RequestTypeEnum;
 import com.google.common.collect.Maps;
 import com.google.common.io.Resources;
 import com.google.fhir.proxy.interfaces.RequestDetailsReader;
@@ -40,6 +41,7 @@ public class AllowedQueriesCheckerTest {
   public void validGetPagesQuery() throws IOException {
     // Query: GET ?_getpages=A_PAGE_ID
     when(requestMock.getRequestPath()).thenReturn("");
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.GET);
     Map<String, String[]> params = Maps.newHashMap();
     params.put("_getpages", new String[] {"A_PAGE_ID"});
     when(requestMock.getParameters()).thenReturn(params);
@@ -52,6 +54,7 @@ public class AllowedQueriesCheckerTest {
   public void validGetPagesQueryExtraValue() throws IOException {
     // Query: GET ?_getpages=A_PAGE_ID,A_SECOND_ID
     when(requestMock.getRequestPath()).thenReturn("");
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.GET);
     Map<String, String[]> params = Maps.newHashMap();
     params.put("_getpages", new String[] {"A_PAGE_ID", "A_SECOND_ID"});
     when(requestMock.getParameters()).thenReturn(params);
@@ -64,6 +67,7 @@ public class AllowedQueriesCheckerTest {
   public void validGetPagesQueryExtraParam() throws IOException {
     // Query: GET ?_getpages=A_PAGE_ID&another_param=SOMETHING
     when(requestMock.getRequestPath()).thenReturn("");
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.GET);
     Map<String, String[]> params = Maps.newHashMap();
     params.put("_getpages", new String[] {"A_PAGE_ID"});
     params.put("another_param", new String[] {"SOMETHING"});
@@ -77,6 +81,7 @@ public class AllowedQueriesCheckerTest {
   public void noMatchForObservationQuery() throws IOException {
     // Query: GET /Observation?_getpages=A_PAGE_ID
     when(requestMock.getRequestPath()).thenReturn("/Observation");
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.GET);
     URL configFileUrl = Resources.getResource("hapi_page_url_allowed_queries.json");
     AllowedQueriesChecker testInstance = new AllowedQueriesChecker(configFileUrl.getPath());
     assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
@@ -98,6 +103,7 @@ public class AllowedQueriesCheckerTest {
   public void denyGetPagesQueryExtraParam() throws IOException {
     // Query: GET ?_getpages=A_PAGE_ID&another_param=SOMETHING
     when(requestMock.getRequestPath()).thenReturn("");
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.GET);
     Map<String, String[]> params = Maps.newHashMap();
     params.put("_getpages", new String[] {"A_PAGE_ID"});
     params.put("another_param", new String[] {"SOMETHING"});
@@ -111,6 +117,7 @@ public class AllowedQueriesCheckerTest {
   public void denyQueryWithoutRequiredParam() throws IOException {
     // Query: GET ?another_param=SOMETHING
     when(requestMock.getRequestPath()).thenReturn("");
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.GET);
     Map<String, String[]> params = Maps.newHashMap();
     params.put("another_param", new String[] {"SOMETHING"});
     URL configFileUrl = Resources.getResource("hapi_page_url_allowed_queries.json");
