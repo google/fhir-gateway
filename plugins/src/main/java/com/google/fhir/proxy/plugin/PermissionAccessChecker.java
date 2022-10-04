@@ -19,8 +19,8 @@ import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.rest.api.RequestTypeEnum;
 import com.auth0.jwt.interfaces.Claim;
 import com.auth0.jwt.interfaces.DecodedJWT;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Sets;
 import com.google.fhir.proxy.FhirUtil;
 import com.google.fhir.proxy.HttpFhirClient;
 import com.google.fhir.proxy.interfaces.*;
@@ -30,16 +30,12 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.inject.Named;
-
-import org.hl7.fhir.r4.model.Bundle;
-import org.hl7.fhir.r4.model.ResourceType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class PermissionAccessChecker implements AccessChecker {
 
   private static final Logger logger = LoggerFactory.getLogger(PermissionAccessChecker.class);
-  private static final String COMPOSITION = "Composition";
   private final PatientFinder patientFinder;
   private final List<String> userRoles;
 
@@ -59,7 +55,7 @@ public class PermissionAccessChecker implements AccessChecker {
       //  return processBundle(requestDetails);
     } else {
 
- //Processing
+      // Processing
       boolean userHasRole =
           checkIfRoleExists(getAdminRoleName(requestDetails.getResourceName()), userRoles)
               || checkIfRoleExists(
@@ -74,7 +70,7 @@ public class PermissionAccessChecker implements AccessChecker {
         case POST:
           return processPost(requestDetails, userHasRole);
         case PUT:
-           return processPut(requestDetails,userHasRole);
+          return processPut(requestDetails, userHasRole);
         default:
           // TODO handle other cases like PATCH
           return NoOpAccessDecision.accessDenied();
@@ -88,15 +84,15 @@ public class PermissionAccessChecker implements AccessChecker {
     return userHasRole ? NoOpAccessDecision.accessGranted() : NoOpAccessDecision.accessDenied();
   }
 
-  private AccessDecision processPost(RequestDetailsReader requestDetails,boolean userHasRole) {
+  private AccessDecision processPost(RequestDetailsReader requestDetails, boolean userHasRole) {
 
     // Run this to checks if FHIR Resource is different from URI endpoint resource type
-     patientFinder.findPatientsInResource(requestDetails);
+    patientFinder.findPatientsInResource(requestDetails);
     return new NoOpAccessDecision(userHasRole);
   }
 
   private AccessDecision processPut(RequestDetailsReader requestDetails, boolean userHasRole) {
-    if(!userHasRole){
+    if (!userHasRole) {
       logger.error("The current user does not have required Role; denying access!");
       return NoOpAccessDecision.accessDenied();
     }
@@ -108,14 +104,14 @@ public class PermissionAccessChecker implements AccessChecker {
       return NoOpAccessDecision.accessDenied();
     }
 
-      // We do not allow direct resource PUT, so Patient ID must be returned
-      String authorizedPatientId = patientFinder.findPatientFromParams(requestDetails);
+    // We do not allow direct resource PUT, so Patient ID must be returned
+    String authorizedPatientId = patientFinder.findPatientFromParams(requestDetails);
 
-     // Retrieve patient ids in resource. Also checks if FHIR Resource is different from URI endpoint resource type
-      Set<String> patientIds = patientFinder.findPatientsInResource(requestDetails);
+    // Retrieve patient ids in resource. Also checks if FHIR Resource is different from URI endpoint
+    // resource type
+    Set<String> patientIds = patientFinder.findPatientsInResource(requestDetails);
 
-      return new NoOpAccessDecision(patientIds.contains(authorizedPatientId));
-
+    return new NoOpAccessDecision(patientIds.contains(authorizedPatientId));
   }
 
   private String getRelevantRoleName(String resourceName, String methodType) {
@@ -133,8 +129,10 @@ public class PermissionAccessChecker implements AccessChecker {
   @Named(value = "permission")
   static class Factory implements AccessCheckerFactory {
 
+    @VisibleForTesting static final String REALM_ACCESS_CLAIM = "realm_access";
+
     private List<String> getUserRolesFromJWT(DecodedJWT jwt) {
-      Claim claim = jwt.getClaim("realm_access");
+      Claim claim = jwt.getClaim(REALM_ACCESS_CLAIM);
       Map<String, Object> roles = claim.asMap();
       List<Object> collection = roles.values().stream().collect(Collectors.toList());
       List<String> rolesList = new ArrayList<>();
