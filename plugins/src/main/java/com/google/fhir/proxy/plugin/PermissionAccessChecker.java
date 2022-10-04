@@ -19,26 +19,34 @@ import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.rest.api.RequestTypeEnum;
 import com.auth0.jwt.interfaces.Claim;
 import com.auth0.jwt.interfaces.DecodedJWT;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.Sets;
+import com.google.fhir.proxy.FhirUtil;
 import com.google.fhir.proxy.HttpFhirClient;
 import com.google.fhir.proxy.interfaces.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import javax.inject.Named;
+
+import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.ResourceType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class PermissionAccessChecker implements AccessChecker {
 
   private static final Logger logger = LoggerFactory.getLogger(PermissionAccessChecker.class);
-
-  private static final String PATIENT = "Patient";
-  private static final String ORGANIZATION = "Organization";
   private static final String COMPOSITION = "Composition";
+  private final PatientFinder patientFinder;
   private final List<String> userRoles;
 
-  private PermissionAccessChecker(List<String> userRoles) {
+  private PermissionAccessChecker(List<String> userRoles, PatientFinder patientFinder) {
+    Preconditions.checkNotNull(userRoles);
+    Preconditions.checkNotNull(patientFinder);
+    this.patientFinder = patientFinder;
     this.userRoles = userRoles;
   }
 
@@ -51,6 +59,7 @@ public class PermissionAccessChecker implements AccessChecker {
       //  return processBundle(requestDetails);
     } else {
 
+ //Processing
       boolean userHasRole =
           checkIfRoleExists(getAdminRoleName(requestDetails.getResourceName()), userRoles)
               || checkIfRoleExists(
@@ -60,13 +69,12 @@ public class PermissionAccessChecker implements AccessChecker {
 
       switch (requestDetails.getRequestType()) {
         case GET:
-          return processGet(userHasRole);
-        case POST:
-          // return processPost(requestDetails);
-        case PUT:
-          // return processPut(requestDetails);
         case DELETE:
-          // return processDelete(requestDetails);
+          return processGetOrDelete(userHasRole);
+        case POST:
+          return processPost(requestDetails, userHasRole);
+        case PUT:
+           return processPut(requestDetails,userHasRole);
         default:
           // TODO handle other cases like PATCH
           return NoOpAccessDecision.accessDenied();
@@ -76,8 +84,38 @@ public class PermissionAccessChecker implements AccessChecker {
     return NoOpAccessDecision.accessDenied();
   }
 
-  private AccessDecision processGet(boolean userHasRole) {
+  private AccessDecision processGetOrDelete(boolean userHasRole) {
     return userHasRole ? NoOpAccessDecision.accessGranted() : NoOpAccessDecision.accessDenied();
+  }
+
+  private AccessDecision processPost(RequestDetailsReader requestDetails,boolean userHasRole) {
+
+    // Run this to checks if FHIR Resource is different from URI endpoint resource type
+     patientFinder.findPatientsInResource(requestDetails);
+    return new NoOpAccessDecision(userHasRole);
+  }
+
+  private AccessDecision processPut(RequestDetailsReader requestDetails, boolean userHasRole) {
+    if(!userHasRole){
+      logger.error("The current user does not have required Role; denying access!");
+      return NoOpAccessDecision.accessDenied();
+    }
+
+    String patientId = FhirUtil.getIdOrNull(requestDetails);
+    if (patientId == null) {
+      // This is an invalid PUT request; note we are not supporting "conditional updates".
+      logger.error("The provided Resource has no ID; denying access!");
+      return NoOpAccessDecision.accessDenied();
+    }
+
+      // We do not allow direct resource PUT, so Patient ID must be returned
+      String authorizedPatientId = patientFinder.findPatientFromParams(requestDetails);
+
+     // Retrieve patient ids in resource. Also checks if FHIR Resource is different from URI endpoint resource type
+      Set<String> patientIds = patientFinder.findPatientsInResource(requestDetails);
+
+      return new NoOpAccessDecision(patientIds.contains(authorizedPatientId));
+
   }
 
   private String getRelevantRoleName(String resourceName, String methodType) {
@@ -114,7 +152,7 @@ public class PermissionAccessChecker implements AccessChecker {
         FhirContext fhirContext,
         PatientFinder patientFinder) {
       List<String> userRoles = getUserRolesFromJWT(jwt);
-      return new PermissionAccessChecker(userRoles);
+      return new PermissionAccessChecker(userRoles, patientFinder);
     }
   }
 }
