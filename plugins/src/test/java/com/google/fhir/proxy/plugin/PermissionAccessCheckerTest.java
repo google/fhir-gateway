@@ -20,11 +20,12 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.mockito.Mockito.when;
 
 import ca.uhn.fhir.context.FhirContext;
+import ca.uhn.fhir.model.primitive.IdDt;
 import ca.uhn.fhir.rest.api.RequestTypeEnum;
 import com.auth0.jwt.interfaces.Claim;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import com.google.common.io.Resources;
-import com.google.fhir.proxy.PatientFinderImp;
+import com.google.fhir.proxy.ResourceFinderImp;
 import com.google.fhir.proxy.interfaces.AccessChecker;
 import com.google.fhir.proxy.interfaces.RequestDetailsReader;
 import java.io.IOException;
@@ -43,6 +44,8 @@ import org.mockito.junit.MockitoJUnitRunner;
 public class PermissionAccessCheckerTest {
   static final String PATIENT_AUTHORIZED = "be92a43f-de46-affa-b131-bbf9eea51140";
   static final String PATIENT_NON_AUTHORIZED = "patient-non-authorized";
+  static final IdDt PATIENT_AUTHORIZED_ID = new IdDt("Patient", PATIENT_AUTHORIZED);
+  static final IdDt PATIENT_NON_AUTHORIZED_ID = new IdDt("Patient", PATIENT_NON_AUTHORIZED);
 
   @Mock protected DecodedJWT jwtMock;
 
@@ -59,7 +62,7 @@ public class PermissionAccessCheckerTest {
     when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.POST);
     URL url = Resources.getResource(filename);
     byte[] obsBytes = Resources.toByteArray(url);
-    // when(requestMock.loadRequestContents()).thenReturn(obsBytes);
+    when(requestMock.loadRequestContents()).thenReturn(obsBytes);
   }
 
   @Before
@@ -71,7 +74,7 @@ public class PermissionAccessCheckerTest {
 
   protected AccessChecker getInstance() {
     return new PermissionAccessChecker.Factory()
-        .create(jwtMock, null, fhirContext, PatientFinderImp.getInstance(fhirContext));
+        .create(jwtMock, null, fhirContext, ResourceFinderImp.getInstance(fhirContext));
   }
 
   @Test
@@ -100,7 +103,6 @@ public class PermissionAccessCheckerTest {
     Map<String, Object> map = new HashMap<>();
     map.put("roles", Arrays.asList("GET_PATIENT"));
     when(claimMock.asMap()).thenReturn(map);
-
     when(requestMock.getResourceName()).thenReturn(Enumerations.ResourceType.PATIENT.name());
     when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.GET);
 
@@ -118,7 +120,6 @@ public class PermissionAccessCheckerTest {
     Map<String, Object> map = new HashMap<>();
     map.put("roles", Arrays.asList(""));
     when(claimMock.asMap()).thenReturn(map);
-
     when(requestMock.getResourceName()).thenReturn(Enumerations.ResourceType.PATIENT.name());
     when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.GET);
 
@@ -136,7 +137,6 @@ public class PermissionAccessCheckerTest {
     Map<String, Object> map = new HashMap<>();
     map.put("roles", Arrays.asList("DELETE_PATIENT"));
     when(claimMock.asMap()).thenReturn(map);
-
     when(requestMock.getResourceName()).thenReturn(Enumerations.ResourceType.PATIENT.name());
     when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.DELETE);
 
@@ -154,7 +154,6 @@ public class PermissionAccessCheckerTest {
     Map<String, Object> map = new HashMap<>();
     map.put("roles", Arrays.asList("MANAGE_PATIENT"));
     when(claimMock.asMap()).thenReturn(map);
-
     when(requestMock.getResourceName()).thenReturn(Enumerations.ResourceType.PATIENT.name());
     when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.DELETE);
 
@@ -172,7 +171,6 @@ public class PermissionAccessCheckerTest {
     Map<String, Object> map = new HashMap<>();
     map.put("roles", Arrays.asList(""));
     when(claimMock.asMap()).thenReturn(map);
-
     when(requestMock.getResourceName()).thenReturn(Enumerations.ResourceType.PATIENT.name());
     when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.DELETE);
 
@@ -180,5 +178,104 @@ public class PermissionAccessCheckerTest {
     boolean canAccess = testInstance.checkAccess(requestMock).canAccess();
 
     assertThat(canAccess, equalTo(false));
+  }
+
+  @Test
+  public void testPutWithManagePatientRoleCanAccessPutPatient() throws IOException {
+    // Query: PUT/PID
+    setUpFhirBundle("test_patient.json");
+
+    Map<String, Object> map = new HashMap<>();
+    map.put("roles", Arrays.asList("MANAGE_PATIENT"));
+    when(claimMock.asMap()).thenReturn(map);
+    when(requestMock.getResourceName()).thenReturn(Enumerations.ResourceType.PATIENT.name());
+    when(requestMock.getResourceName()).thenReturn("Patient");
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.PUT);
+    when(requestMock.getId()).thenReturn(PATIENT_AUTHORIZED_ID);
+
+    AccessChecker testInstance = getInstance();
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(true));
+  }
+
+  @Test
+  public void testPutPatientWithRoleCanAccessPutPatient() throws IOException {
+    // Query: PUT/PID
+    setUpFhirBundle("test_patient.json");
+
+    Map<String, Object> map = new HashMap<>();
+    map.put("roles", Arrays.asList("PUT_PATIENT"));
+    when(claimMock.asMap()).thenReturn(map);
+    when(requestMock.getResourceName()).thenReturn(Enumerations.ResourceType.PATIENT.name());
+    when(requestMock.getResourceName()).thenReturn("Patient");
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.PUT);
+    when(requestMock.getId()).thenReturn(PATIENT_AUTHORIZED_ID);
+
+    AccessChecker testInstance = getInstance();
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(true));
+  }
+
+  @Test
+  public void testPutPatientWithoutRoleCannotAccessPutPatient() throws IOException {
+    // Query: PUT/PID
+    setUpFhirBundle("test_patient.json");
+
+    Map<String, Object> map = new HashMap<>();
+    map.put("roles", Arrays.asList(""));
+    when(claimMock.asMap()).thenReturn(map);
+    when(requestMock.getResourceName()).thenReturn(Enumerations.ResourceType.PATIENT.name());
+    when(requestMock.getResourceName()).thenReturn("Patient");
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.PUT);
+
+    AccessChecker testInstance = getInstance();
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
+  }
+
+  @Test
+  public void testPutPatientWithDifferentIdCannotAccessPutPatient() throws IOException {
+    // Query: PUT/WRONG_PID
+    setUpFhirBundle("test_patient.json");
+
+    Map<String, Object> map = new HashMap<>();
+    map.put("roles", Arrays.asList("PUT_PATIENT"));
+    when(claimMock.asMap()).thenReturn(map);
+    when(requestMock.getResourceName()).thenReturn(Enumerations.ResourceType.PATIENT.name());
+    when(requestMock.getResourceName()).thenReturn("Patient");
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.PUT);
+    when(requestMock.getId()).thenReturn(PATIENT_NON_AUTHORIZED_ID);
+
+    AccessChecker testInstance = getInstance();
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
+  }
+
+  @Test
+  public void testPostPatientWithRoleCanAccessPostPatient() throws IOException {
+    // Query: /POST
+    setUpFhirBundle("test_patient.json");
+
+    Map<String, Object> map = new HashMap<>();
+    map.put("roles", Arrays.asList("POST_PATIENT"));
+    when(claimMock.asMap()).thenReturn(map);
+    when(requestMock.getResourceName()).thenReturn(Enumerations.ResourceType.PATIENT.name());
+    when(requestMock.getResourceName()).thenReturn("Patient");
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.POST);
+
+    AccessChecker testInstance = getInstance();
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(true));
+  }
+
+  @Test
+  public void testPostPatientWithoutRoleCannotAccessPostPatient() throws IOException {
+    // Query: /POST
+    setUpFhirBundle("test_patient.json");
+
+    Map<String, Object> map = new HashMap<>();
+    map.put("roles", Arrays.asList(""));
+    when(claimMock.asMap()).thenReturn(map);
+    when(requestMock.getResourceName()).thenReturn(Enumerations.ResourceType.PATIENT.name());
+    when(requestMock.getResourceName()).thenReturn("Patient");
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.POST);
+
+    AccessChecker testInstance = getInstance();
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
   }
 }

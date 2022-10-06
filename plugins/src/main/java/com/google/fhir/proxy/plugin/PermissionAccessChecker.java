@@ -36,13 +36,13 @@ import org.slf4j.LoggerFactory;
 public class PermissionAccessChecker implements AccessChecker {
 
   private static final Logger logger = LoggerFactory.getLogger(PermissionAccessChecker.class);
-  private final PatientFinder patientFinder;
+  private final ResourceFinder resourceFinder;
   private final List<String> userRoles;
 
-  private PermissionAccessChecker(List<String> userRoles, PatientFinder patientFinder) {
+  private PermissionAccessChecker(List<String> userRoles, ResourceFinder resourceFinder) {
     Preconditions.checkNotNull(userRoles);
-    Preconditions.checkNotNull(patientFinder);
-    this.patientFinder = patientFinder;
+    Preconditions.checkNotNull(resourceFinder);
+    this.resourceFinder = resourceFinder;
     this.userRoles = userRoles;
   }
 
@@ -85,10 +85,14 @@ public class PermissionAccessChecker implements AccessChecker {
   }
 
   private AccessDecision processPost(RequestDetailsReader requestDetails, boolean userHasRole) {
+    if (!userHasRole) {
+      logger.error("The current user does not have required Role; denying access!");
+      return NoOpAccessDecision.accessDenied();
+    }
 
     // Run this to checks if FHIR Resource is different from URI endpoint resource type
-    patientFinder.findPatientsInResource(requestDetails);
-    return new NoOpAccessDecision(userHasRole);
+    resourceFinder.findResourcesInResource(requestDetails);
+    return new NoOpAccessDecision(true);
   }
 
   private AccessDecision processPut(RequestDetailsReader requestDetails, boolean userHasRole) {
@@ -97,21 +101,17 @@ public class PermissionAccessChecker implements AccessChecker {
       return NoOpAccessDecision.accessDenied();
     }
 
-    String patientId = FhirUtil.getIdOrNull(requestDetails);
-    if (patientId == null) {
+    String resourceId = FhirUtil.getIdOrNull(requestDetails);
+    if (resourceId == null) {
       // This is an invalid PUT request; note we are not supporting "conditional updates".
       logger.error("The provided Resource has no ID; denying access!");
       return NoOpAccessDecision.accessDenied();
     }
 
-    // We do not allow direct resource PUT, so Patient ID must be returned
-    String authorizedPatientId = patientFinder.findPatientFromParams(requestDetails);
-
-    // Retrieve patient ids in resource. Also checks if FHIR Resource is different from URI endpoint
+    // Checks if FHIR Resource is different from URI endpoint
     // resource type
-    Set<String> patientIds = patientFinder.findPatientsInResource(requestDetails);
-
-    return new NoOpAccessDecision(patientIds.contains(authorizedPatientId));
+    Set<String> resourceIds = resourceFinder.findResourcesInResource(requestDetails);
+    return new NoOpAccessDecision(resourceIds.contains(resourceId));
   }
 
   private String getRelevantRoleName(String resourceName, String methodType) {
@@ -127,7 +127,7 @@ public class PermissionAccessChecker implements AccessChecker {
   }
 
   @Named(value = "permission")
-  static class Factory implements AccessCheckerFactory {
+  static class Factory implements ResourceAccessCheckerFactory {
 
     @VisibleForTesting static final String REALM_ACCESS_CLAIM = "realm_access";
 
@@ -148,9 +148,9 @@ public class PermissionAccessChecker implements AccessChecker {
         DecodedJWT jwt,
         HttpFhirClient httpFhirClient,
         FhirContext fhirContext,
-        PatientFinder patientFinder) {
+        ResourceFinder resourceFinder) {
       List<String> userRoles = getUserRolesFromJWT(jwt);
-      return new PermissionAccessChecker(userRoles, patientFinder);
+      return new PermissionAccessChecker(userRoles, resourceFinder);
     }
   }
 }
