@@ -3,9 +3,11 @@ package com.google.fhir.proxy.plugin;
 import ca.uhn.fhir.rest.api.RequestTypeEnum;
 import ca.uhn.fhir.rest.server.servlet.ServletRequestDetails;
 import com.google.fhir.proxy.interfaces.AccessDecision;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.http.HttpResponse;
 
 import java.io.IOException;
+import java.util.Map;
 
 public class OpenSRPSyncAccessDecision implements AccessDecision {
 
@@ -23,7 +25,21 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
 	@Override
 	public void preProcess(ServletRequestDetails servletRequestDetails) {
 		if (isSyncUrl(servletRequestDetails)) {
-			servletRequestDetails.setCompleteUrl(servletRequestDetails.getCompleteUrl() + getSyncTags());
+			addSyncTags(servletRequestDetails, getSyncTags());
+		}
+	}
+
+	private void addSyncTags(ServletRequestDetails servletRequestDetails, Pair<String, Map<String, String[]>> syncTags) {
+		String syncTagsString = getSyncTags().getKey();
+		if (servletRequestDetails.getParameters().size() == 0) {
+			syncTagsString = "?" + syncTagsString;
+		}
+
+		servletRequestDetails.setCompleteUrl(servletRequestDetails.getCompleteUrl() + syncTagsString);
+		servletRequestDetails.setRequestPath(servletRequestDetails.getRequestPath() + syncTagsString);
+
+		for (Map.Entry<String, String[]> entry: syncTags.getValue().entrySet()) {
+			servletRequestDetails.addParameter(entry.getKey(), entry.getValue());
 		}
 	}
 
@@ -32,7 +48,7 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
 		return accessDecision.postProcess(response);
 	}
 
-	private String getSyncTags() {
+	private Pair<String, Map<String, String[]>> getSyncTags() {
 
 	}
 
