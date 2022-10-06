@@ -32,26 +32,31 @@ import org.slf4j.LoggerFactory;
 import org.smartregister.model.practitioner.PractitionerDetails;
 
 import javax.inject.Named;
-import java.util.ArrayList;
-import java.util.Base64;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
+
+import static com.google.fhir.proxy.ProxyConstants.REALM_ACCESS;
+import static com.google.fhir.proxy.ProxyConstants.SYNC_STRATEGY;
+import static org.smartregister.utils.Constants.*;
 
 public class DataAccessChecker implements AccessChecker {
 
-    private static final Logger logger = LoggerFactory.getLogger(PatientAccessChecker.class);
+    private static final Logger logger = LoggerFactory.getLogger(DataAccessChecker.class);
     private final String applicationId;
     private final List<String> careTeamIds;
     private final List<String> locationIds;
     private final List<String> organizationIds;
 
+    private final List<String> syncStrategy;
+
     private static final String FHIR_CORE_APPLICATION_ID_CLAIM = "fhir_core_app_id";
 
-    private DataAccessChecker(String applicationId, List<String> careTeamIds, List<String> locationIds, List<String> organizationIds) {
+    private DataAccessChecker(String applicationId, List<String> careTeamIds, List<String> locationIds, List<String> organizationIds, List<String> syncStrategy) {
         this.applicationId = applicationId;
         this.careTeamIds = careTeamIds;
         this.organizationIds = organizationIds;
         this.locationIds = locationIds;
+        this.syncStrategy = syncStrategy;
 
     }
 
@@ -60,17 +65,6 @@ public class DataAccessChecker implements AccessChecker {
 
         switch (requestDetails.getRequestType()) {
             case GET:
-//                if ((requestDetails.getResourceName()).equals(PATIENT) || (requestDetails.getResourceName()).equals(ORGANIZATION) || (requestDetails.getResourceName()).equals(ORGANIZATION)) {
-//                    boolean result = checkIfRoleExists(getRelevantRoleName(requestDetails.getResourceName(), requestDetails.getRequestType()
-//                            .name()), userRoles);
-//                    if (result) {
-//                        logger.info("Access Granted");
-//                        return NoOpAccessDecision.accessGranted();
-//                    } else {
-//                        logger.info("Access Denied");
-//                        return NoOpAccessDecision.accessDenied();
-//                    }
-//                }
             case POST:
 
             case PUT:
@@ -79,44 +73,35 @@ public class DataAccessChecker implements AccessChecker {
 
             default:
                 // TODO handle other cases like DELETE
-                return NoOpAccessDecision.accessDenied();
+                return new OpenSRPSyncAccessDecision(applicationId, careTeamIds, locationIds, organizationIds, syncStrategy);
         }
     }
 
     @Named(value = "data")
     static class Factory implements AccessCheckerFactory {
-
-
-        private static final String BACKEND_TYPE_ENV = "BACKEND_TYPE";
-
         private static final String PROXY_TO_ENV = "PROXY_TO";
 
+
         private String getApplicationIdFromJWT(DecodedJWT jwt) {
-            Claim claim = jwt.getClaim("realm_access");
+            Claim claim = jwt.getClaim(REALM_ACCESS);
             String applicationId = JwtUtil.getClaimOrDie(jwt, FHIR_CORE_APPLICATION_ID_CLAIM);
             return applicationId;
         }
 
-        private Composition readCompositionResource(HttpFhirClient httpFhirClient, String applicationId) {
-            // Create a context
+        private IGenericClient createFhirClientForR4() {
+            String fhirServer = System.getenv(PROXY_TO_ENV);
             FhirContext ctx = FhirContext.forR4();
+            IGenericClient client = ctx.newRestfulGenericClient(fhirServer);
+            return client;
+        }
 
-            // Create a client
-
-            IGenericClient client = ctx.newRestfulGenericClient("https://turn-fhir.smartregister.org/fhir");
-//            String backendType = System.getenv(BACKEND_TYPE_ENV);
-//
-//            String fhirStore = System.getenv(PROXY_TO_ENV);
-//            HttpFhirClient httpFhirClient = chooseHttpFhirClient(backendType, fhirStore);
-
-            // Read a patient with the given ID
+        private Composition readCompositionResource(HttpFhirClient httpFhirClient, String applicationId) {
+            IGenericClient client = createFhirClientForR4();
             Bundle compositionBundle = client.search().forResource(Composition.class).where(Composition.IDENTIFIER.exactly().identifier(applicationId)).returnBundle(Bundle.class)
                     .execute();
             List<Bundle.BundleEntryComponent> compositionEntries = compositionBundle.getEntry();
             Bundle.BundleEntryComponent compositionEntry = compositionEntries.get(0);
             Composition composition = (Composition) compositionEntry.getResource();
-
-//            compositionBundle
             return composition;
 
         }
@@ -127,19 +112,13 @@ public class DataAccessChecker implements AccessChecker {
                     filter(v -> v.getFocus().getIdentifier().getValue() != null).
                     filter(v -> v.getFocus().getIdentifier().getValue().equals("application")).map(v -> composition.getSection().indexOf(v))
                     .collect(Collectors.toList());
-
-
             String id = composition.getSection().get(indexes.get(0)).getFocus().getReference();
             return id;
         }
 
 
         private Binary findApplicationConfigBinaryResource(String binaryResourceId) {
-            FhirContext ctx = FhirContext.forR4();
-
-            // Create a client
-
-            IGenericClient client = ctx.newRestfulGenericClient("https://turn-fhir.smartregister.org/fhir");
+            IGenericClient client = createFhirClientForR4();
             Binary binary = client.read()
                     .resource(Binary.class)
                     .withId(binaryResourceId)
@@ -151,7 +130,7 @@ public class DataAccessChecker implements AccessChecker {
             byte[] bytes = Base64.getDecoder().decode(binary.getDataElement().getValueAsString());
             String json = new String(bytes);
             JsonObject jsonObject = new Gson().fromJson(json, JsonObject.class);
-            JsonArray jsonArray = jsonObject.getAsJsonArray("syncStrategy");
+            JsonArray jsonArray = jsonObject.getAsJsonArray(SYNC_STRATEGY);
             List<String> syncStrategy = new ArrayList<>();
             if (jsonArray != null) {
                 for (JsonElement jsonElement : jsonArray) {
@@ -162,11 +141,7 @@ public class DataAccessChecker implements AccessChecker {
         }
 
         private PractitionerDetails readPractitionerDetails(String keycloakUUID) {
-            FhirContext ctx = FhirContext.forR4();
-
-            // Create a client
-            IGenericClient client = ctx.newRestfulGenericClient("http://localhost:8090/fhir");
-            keycloakUUID = "40353ad0-6fa0-4da3-9dd6-b2d9d5a09b6a";
+            IGenericClient client = createFhirClientForR4();
             Bundle practitionerDetailsBundle = client.search()
                     .forResource(PractitionerDetails.class)
                     .where(PractitionerDetails.KEYCLOAK_UUID.exactly().identifier(keycloakUUID))
@@ -194,17 +169,17 @@ public class DataAccessChecker implements AccessChecker {
             List<String> careTeamIds = new ArrayList<>();
             List<String> organizationIds = new ArrayList<>();
             List<String> locationIds = new ArrayList<>();
-            if (syncStrategy.contains("CareTeam")) {
+            if (syncStrategy.contains(CARE_TEAM)) {
                 careTeams = practitionerDetails.getFhirPractitionerDetails().getCareTeams();
                 for (CareTeam careTeam : careTeams) {
                     careTeamIds.add(careTeam.getId());
                 }
-            } else if (syncStrategy.contains("Organization")) {
+            } else if (syncStrategy.contains(ORGANIZATION)) {
                 organizations = practitionerDetails.getFhirPractitionerDetails().getOrganizations();
                 for (Organization organization : organizations) {
                     organizationIds.add(organization.getId());
                 }
-            } else if (syncStrategy.contains("Location")) {
+            } else if (syncStrategy.contains(LOCATION)) {
                 locations = practitionerDetails.getFhirPractitionerDetails().getLocations();
                 for (Location location : locations) {
                     locationIds.add(location.getId());
@@ -214,7 +189,7 @@ public class DataAccessChecker implements AccessChecker {
             }
 
 
-            return new DataAccessChecker(applicationId, careTeamIds, locationIds, organizationIds);
+            return new DataAccessChecker(applicationId, careTeamIds, locationIds, organizationIds, syncStrategy);
         }
     }
 }

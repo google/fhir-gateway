@@ -22,4 +22,6 @@ public class ProxyConstants {
 
   // Note we should not set charset here; otherwise GCP FHIR store complains about Content-Type.
   static final ContentType JSON_PATCH_CONTENT = ContentType.create(Constants.CT_JSON_PATCH);
+  public static final String SYNC_STRATEGY = "syncStrategy";
+  public static final String REALM_ACCESS = "realm_access";
 }

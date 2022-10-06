@@ -67,18 +67,6 @@ public class FhirProxyServer extends RestfulServer {
 
   @Autowired private Map<String, AccessCheckerFactory> accessCheckerFactories;
 
-//
-//  @Autowired
-//  private AnnotationConfigWebApplicationContext myAppCtx;
-
-  @Autowired
-  WebApplicationContext webApplicationContext;
-
-//  @Autowired
-//  private DaoRegistry daoRegistry;
-
-
-
   static boolean isDevMode() {
     String runMode = System.getenv("RUN_MODE");
     return "DEV".equals(runMode);
@@ -88,10 +76,6 @@ public class FhirProxyServer extends RestfulServer {
   // implement a way to kill the server immediately when initialize fails.
   @Override
   protected void initialize() throws ServletException {
-
-    // Get the spring context from the web container (it's declared in web.xml)
-//    webApplicationContext = ContextLoaderListener.getCurrentWebApplicationContext();
-    registerInterceptor(new LoggingInterceptor());
     String backendType = System.getenv(BACKEND_TYPE_ENV);
     if (backendType == null) {
       throw new ServletException(
