@@ -16,13 +16,9 @@
 package com.google.fhir.proxy;
 
 import ca.uhn.fhir.context.FhirContext;
-import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
-import ca.uhn.fhir.jpa.api.dao.IFhirResourceDao;
-import ca.uhn.fhir.jpa.dao.JpaResourceDao;
 import ca.uhn.fhir.rest.api.Constants;
 import ca.uhn.fhir.rest.server.RestfulServer;
 import ca.uhn.fhir.rest.server.interceptor.CorsInterceptor;
-import ca.uhn.fhir.rest.server.interceptor.LoggingInterceptor;
 import com.google.fhir.proxy.GenericFhirClient.GenericFhirClientBuilder;
 import com.google.fhir.proxy.interfaces.AccessCheckerFactory;
 import java.io.IOException;
@@ -31,25 +27,10 @@ import java.util.Arrays;
 import java.util.Map;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
-
-import org.hl7.fhir.r4.model.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.smartregister.extension.rest.LocationHierarchyResourceProvider;
-import org.smartregister.extension.rest.PractitionerDetailsResourceProvider;
-import org.smartregister.model.location.*;
-import org.smartregister.model.practitioner.FhirPractitionerDetails;
-import org.smartregister.model.practitioner.KeycloakUserDetails;
-import org.smartregister.model.practitioner.PractitionerDetails;
-import org.smartregister.model.practitioner.UserBioData;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.ApplicationContext;
-import org.springframework.web.context.ContextLoaderListener;
-import org.springframework.web.context.WebApplicationContext;
-import org.springframework.web.context.support.AnnotationConfigWebApplicationContext;
 import org.springframework.web.cors.CorsConfiguration;
-
-import static org.smartregister.utils.Constants.*;
 
 @WebServlet("/*")
 public class FhirProxyServer extends RestfulServer {
@@ -123,65 +104,7 @@ public class FhirProxyServer extends RestfulServer {
     } catch (IOException e) {
       ExceptionUtil.throwRuntimeExceptionAndLog(logger, "IOException while initializing", e);
     }
-    registerLocationHierarchyTypes();
-    registerPracitionerDetailsTypes();
   }
-
-  private void registerLocationHierarchyTypes() {
-//    DaoRegistry daoRegistry = myAppCtx.getBean(DaoRegistry.class);
-
-//    DaoRegistry daoRegistry = webApplicationContext.getBean(DaoRegistry.class);
-    IFhirResourceDao<Location> locationIFhirResourceDao = new JpaResourceDao<>();
-//    daoRegistry.getResourceDao(LOCATION);
-
-    LocationHierarchyResourceProvider locationHierarchyResourceProvider = new LocationHierarchyResourceProvider();
-    locationHierarchyResourceProvider.setLocationIFhirResourceDao(locationIFhirResourceDao);
-
-    registerProvider(locationHierarchyResourceProvider);
-    getFhirContext().registerCustomType(LocationHierarchy.class);
-    getFhirContext().registerCustomType(LocationHierarchyTree.class);
-    getFhirContext().registerCustomType(Tree.class);
-    getFhirContext().registerCustomType(ParentChildrenMap.class);
-    getFhirContext().registerCustomType(SingleTreeNode.class);
-    getFhirContext().registerCustomType(TreeNode.class);
-    getFhirContext().registerCustomType(ChildTreeNode.class);
-  }
-
-  private void registerPracitionerDetailsTypes() {
-
-//    DaoRegistry daoRegistry = myAppCtx.getBean(DaoRegistry.class);
-
-//    DaoRegistry daoRegistry = webApplicationContext.getBean(DaoRegistry.class);
-//    IFhirResourceDao<Practitioner> practitionerIFhirResourceDao = daoRegistry.getResourceDao(_PRACTITIONER);
-    IFhirResourceDao<Practitioner> practitionerIFhirResourceDao = new JpaResourceDao<>();
-//    IFhirResourceDao<PractitionerRole> practitionerRoleIFhirResourceDao = daoRegistry.getResourceDao(PRACTITIONER_ROLE);
-    IFhirResourceDao<PractitionerRole> practitionerRoleIFhirResourceDao = new JpaResourceDao<>();
-//    IFhirResourceDao<CareTeam> careTeamIFhirResourceDao = daoRegistry.getResourceDao(CARE_TEAM);
-    IFhirResourceDao<CareTeam> careTeamIFhirResourceDao = new JpaResourceDao<>();
-//    IFhirResourceDao<OrganizationAffiliation> organizationAffiliationIFhirResourceDao = daoRegistry.getResourceDao(ORGANIZATION_AFFILIATION);
-    IFhirResourceDao<OrganizationAffiliation> organizationAffiliationIFhirResourceDao = new JpaResourceDao<>();
-//    IFhirResourceDao<Organization> organizationIFhirResourceDao = daoRegistry.getResourceDao(ORGANIZATION);
-    IFhirResourceDao<Organization> organizationIFhirResourceDao = new JpaResourceDao<>();
-//    IFhirResourceDao<Location> locationIFhirResourceDao = daoRegistry.getResourceDao(LOCATION);
-    IFhirResourceDao<Location> locationIFhirResourceDao = new JpaResourceDao<>();
-    LocationHierarchyResourceProvider locationHierarchyResourceProvider = new LocationHierarchyResourceProvider();
-    locationHierarchyResourceProvider.setLocationIFhirResourceDao(locationIFhirResourceDao);
-    PractitionerDetailsResourceProvider practitionerDetailsResourceProvider = new PractitionerDetailsResourceProvider();
-    practitionerDetailsResourceProvider.setPractitionerIFhirResourceDao(practitionerIFhirResourceDao);
-    practitionerDetailsResourceProvider.setPractitionerRoleIFhirResourceDao(practitionerRoleIFhirResourceDao);
-    practitionerDetailsResourceProvider.setCareTeamIFhirResourceDao(careTeamIFhirResourceDao);
-    practitionerDetailsResourceProvider.setOrganizationAffiliationIFhirResourceDao(organizationAffiliationIFhirResourceDao);
-    practitionerDetailsResourceProvider.setLocationHierarchyResourceProvider(locationHierarchyResourceProvider);
-    practitionerDetailsResourceProvider.setOrganizationIFhirResourceDao(organizationIFhirResourceDao);
-    practitionerDetailsResourceProvider.setLocationIFhirResourceDao(locationIFhirResourceDao);
-
-    registerProvider(practitionerDetailsResourceProvider);
-    getFhirContext().registerCustomType(PractitionerDetails.class);
-    getFhirContext().registerCustomType(KeycloakUserDetails.class);
-    getFhirContext().registerCustomType(UserBioData.class);
-    getFhirContext().registerCustomType(FhirPractitionerDetails.class);
-  }
-
 
   private HttpFhirClient chooseHttpFhirClient(String backendType, String fhirStore)
       throws ServletException, IOException {

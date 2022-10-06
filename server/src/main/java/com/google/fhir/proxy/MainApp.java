@@ -15,49 +15,15 @@
  */
 package com.google.fhir.proxy;
 
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.config.AutowireCapableBeanFactory;
 import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
-import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.boot.web.servlet.ServletComponentScan;
-import org.springframework.boot.web.servlet.ServletRegistrationBean;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.ComponentScan;
-import org.springframework.context.annotation.Conditional;
-import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
 @SpringBootApplication
 @ServletComponentScan
-@ComponentScan(basePackages = {"ca.uhn.fhir.jpa.api.dao", "com.google.fhir.proxy", "org.springframework.web.context.support"})
-@EnableJpaRepositories(basePackages="ca.uhn.fhir.jpa.api.dao")
-@EnableAutoConfiguration(exclude={DataSourceAutoConfiguration.class})
 public class MainApp {
 
   public static void main(String[] args) {
     SpringApplication.run(MainApp.class, args);
   }
-
-//  @Override
-//  protected SpringApplicationBuilder configure(
-//          SpringApplicationBuilder builder) {
-//    return builder.sources(MainApp.class);
-//  }
-
-//  @Autowired
-//  AutowireCapableBeanFactory beanFactory;
-//
-//  @Bean
-//  public ServletRegistrationBean hapiServletRegistration() {
-//    ServletRegistrationBean servletRegistrationBean = new ServletRegistrationBean();
-//    FhirProxyServer fhirProxyServer = new FhirProxyServer();
-//    beanFactory.autowireBean(fhirProxyServer);
-//    servletRegistrationBean.setServlet(fhirProxyServer);
-////    servletRegistrationBean.addUrlMappings("/fhir/*");
-////    servletRegistrationBean.setLoadOnStartup(1);
-//
-//    return servletRegistrationBean;
-//  }
 }
