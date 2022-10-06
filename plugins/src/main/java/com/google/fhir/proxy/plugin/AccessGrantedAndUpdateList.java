@@ -17,6 +17,7 @@ package com.google.fhir.proxy.plugin;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
+import ca.uhn.fhir.rest.server.servlet.ServletRequestDetails;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Sets;
 import com.google.common.escape.Escaper;
@@ -144,5 +145,10 @@ class AccessGrantedAndUpdateList implements AccessDecision {
       Set<String> existPutPatients) {
     return new AccessGrantedAndUpdateList(
         patientListId, httpFhirClient, fhirContext, existPutPatients, ResourceType.Bundle);
+  }
+
+  @Override
+  public void preProcess(ServletRequestDetails servletRequestDetails) {
+
   }
 }
