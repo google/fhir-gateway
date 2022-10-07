@@ -22,6 +22,7 @@ import com.auth0.jwt.interfaces.Claim;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.fhir.proxy.BundleResources;
 import com.google.fhir.proxy.FhirUtil;
 import com.google.fhir.proxy.HttpFhirClient;
 import com.google.fhir.proxy.JwtUtil;
@@ -50,22 +51,20 @@ public class PermissionAccessChecker implements AccessChecker {
 
   @Override
   public AccessDecision checkAccess(RequestDetailsReader requestDetails) {
-
     // For a Bundle requestDetails.getResourceName() returns null
     if (requestDetails.getRequestType() == RequestTypeEnum.POST
         && requestDetails.getResourceName() == null) {
-      //  return processBundle(requestDetails);
+      return processBundle(requestDetails);
+
     } else {
 
-      // Processing
       boolean userHasRole =
-          checkIfRoleExists(getAdminRoleName(requestDetails.getResourceName()), userRoles)
-              || checkIfRoleExists(
-                  getRelevantRoleName(
-                      requestDetails.getResourceName(), requestDetails.getRequestType().name()),
-                  userRoles);
+          checkUserHasRole(
+              requestDetails.getResourceName(), requestDetails.getRequestType().name());
 
-      switch (requestDetails.getRequestType()) {
+      RequestTypeEnum requestType = requestDetails.getRequestType();
+
+      switch (requestType) {
         case GET:
         case DELETE:
           return processGetOrDelete(userHasRole);
@@ -78,8 +77,11 @@ public class PermissionAccessChecker implements AccessChecker {
           return NoOpAccessDecision.accessDenied();
       }
     }
+  }
 
-    return NoOpAccessDecision.accessDenied();
+  private boolean checkUserHasRole(String resourceName, String requestType) {
+    return checkIfRoleExists(getAdminRoleName(resourceName), this.userRoles)
+        || checkIfRoleExists(getRelevantRoleName(resourceName, requestType), this.userRoles);
   }
 
   private AccessDecision processGetOrDelete(boolean userHasRole) {
@@ -116,6 +118,21 @@ public class PermissionAccessChecker implements AccessChecker {
     return new NoOpAccessDecision(resourceIds.contains(resourceId));
   }
 
+  private AccessDecision processBundle(RequestDetailsReader requestDetails) {
+
+    List<BundleResources> resourcesInBundle = resourceFinder.findResourcesInBundle(requestDetails);
+
+    // Verify Authorization for individual requests in Bundle
+    for (BundleResources bundleResources : resourcesInBundle) {
+      if (!checkUserHasRole(
+          bundleResources.getResource().fhirType(), bundleResources.getRequestType().name())) {
+        return NoOpAccessDecision.accessDenied();
+      }
+    }
+
+    return NoOpAccessDecision.accessGranted();
+  }
+
   private String getRelevantRoleName(String resourceName, String methodType) {
     return methodType + "_" + resourceName.toUpperCase();
   }
@@ -138,7 +155,10 @@ public class PermissionAccessChecker implements AccessChecker {
       Map<String, Object> roles = claim.asMap();
       List<Object> collection = roles.values().stream().collect(Collectors.toList());
       List<String> rolesList = new ArrayList<>();
-      List<Object> collectionPart = (List<Object>) collection.get(0);
+      List<Object> collectionPart =
+          collection != null && collection.size() > 0
+              ? (List<Object>) collection.get(0)
+              : new ArrayList<>();
       for (Object collect : collectionPart) {
         rolesList.add(collect.toString());
       }

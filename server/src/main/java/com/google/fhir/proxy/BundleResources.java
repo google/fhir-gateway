@@ -13,15 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.google.fhir.proxy.interfaces;
+package com.google.fhir.proxy;
 
-import com.google.fhir.proxy.BundleResources;
-import java.util.List;
-import java.util.Set;
+import ca.uhn.fhir.rest.api.RequestTypeEnum;
+import lombok.Getter;
+import lombok.Setter;
+import org.hl7.fhir.instance.model.api.IBaseResource;
 
-public interface ResourceFinder {
+@Getter
+@Setter
+public class BundleResources {
+  private RequestTypeEnum requestType;
+  private IBaseResource resource;
 
-  Set<String> findResourcesInResource(RequestDetailsReader request);
-
-  List<BundleResources> findResourcesInBundle(RequestDetailsReader request);
+  public BundleResources(RequestTypeEnum requestType, IBaseResource resource) {
+    this.requestType = requestType;
+    this.resource = resource;
+  }
 }

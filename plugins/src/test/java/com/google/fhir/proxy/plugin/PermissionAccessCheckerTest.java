@@ -22,6 +22,7 @@ import static org.mockito.Mockito.when;
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.model.primitive.IdDt;
 import ca.uhn.fhir.rest.api.RequestTypeEnum;
+import ca.uhn.fhir.rest.server.exceptions.InvalidRequestException;
 import com.auth0.jwt.interfaces.Claim;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import com.google.common.io.Resources;
@@ -34,6 +35,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import org.hl7.fhir.r4.model.Enumerations;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -277,5 +279,133 @@ public class PermissionAccessCheckerTest {
 
     AccessChecker testInstance = getInstance();
     assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
+  }
+
+  @Test
+  public void testManageResourceRoleCanAccessBundlePutResources() throws IOException {
+    setUpFhirBundle("bundle_transaction_put_patient.json");
+
+    Map<String, Object> map = new HashMap<>();
+    map.put("roles", Arrays.asList("MANAGE_PATIENT"));
+    when(claimMock.asMap()).thenReturn(map);
+
+    when(requestMock.getResourceName()).thenReturn(null);
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.POST);
+
+    AccessChecker testInstance = getInstance();
+    boolean canAccess = testInstance.checkAccess(requestMock).canAccess();
+
+    assertThat(canAccess, equalTo(true));
+  }
+
+  @Test
+  public void testPutResourceRoleCanAccessBundlePutResources() throws IOException {
+    setUpFhirBundle("bundle_transaction_put_patient.json");
+
+    Map<String, Object> map = new HashMap<>();
+    map.put("roles", Arrays.asList("PUT_PATIENT"));
+    when(claimMock.asMap()).thenReturn(map);
+
+    when(requestMock.getResourceName()).thenReturn(null);
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.POST);
+
+    AccessChecker testInstance = getInstance();
+    boolean canAccess = testInstance.checkAccess(requestMock).canAccess();
+
+    assertThat(canAccess, equalTo(true));
+  }
+
+  @Test
+  public void testPostResourceRoleCanAccessBundlePostResources() throws IOException {
+    setUpFhirBundle("bundle_transaction_post_patient.json");
+
+    Map<String, Object> map = new HashMap<>();
+    map.put("roles", Arrays.asList("POST_PATIENT"));
+    when(claimMock.asMap()).thenReturn(map);
+
+    when(requestMock.getResourceName()).thenReturn(null);
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.POST);
+
+    AccessChecker testInstance = getInstance();
+    boolean canAccess = testInstance.checkAccess(requestMock).canAccess();
+
+    assertThat(canAccess, equalTo(true));
+  }
+
+  @Test
+  public void testDeleteResourceRoleCanAccessBundleDeleteResources() throws IOException {
+    setUpFhirBundle("bundle_transaction_delete.json");
+
+    Map<String, Object> map = new HashMap<>();
+    map.put("roles", Arrays.asList("DELETE_PATIENT"));
+    when(claimMock.asMap()).thenReturn(map);
+
+    when(requestMock.getResourceName()).thenReturn(null);
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.POST);
+
+    AccessChecker testInstance = getInstance();
+    boolean canAccess = testInstance.checkAccess(requestMock).canAccess();
+
+    assertThat(canAccess, equalTo(true));
+  }
+
+  @Test
+  public void testWithCorrectRolesCanAccessDifferentTypeBundleResources() throws IOException {
+    setUpFhirBundle("bundle_transaction_patient_and_non_patients.json");
+
+    Map<String, Object> map = new HashMap<>();
+    map.put("roles", Arrays.asList("PUT_PATIENT", "PUT_OBSERVATION", "PUT_ENCOUNTER"));
+    when(claimMock.asMap()).thenReturn(map);
+
+    when(requestMock.getResourceName()).thenReturn(null);
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.POST);
+
+    AccessChecker testInstance = getInstance();
+    boolean canAccess = testInstance.checkAccess(requestMock).canAccess();
+
+    assertThat(canAccess, equalTo(true));
+  }
+
+  @Test
+  public void testManageResourcesCanAccessDifferentTypeBundleResources() throws IOException {
+    setUpFhirBundle("bundle_transaction_patient_and_non_patients.json");
+
+    Map<String, Object> map = new HashMap<>();
+    map.put("roles", Arrays.asList("MANAGE_PATIENT", "MANAGE_OBSERVATION", "MANAGE_ENCOUNTER"));
+    when(claimMock.asMap()).thenReturn(map);
+
+    when(requestMock.getResourceName()).thenReturn(null);
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.POST);
+
+    AccessChecker testInstance = getInstance();
+    boolean canAccess = testInstance.checkAccess(requestMock).canAccess();
+
+    assertThat(canAccess, equalTo(true));
+  }
+
+  @Test
+  public void testManageResourcesWithMissingRoleCannotAccessDifferentTypeBundleResources()
+      throws IOException {
+    setUpFhirBundle("bundle_transaction_patient_and_non_patients.json");
+
+    Map<String, Object> map = new HashMap<>();
+    map.put("roles", Arrays.asList("MANAGE_PATIENT", "MANAGE_ENCOUNTER"));
+    when(claimMock.asMap()).thenReturn(map);
+
+    when(requestMock.getResourceName()).thenReturn(null);
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.POST);
+
+    AccessChecker testInstance = getInstance();
+    boolean canAccess = testInstance.checkAccess(requestMock).canAccess();
+
+    assertThat(canAccess, equalTo(false));
+  }
+
+  @Test(expected = InvalidRequestException.class)
+  public void testBundleResourceNonTransactionTypeThrowsException() throws IOException {
+    setUpFhirBundle("bundle_empty.json");
+
+    AccessChecker testInstance = getInstance();
+    Assert.assertFalse(testInstance.checkAccess(requestMock).canAccess());
   }
 }
