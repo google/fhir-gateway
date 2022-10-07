@@ -20,7 +20,7 @@ import ca.uhn.fhir.rest.server.exceptions.AuthenticationException;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import com.google.fhir.proxy.HttpFhirClient;
 
-public interface ResourceAccessCheckerFactory {
+public interface ResourceAccessCheckerFactory extends AccessCheckerFactory {
 
   /**
    * Creates an AccessChecker for a given FHIR store and JWT. Note the scope of this is for a single

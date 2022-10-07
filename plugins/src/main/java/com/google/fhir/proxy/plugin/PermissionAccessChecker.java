@@ -17,12 +17,14 @@ package com.google.fhir.proxy.plugin;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.rest.api.RequestTypeEnum;
+import ca.uhn.fhir.rest.server.exceptions.AuthenticationException;
 import com.auth0.jwt.interfaces.Claim;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.fhir.proxy.FhirUtil;
 import com.google.fhir.proxy.HttpFhirClient;
+import com.google.fhir.proxy.JwtUtil;
 import com.google.fhir.proxy.interfaces.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -143,6 +145,12 @@ public class PermissionAccessChecker implements AccessChecker {
       return rolesList;
     }
 
+    @VisibleForTesting static final String PATIENT_CLAIM = "patient_id";
+
+    private String getPatientId(DecodedJWT jwt) {
+      return FhirUtil.checkIdOrFail(JwtUtil.getClaimOrDie(jwt, PATIENT_CLAIM));
+    }
+
     @Override
     public AccessChecker create(
         DecodedJWT jwt,
@@ -151,6 +159,16 @@ public class PermissionAccessChecker implements AccessChecker {
         ResourceFinder resourceFinder) {
       List<String> userRoles = getUserRolesFromJWT(jwt);
       return new PermissionAccessChecker(userRoles, resourceFinder);
+    }
+
+    @Override
+    public AccessChecker create(
+        DecodedJWT jwt,
+        HttpFhirClient httpFhirClient,
+        FhirContext fhirContext,
+        PatientFinder patientFinder)
+        throws AuthenticationException {
+      return new PatientAccessChecker(getPatientId(jwt), patientFinder);
     }
   }
 }
