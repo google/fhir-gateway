@@ -16,7 +16,11 @@
 package com.google.fhir.proxy.plugin;
 
 import ca.uhn.fhir.context.FhirContext;
+import ca.uhn.fhir.model.api.IQueryParameterType;
 import ca.uhn.fhir.rest.client.api.IGenericClient;
+import ca.uhn.fhir.rest.gclient.TokenClientParam;
+import ca.uhn.fhir.rest.param.SpecialParam;
+import ca.uhn.fhir.rest.param.TokenParam;
 import com.auth0.jwt.interfaces.Claim;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import com.google.fhir.proxy.HttpFhirClient;
@@ -83,7 +87,6 @@ public class DataAccessChecker implements AccessChecker {
 
 
         private String getApplicationIdFromJWT(DecodedJWT jwt) {
-            Claim claim = jwt.getClaim(REALM_ACCESS);
             String applicationId = JwtUtil.getClaimOrDie(jwt, FHIR_CORE_APPLICATION_ID_CLAIM);
             return applicationId;
         }
@@ -99,42 +102,54 @@ public class DataAccessChecker implements AccessChecker {
             IGenericClient client = createFhirClientForR4();
             Bundle compositionBundle = client.search().forResource(Composition.class).where(Composition.IDENTIFIER.exactly().identifier(applicationId)).returnBundle(Bundle.class)
                     .execute();
-            List<Bundle.BundleEntryComponent> compositionEntries = compositionBundle.getEntry();
-            Bundle.BundleEntryComponent compositionEntry = compositionEntries.get(0);
-            Composition composition = (Composition) compositionEntry.getResource();
+            List<Bundle.BundleEntryComponent> compositionEntries = compositionBundle != null ? compositionBundle.getEntry() : Collections.singletonList(new Bundle.BundleEntryComponent());
+            Bundle.BundleEntryComponent compositionEntry = compositionEntries.size() > 0 ? compositionEntries.get(0) : null;
+            Composition composition = compositionEntry != null ? (Composition) compositionEntry.getResource() : null;
             return composition;
 
         }
 
         private String getBinaryResourceReference(Composition composition) {
-            List<Integer> indexes = composition.getSection().stream().
-                    filter(v -> v.getFocus().getIdentifier() != null).
-                    filter(v -> v.getFocus().getIdentifier().getValue() != null).
-                    filter(v -> v.getFocus().getIdentifier().getValue().equals("application")).map(v -> composition.getSection().indexOf(v))
-                    .collect(Collectors.toList());
-            String id = composition.getSection().get(indexes.get(0)).getFocus().getReference();
+            List<Integer> indexes = new ArrayList<>();
+            String id = "";
+            if (composition != null && composition.getSection() != null) {
+                indexes = composition.getSection().stream().
+                        filter(v -> v.getFocus().getIdentifier() != null).
+                        filter(v -> v.getFocus().getIdentifier().getValue() != null).
+                        filter(v -> v.getFocus().getIdentifier().getValue().equals("application")).map(v -> composition.getSection().indexOf(v))
+                        .collect(Collectors.toList());
+                Composition.SectionComponent sectionComponent = composition.getSection().get(0);
+                Reference focus = sectionComponent != null ? sectionComponent.getFocus() : null;
+                String reference = focus != null ? focus.getReference() : null;
+                id = reference;
+            }
             return id;
         }
 
 
         private Binary findApplicationConfigBinaryResource(String binaryResourceId) {
             IGenericClient client = createFhirClientForR4();
-            Binary binary = client.read()
-                    .resource(Binary.class)
-                    .withId(binaryResourceId)
-                    .execute();
+            Binary binary = null;
+            if (!binaryResourceId.isBlank()) {
+                binary = client.read()
+                        .resource(Binary.class)
+                        .withId(binaryResourceId)
+                        .execute();
+            }
             return binary;
         }
 
         private List<String> findSyncStrategy(Binary binary) {
-            byte[] bytes = Base64.getDecoder().decode(binary.getDataElement().getValueAsString());
-            String json = new String(bytes);
-            JsonObject jsonObject = new Gson().fromJson(json, JsonObject.class);
-            JsonArray jsonArray = jsonObject.getAsJsonArray(SYNC_STRATEGY);
+            byte[] bytes = binary != null && binary.getDataElement() != null ? Base64.getDecoder().decode(binary.getDataElement().getValueAsString()) : null;
             List<String> syncStrategy = new ArrayList<>();
-            if (jsonArray != null) {
-                for (JsonElement jsonElement : jsonArray) {
-                    syncStrategy.add(jsonElement.getAsString());
+            if (bytes != null) {
+                String json = new String(bytes);
+                JsonObject jsonObject = new Gson().fromJson(json, JsonObject.class);
+                JsonArray jsonArray = jsonObject.getAsJsonArray(SYNC_STRATEGY);
+                if (jsonArray != null) {
+                    for (JsonElement jsonElement : jsonArray) {
+                        syncStrategy.add(jsonElement.getAsString());
+                    }
                 }
             }
             return syncStrategy;
@@ -142,18 +157,37 @@ public class DataAccessChecker implements AccessChecker {
 
         private PractitionerDetails readPractitionerDetails(String keycloakUUID) {
             IGenericClient client = createFhirClientForR4();
+//            Map<>
             Bundle practitionerDetailsBundle = client.search()
                     .forResource(PractitionerDetails.class)
-                    .where(PractitionerDetails.KEYCLOAK_UUID.exactly().identifier(keycloakUUID))
+                    .where(getMapForWhere(keycloakUUID))
                     .returnBundle(Bundle.class)
                     .execute();
 
             List<Bundle.BundleEntryComponent> practitionerDetailsBundleEntry = practitionerDetailsBundle.getEntry();
-            Bundle.BundleEntryComponent practitionerDetailEntry = practitionerDetailsBundleEntry.get(0);
-            PractitionerDetails practitionerDetails = (PractitionerDetails) practitionerDetailEntry.getResource();
+            Bundle.BundleEntryComponent practitionerDetailEntry = practitionerDetailsBundleEntry != null && practitionerDetailsBundleEntry.size() > 0 ? practitionerDetailsBundleEntry.get(0) : null;
+            PractitionerDetails practitionerDetails = practitionerDetailEntry != null ? (PractitionerDetails) practitionerDetailEntry.getResource() : null;
             return practitionerDetails;
         }
 
+        public Map<String, List<IQueryParameterType>> getMapForWhere(String keycloakUUID) {
+            Map<String, List<IQueryParameterType>> hmOut = new HashMap<String, List<IQueryParameterType>>();
+            // Adding keycloak-uuid
+            TokenParam tokenParam = new TokenParam("keycloak-uuid");
+            tokenParam.setValue(keycloakUUID);
+            List<IQueryParameterType> lst = new ArrayList<IQueryParameterType>();
+            lst.add(tokenParam);
+            hmOut.put(PractitionerDetails.SP_KEYCLOAK_UUID, lst);
+
+            // Adding isAuthProvided
+            SpecialParam isAuthProvided = new SpecialParam();
+            isAuthProvided.setValue("false");
+            List<IQueryParameterType> l = new ArrayList<IQueryParameterType>();
+            l.add(isAuthProvided);
+            hmOut.put(PractitionerDetails.SP_IS_AUTH_PROVIDED, l);
+
+            return hmOut;
+        }
 
         @Override
         public AccessChecker create(DecodedJWT jwt, HttpFhirClient httpFhirClient, FhirContext fhirContext, PatientFinder patientFinder) {
@@ -169,23 +203,25 @@ public class DataAccessChecker implements AccessChecker {
             List<String> careTeamIds = new ArrayList<>();
             List<String> organizationIds = new ArrayList<>();
             List<String> locationIds = new ArrayList<>();
-            if (syncStrategy.contains(CARE_TEAM)) {
-                careTeams = practitionerDetails.getFhirPractitionerDetails().getCareTeams();
-                for (CareTeam careTeam : careTeams) {
-                    careTeamIds.add(careTeam.getId());
-                }
-            } else if (syncStrategy.contains(ORGANIZATION)) {
-                organizations = practitionerDetails.getFhirPractitionerDetails().getOrganizations();
-                for (Organization organization : organizations) {
-                    organizationIds.add(organization.getId());
-                }
-            } else if (syncStrategy.contains(LOCATION)) {
-                locations = practitionerDetails.getFhirPractitionerDetails().getLocations();
-                for (Location location : locations) {
-                    locationIds.add(location.getId());
-                }
-            } else {
+            if (syncStrategy.size() > 0) {
+                if (syncStrategy.contains(CARE_TEAM)) {
+                    careTeams = practitionerDetails != null && practitionerDetails.getFhirPractitionerDetails() != null ? practitionerDetails.getFhirPractitionerDetails().getCareTeams() : Collections.singletonList(new CareTeam());
+                    for (CareTeam careTeam : careTeams) {
+                        careTeamIds.add(careTeam.getId());
+                    }
+                } else if (syncStrategy.contains(ORGANIZATION)) {
+                    organizations = practitionerDetails != null && practitionerDetails.getFhirPractitionerDetails() != null ? practitionerDetails.getFhirPractitionerDetails().getOrganizations() : Collections.singletonList(new Organization());
+                    for (Organization organization : organizations) {
+                        organizationIds.add(organization.getId());
+                    }
+                } else if (syncStrategy.contains(LOCATION)) {
+                    locations = practitionerDetails != null && practitionerDetails.getFhirPractitionerDetails() != null ? practitionerDetails.getFhirPractitionerDetails().getLocations() : Collections.singletonList(new Location());
+                    for (Location location : locations) {
+                        locationIds.add(location.getId());
+                    }
+                } else {
 
+                }
             }
 
 

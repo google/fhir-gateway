@@ -256,6 +256,7 @@ public class BearerAuthorizationInterceptor {
     }
     AccessDecision outcome = checkAuthorization(requestDetails);
     logger.debug("Authorized request path " + requestPath);
+    //TODO: Add DataAccessChecker here (preprocessing part)
     try {
       HttpResponse response = fhirClient.handleRequest(servletDetails);
       // TODO pass along the response to the client in case of errors (b/211233113).
