@@ -28,6 +28,7 @@ import ca.uhn.fhir.rest.server.servlet.ServletRequestDetails;
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.JWTVerifier;
 import com.auth0.jwt.algorithms.Algorithm;
+import com.auth0.jwt.exceptions.JWTDecodeException;
 import com.auth0.jwt.exceptions.JWTVerificationException;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import com.auth0.jwt.interfaces.Verification;
@@ -134,11 +135,13 @@ public class BearerAuthorizationInterceptor {
       return (RSAPublicKey) keyFactory.generatePublic(keySpec);
     } catch (URISyntaxException e) {
       ExceptionUtil.throwRuntimeExceptionAndLog(
-          logger, "Error in token issuer URI " + tokenIssuer, e);
+          logger, "Error in token issuer URI " + tokenIssuer, e, AuthenticationException.class);
     } catch (NoSuchAlgorithmException e) {
-      ExceptionUtil.throwRuntimeExceptionAndLog(logger, "Invalid algorithm " + keyAlgorithm, e);
+      ExceptionUtil.throwRuntimeExceptionAndLog(
+          logger, "Invalid algorithm " + keyAlgorithm, e, AuthenticationException.class);
     } catch (InvalidKeySpecException e) {
-      ExceptionUtil.throwRuntimeExceptionAndLog(logger, e);
+      ExceptionUtil.throwRuntimeExceptionAndLog(
+          logger, "Invalid KeySpec: " + e.getMessage(), e, AuthenticationException.class);
     }
     // We should never get here, this is to keep the IDE happy!
     return null;
@@ -146,7 +149,7 @@ public class BearerAuthorizationInterceptor {
 
   private JWTVerifier buildJwtVerifier(String issuer) {
 
-    if (issuer.equals(tokenIssuer)) {
+    if (tokenIssuer.equals(issuer)) {
       return jwtVerifierConfig.withIssuer(tokenIssuer).build();
     } else if (FhirProxyServer.isDevMode()) {
       // If server is in DEV mode, set issuer to one from request
@@ -170,7 +173,13 @@ public class BearerAuthorizationInterceptor {
           AuthenticationException.class);
     }
     String bearerToken = authHeader.substring(BEARER_PREFIX.length());
-    DecodedJWT jwt = JWT.decode(bearerToken);
+    DecodedJWT jwt = null;
+    try {
+      jwt = JWT.decode(bearerToken);
+    } catch (JWTDecodeException e) {
+      ExceptionUtil.throwRuntimeExceptionAndLog(
+          logger, "Failed to decode JWT: " + e.getMessage(), e, AuthenticationException.class);
+    }
     String issuer = jwt.getIssuer();
     String algorithm = jwt.getAlgorithm();
     JWTVerifier jwtVerifier = buildJwtVerifier(issuer);
@@ -179,7 +188,7 @@ public class BearerAuthorizationInterceptor {
             "JWT issuer is %s, audience is %s, and algorithm is %s",
             issuer, jwt.getAudience(), algorithm));
 
-    if (!algorithm.equals(SIGN_ALGORITHM)) {
+    if (!SIGN_ALGORITHM.equals(algorithm)) {
       ExceptionUtil.throwRuntimeExceptionAndLog(
           logger,
           String.format(
@@ -304,7 +313,7 @@ public class BearerAuthorizationInterceptor {
           String.format(
               "Exception for resource %s method %s with error: %s",
               requestPath, servletDetails.getServletRequest().getMethod(), e));
-      ExceptionUtil.throwRuntimeExceptionAndLog(logger, e);
+      ExceptionUtil.throwRuntimeExceptionAndLog(logger, e.getMessage(), e);
     }
 
     // The request processing stops here, hence returning false.
@@ -369,7 +378,7 @@ public class BearerAuthorizationInterceptor {
     } catch (IOException e) {
       logger.error(
           String.format("Exception serving %s with error %s", request.getRequestPath(), e));
-      ExceptionUtil.throwRuntimeExceptionAndLog(logger, e);
+      ExceptionUtil.throwRuntimeExceptionAndLog(logger, e.getMessage(), e);
     }
   }
 }

@@ -171,6 +171,18 @@ public class BearerAuthorizationInterceptorTest {
     testInstance.decodeAndVerifyBearerToken(signJwt(jwtBuilder));
   }
 
+  @Test(expected = AuthenticationException.class)
+  public void decodeAndVerifyBearerTokenMalformedBearer() {
+    JWTCreator.Builder jwtBuilder = JWT.create().withIssuer(TOKEN_ISSUER);
+    testInstance.decodeAndVerifyBearerToken("BearerTTT " + signJwt(jwtBuilder));
+  }
+
+  @Test(expected = AuthenticationException.class)
+  public void decodeAndVerifyBearerTokenMalformedToken() {
+    JWTCreator.Builder jwtBuilder = JWT.create().withIssuer(TOKEN_ISSUER);
+    testInstance.decodeAndVerifyBearerToken("Bearer TTT");
+  }
+
   private void authorizeRequestCommonSetUp(String fhirStoreResponse) throws IOException {
     JWTCreator.Builder jwtBuilder = JWT.create().withIssuer(TOKEN_ISSUER);
     String jwt = signJwt(jwtBuilder);

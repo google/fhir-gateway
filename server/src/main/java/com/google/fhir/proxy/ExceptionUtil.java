@@ -56,8 +56,4 @@ public class ExceptionUtil {
   static void throwRuntimeExceptionAndLog(Logger logger, String errorMessage, Exception e) {
     throwRuntimeExceptionAndLog(logger, errorMessage, e, RuntimeException.class);
   }
-
-  static void throwRuntimeExceptionAndLog(Logger logger, Exception e) {
-    throwRuntimeExceptionAndLog(logger, e.getMessage(), e, RuntimeException.class);
-  }
 }
