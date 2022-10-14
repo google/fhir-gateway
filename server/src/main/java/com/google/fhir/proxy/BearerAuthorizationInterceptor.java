@@ -141,7 +141,7 @@ public class BearerAuthorizationInterceptor {
           logger, "Invalid algorithm " + keyAlgorithm, e, AuthenticationException.class);
     } catch (InvalidKeySpecException e) {
       ExceptionUtil.throwRuntimeExceptionAndLog(
-          logger, e.getMessage(), e, AuthenticationException.class);
+          logger, "Invalid KeySpec: " + e.getMessage(), e, AuthenticationException.class);
     }
     // We should never get here, this is to keep the IDE happy!
     return null;
