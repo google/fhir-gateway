@@ -117,7 +117,7 @@ public class BearerAuthorizationInterceptorTest {
     return null;
   }
 
-  private BearerAuthorizationInterceptor createTestInstance(boolean returnedCheck)
+  private BearerAuthorizationInterceptor createTestInstance(boolean isAccessGranted)
       throws IOException {
     return new BearerAuthorizationInterceptor(
         fhirClientMock,
@@ -129,7 +129,7 @@ public class BearerAuthorizationInterceptorTest {
             new AccessChecker() {
               @Override
               public AccessDecision checkAccess(RequestDetailsReader requestDetails) {
-                return new NoOpAccessDecision(returnedCheck);
+                return new NoOpAccessDecision(isAccessGranted);
               }
             },
         new AllowedQueriesChecker(null));
