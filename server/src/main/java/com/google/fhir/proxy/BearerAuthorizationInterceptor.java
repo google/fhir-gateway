@@ -24,6 +24,7 @@ import ca.uhn.fhir.rest.api.server.IRestfulResponse;
 import ca.uhn.fhir.rest.api.server.RequestDetails;
 import ca.uhn.fhir.rest.server.RestfulServer;
 import ca.uhn.fhir.rest.server.exceptions.AuthenticationException;
+import ca.uhn.fhir.rest.server.exceptions.ForbiddenOperationException;
 import ca.uhn.fhir.rest.server.servlet.ServletRequestDetails;
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.JWTVerifier;
@@ -244,7 +245,7 @@ public class BearerAuthorizationInterceptor {
           String.format(
               "User is not authorized to %s %s",
               requestDetails.getRequestType(), requestDetails.getCompleteUrl()),
-          AuthenticationException.class);
+          ForbiddenOperationException.class);
     }
     return outcome;
   }

@@ -29,6 +29,7 @@ import ca.uhn.fhir.parser.IParser;
 import ca.uhn.fhir.rest.api.server.IRestfulResponse;
 import ca.uhn.fhir.rest.server.RestfulServer;
 import ca.uhn.fhir.rest.server.exceptions.AuthenticationException;
+import ca.uhn.fhir.rest.server.exceptions.ForbiddenOperationException;
 import ca.uhn.fhir.rest.server.servlet.ServletRequestDetails;
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.JWTCreator;
@@ -37,6 +38,10 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.io.Resources;
+import com.google.fhir.proxy.interfaces.AccessChecker;
+import com.google.fhir.proxy.interfaces.AccessDecision;
+import com.google.fhir.proxy.interfaces.NoOpAccessDecision;
+import com.google.fhir.proxy.interfaces.RequestDetailsReader;
 import com.google.gson.Gson;
 import java.io.IOException;
 import java.io.StringWriter;
@@ -112,6 +117,24 @@ public class BearerAuthorizationInterceptorTest {
     return null;
   }
 
+  private BearerAuthorizationInterceptor createTestInstance(boolean isAccessGranted)
+      throws IOException {
+    return new BearerAuthorizationInterceptor(
+        fhirClientMock,
+        TOKEN_ISSUER,
+        "test",
+        serverMock,
+        httpUtilMock,
+        (jwt, httpFhirClient, fhirContext, patientFinder) ->
+            new AccessChecker() {
+              @Override
+              public AccessDecision checkAccess(RequestDetailsReader requestDetails) {
+                return new NoOpAccessDecision(isAccessGranted);
+              }
+            },
+        new AllowedQueriesChecker(null));
+  }
+
   @Before
   public void setUp() throws IOException {
     String publicKeyBase64 = generateKeyPairAndEncode();
@@ -126,15 +149,7 @@ public class BearerAuthorizationInterceptorTest {
     when(httpUtilMock.fetchWellKnownConfig(anyString(), anyString())).thenReturn(testIdpConfig);
     when(fhirClientMock.handleRequest(requestMock)).thenReturn(fhirResponseMock);
     when(fhirClientMock.getBaseUrl()).thenReturn(FHIR_STORE);
-    testInstance =
-        new BearerAuthorizationInterceptor(
-            fhirClientMock,
-            TOKEN_ISSUER,
-            "test",
-            serverMock,
-            httpUtilMock,
-            new PermissiveAccessChecker.Factory(),
-            new AllowedQueriesChecker(null));
+    testInstance = createTestInstance(true);
   }
 
   private String signJwt(JWTCreator.Builder jwtBuilder) {
@@ -293,5 +308,13 @@ public class BearerAuthorizationInterceptorTest {
     assertThat(
         capability.getRest().get(0).getSecurity().getService().get(0).getCoding().get(0).getCode(),
         equalTo("OAuth"));
+  }
+
+  @Test(expected = ForbiddenOperationException.class)
+  public void deniedRequest() throws IOException {
+    // Changing the access-checker to something that always denies.
+    testInstance = createTestInstance(false);
+    authorizeRequestCommonSetUp("never returned response");
+    testInstance.authorizeRequest(requestMock);
   }
 }
