@@ -57,7 +57,7 @@ public class DataAccessChecker implements AccessChecker {
 
     @Override
     public AccessDecision checkAccess(RequestDetailsReader requestDetails) {
-
+        OpenSRPSyncAccessDecision accessDecision = new OpenSRPSyncAccessDecision(false, locationIds, careTeamIds, organizationIds);
         switch (requestDetails.getRequestType()) {
             case GET:
 //                if ((requestDetails.getResourceName()).equals(PATIENT) || (requestDetails.getResourceName()).equals(ORGANIZATION) || (requestDetails.getResourceName()).equals(ORGANIZATION)) {
@@ -79,7 +79,7 @@ public class DataAccessChecker implements AccessChecker {
 
             default:
                 // TODO handle other cases like DELETE
-                return NoOpAccessDecision.accessDenied();
+                return accessDecision;
         }
     }
 
@@ -169,7 +169,8 @@ public class DataAccessChecker implements AccessChecker {
             keycloakUUID = "40353ad0-6fa0-4da3-9dd6-b2d9d5a09b6a";
             Bundle practitionerDetailsBundle = client.search()
                     .forResource(PractitionerDetails.class)
-                    .where(PractitionerDetails.KEYCLOAK_UUID.exactly().identifier(keycloakUUID))
+                    // PractitionerDetails.KEYCLOAK_UUID is missing
+                    //.where(PractitionerDetails.KEYCLOAK_UUID.exactly().identifier(keycloakUUID))
                     .returnBundle(Bundle.class)
                     .execute();
 
