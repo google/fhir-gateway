@@ -23,7 +23,6 @@ import com.auth0.jwt.interfaces.DecodedJWT;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.fhir.proxy.BundleResources;
-import com.google.fhir.proxy.FhirUtil;
 import com.google.fhir.proxy.HttpFhirClient;
 import com.google.fhir.proxy.ResourceFinderImp;
 import com.google.fhir.proxy.interfaces.AccessChecker;
@@ -33,18 +32,11 @@ import com.google.fhir.proxy.interfaces.NoOpAccessDecision;
 import com.google.fhir.proxy.interfaces.PatientFinder;
 import com.google.fhir.proxy.interfaces.RequestDetailsReader;
 import com.google.fhir.proxy.interfaces.ResourceFinder;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
 import javax.inject.Named;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class PermissionAccessChecker implements AccessChecker {
-
-  private static final Logger logger = LoggerFactory.getLogger(PermissionAccessChecker.class);
   private final ResourceFinder resourceFinder;
   private final List<String> userRoles;
 
@@ -72,12 +64,13 @@ public class PermissionAccessChecker implements AccessChecker {
 
       switch (requestType) {
         case GET:
+          return processGet(userHasRole);
         case DELETE:
-          return processGetOrDelete(userHasRole);
+          return processDelete(userHasRole);
         case POST:
-          return processPost(requestDetails, userHasRole);
+          return processPost(userHasRole);
         case PUT:
-          return processPut(requestDetails, userHasRole);
+          return processPut(userHasRole);
         default:
           // TODO handle other cases like PATCH
           return NoOpAccessDecision.accessDenied();
@@ -90,38 +83,24 @@ public class PermissionAccessChecker implements AccessChecker {
         || checkIfRoleExists(getRelevantRoleName(resourceName, requestType), this.userRoles);
   }
 
-  private AccessDecision processGetOrDelete(boolean userHasRole) {
+  private AccessDecision processGet(boolean userHasRole) {
+    return getAccessDecision(userHasRole);
+  }
+
+  private AccessDecision processDelete(boolean userHasRole) {
+    return getAccessDecision(userHasRole);
+  }
+
+  private AccessDecision getAccessDecision(boolean userHasRole) {
     return userHasRole ? NoOpAccessDecision.accessGranted() : NoOpAccessDecision.accessDenied();
   }
 
-  private AccessDecision processPost(RequestDetailsReader requestDetails, boolean userHasRole) {
-    if (!userHasRole) {
-      logger.error("The current user does not have required Role; denying access!");
-      return NoOpAccessDecision.accessDenied();
-    }
-
-    // Run this to checks if FHIR Resource is different from URI endpoint resource type
-    resourceFinder.findResourcesInResource(requestDetails);
-    return new NoOpAccessDecision(true);
+  private AccessDecision processPost(boolean userHasRole) {
+    return getAccessDecision(userHasRole);
   }
 
-  private AccessDecision processPut(RequestDetailsReader requestDetails, boolean userHasRole) {
-    if (!userHasRole) {
-      logger.error("The current user does not have required Role; denying access!");
-      return NoOpAccessDecision.accessDenied();
-    }
-
-    String resourceId = FhirUtil.getIdOrNull(requestDetails);
-    if (resourceId == null) {
-      // This is an invalid PUT request; note we are not supporting "conditional updates".
-      logger.error("The provided Resource has no ID; denying access!");
-      return NoOpAccessDecision.accessDenied();
-    }
-
-    // Checks if FHIR Resource is different from URI endpoint
-    // resource type
-    Set<String> resourceIds = resourceFinder.findResourcesInResource(requestDetails);
-    return new NoOpAccessDecision(resourceIds.contains(resourceId));
+  private AccessDecision processPut(boolean userHasRole) {
+    return getAccessDecision(userHasRole);
   }
 
   private AccessDecision processBundle(RequestDetailsReader requestDetails) {
@@ -155,19 +134,12 @@ public class PermissionAccessChecker implements AccessChecker {
   static class Factory implements AccessCheckerFactory {
 
     @VisibleForTesting static final String REALM_ACCESS_CLAIM = "realm_access";
+    @VisibleForTesting static final String ROLES = "roles";
 
     private List<String> getUserRolesFromJWT(DecodedJWT jwt) {
       Claim claim = jwt.getClaim(REALM_ACCESS_CLAIM);
       Map<String, Object> roles = claim.asMap();
-      List<Object> collection = roles.values().stream().collect(Collectors.toList());
-      List<String> rolesList = new ArrayList<>();
-      List<Object> collectionPart =
-          collection != null && collection.size() > 0
-              ? (List<Object>) collection.get(0)
-              : new ArrayList<>();
-      for (Object collect : collectionPart) {
-        rolesList.add(collect.toString());
-      }
+      List<String> rolesList = (List) roles.get(ROLES);
       return rolesList;
     }
 

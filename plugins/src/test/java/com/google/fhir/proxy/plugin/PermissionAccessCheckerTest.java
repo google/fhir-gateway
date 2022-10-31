@@ -85,7 +85,7 @@ public class PermissionAccessCheckerTest {
     setUpFhirBundle("test_patient.json");
 
     Map<String, Object> map = new HashMap<>();
-    map.put("roles", Arrays.asList("MANAGE_PATIENT"));
+    map.put(PermissionAccessChecker.Factory.ROLES, Arrays.asList("MANAGE_PATIENT"));
     when(claimMock.asMap()).thenReturn(map);
 
     when(requestMock.getResourceName()).thenReturn(Enumerations.ResourceType.PATIENT.name());
@@ -103,7 +103,7 @@ public class PermissionAccessCheckerTest {
     setUpFhirBundle("test_patient.json");
 
     Map<String, Object> map = new HashMap<>();
-    map.put("roles", Arrays.asList("GET_PATIENT"));
+    map.put(PermissionAccessChecker.Factory.ROLES, Arrays.asList("GET_PATIENT"));
     when(claimMock.asMap()).thenReturn(map);
     when(requestMock.getResourceName()).thenReturn(Enumerations.ResourceType.PATIENT.name());
     when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.GET);
@@ -120,7 +120,7 @@ public class PermissionAccessCheckerTest {
     setUpFhirBundle("test_patient.json");
 
     Map<String, Object> map = new HashMap<>();
-    map.put("roles", Arrays.asList(""));
+    map.put(PermissionAccessChecker.Factory.ROLES, Arrays.asList(""));
     when(claimMock.asMap()).thenReturn(map);
     when(requestMock.getResourceName()).thenReturn(Enumerations.ResourceType.PATIENT.name());
     when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.GET);
@@ -137,7 +137,7 @@ public class PermissionAccessCheckerTest {
     setUpFhirBundle("test_patient.json");
 
     Map<String, Object> map = new HashMap<>();
-    map.put("roles", Arrays.asList("DELETE_PATIENT"));
+    map.put(PermissionAccessChecker.Factory.ROLES, Arrays.asList("DELETE_PATIENT"));
     when(claimMock.asMap()).thenReturn(map);
     when(requestMock.getResourceName()).thenReturn(Enumerations.ResourceType.PATIENT.name());
     when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.DELETE);
@@ -154,7 +154,7 @@ public class PermissionAccessCheckerTest {
     setUpFhirBundle("test_patient.json");
 
     Map<String, Object> map = new HashMap<>();
-    map.put("roles", Arrays.asList("MANAGE_PATIENT"));
+    map.put(PermissionAccessChecker.Factory.ROLES, Arrays.asList("MANAGE_PATIENT"));
     when(claimMock.asMap()).thenReturn(map);
     when(requestMock.getResourceName()).thenReturn(Enumerations.ResourceType.PATIENT.name());
     when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.DELETE);
@@ -171,7 +171,7 @@ public class PermissionAccessCheckerTest {
     setUpFhirBundle("test_patient.json");
 
     Map<String, Object> map = new HashMap<>();
-    map.put("roles", Arrays.asList(""));
+    map.put(PermissionAccessChecker.Factory.ROLES, Arrays.asList(""));
     when(claimMock.asMap()).thenReturn(map);
     when(requestMock.getResourceName()).thenReturn(Enumerations.ResourceType.PATIENT.name());
     when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.DELETE);
@@ -188,12 +188,11 @@ public class PermissionAccessCheckerTest {
     setUpFhirBundle("test_patient.json");
 
     Map<String, Object> map = new HashMap<>();
-    map.put("roles", Arrays.asList("MANAGE_PATIENT"));
+    map.put(PermissionAccessChecker.Factory.ROLES, Arrays.asList("MANAGE_PATIENT"));
     when(claimMock.asMap()).thenReturn(map);
     when(requestMock.getResourceName()).thenReturn(Enumerations.ResourceType.PATIENT.name());
     when(requestMock.getResourceName()).thenReturn("Patient");
     when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.PUT);
-    when(requestMock.getId()).thenReturn(PATIENT_AUTHORIZED_ID);
 
     AccessChecker testInstance = getInstance();
     assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(true));
@@ -205,12 +204,11 @@ public class PermissionAccessCheckerTest {
     setUpFhirBundle("test_patient.json");
 
     Map<String, Object> map = new HashMap<>();
-    map.put("roles", Arrays.asList("PUT_PATIENT"));
+    map.put(PermissionAccessChecker.Factory.ROLES, Arrays.asList("PUT_PATIENT"));
     when(claimMock.asMap()).thenReturn(map);
     when(requestMock.getResourceName()).thenReturn(Enumerations.ResourceType.PATIENT.name());
     when(requestMock.getResourceName()).thenReturn("Patient");
     when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.PUT);
-    when(requestMock.getId()).thenReturn(PATIENT_AUTHORIZED_ID);
 
     AccessChecker testInstance = getInstance();
     assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(true));
@@ -222,28 +220,11 @@ public class PermissionAccessCheckerTest {
     setUpFhirBundle("test_patient.json");
 
     Map<String, Object> map = new HashMap<>();
-    map.put("roles", Arrays.asList(""));
+    map.put(PermissionAccessChecker.Factory.ROLES, Arrays.asList(""));
     when(claimMock.asMap()).thenReturn(map);
     when(requestMock.getResourceName()).thenReturn(Enumerations.ResourceType.PATIENT.name());
     when(requestMock.getResourceName()).thenReturn("Patient");
     when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.PUT);
-
-    AccessChecker testInstance = getInstance();
-    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
-  }
-
-  @Test
-  public void testPutPatientWithDifferentIdCannotAccessPutPatient() throws IOException {
-    // Query: PUT/WRONG_PID
-    setUpFhirBundle("test_patient.json");
-
-    Map<String, Object> map = new HashMap<>();
-    map.put("roles", Arrays.asList("PUT_PATIENT"));
-    when(claimMock.asMap()).thenReturn(map);
-    when(requestMock.getResourceName()).thenReturn(Enumerations.ResourceType.PATIENT.name());
-    when(requestMock.getResourceName()).thenReturn("Patient");
-    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.PUT);
-    when(requestMock.getId()).thenReturn(PATIENT_NON_AUTHORIZED_ID);
 
     AccessChecker testInstance = getInstance();
     assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
@@ -255,7 +236,7 @@ public class PermissionAccessCheckerTest {
     setUpFhirBundle("test_patient.json");
 
     Map<String, Object> map = new HashMap<>();
-    map.put("roles", Arrays.asList("POST_PATIENT"));
+    map.put(PermissionAccessChecker.Factory.ROLES, Arrays.asList("POST_PATIENT"));
     when(claimMock.asMap()).thenReturn(map);
     when(requestMock.getResourceName()).thenReturn(Enumerations.ResourceType.PATIENT.name());
     when(requestMock.getResourceName()).thenReturn("Patient");
@@ -271,7 +252,7 @@ public class PermissionAccessCheckerTest {
     setUpFhirBundle("test_patient.json");
 
     Map<String, Object> map = new HashMap<>();
-    map.put("roles", Arrays.asList(""));
+    map.put(PermissionAccessChecker.Factory.ROLES, Arrays.asList(""));
     when(claimMock.asMap()).thenReturn(map);
     when(requestMock.getResourceName()).thenReturn(Enumerations.ResourceType.PATIENT.name());
     when(requestMock.getResourceName()).thenReturn("Patient");
@@ -286,7 +267,7 @@ public class PermissionAccessCheckerTest {
     setUpFhirBundle("bundle_transaction_put_patient.json");
 
     Map<String, Object> map = new HashMap<>();
-    map.put("roles", Arrays.asList("MANAGE_PATIENT"));
+    map.put(PermissionAccessChecker.Factory.ROLES, Arrays.asList("MANAGE_PATIENT"));
     when(claimMock.asMap()).thenReturn(map);
 
     when(requestMock.getResourceName()).thenReturn(null);
@@ -303,24 +284,7 @@ public class PermissionAccessCheckerTest {
     setUpFhirBundle("bundle_transaction_put_patient.json");
 
     Map<String, Object> map = new HashMap<>();
-    map.put("roles", Arrays.asList("PUT_PATIENT"));
-    when(claimMock.asMap()).thenReturn(map);
-
-    when(requestMock.getResourceName()).thenReturn(null);
-    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.POST);
-
-    AccessChecker testInstance = getInstance();
-    boolean canAccess = testInstance.checkAccess(requestMock).canAccess();
-
-    assertThat(canAccess, equalTo(true));
-  }
-
-  @Test
-  public void testPostResourceRoleCanAccessBundlePostResources() throws IOException {
-    setUpFhirBundle("bundle_transaction_post_patient.json");
-
-    Map<String, Object> map = new HashMap<>();
-    map.put("roles", Arrays.asList("POST_PATIENT"));
+    map.put(PermissionAccessChecker.Factory.ROLES, Arrays.asList("PUT_PATIENT"));
     when(claimMock.asMap()).thenReturn(map);
 
     when(requestMock.getResourceName()).thenReturn(null);
@@ -337,7 +301,7 @@ public class PermissionAccessCheckerTest {
     setUpFhirBundle("bundle_transaction_delete.json");
 
     Map<String, Object> map = new HashMap<>();
-    map.put("roles", Arrays.asList("DELETE_PATIENT"));
+    map.put(PermissionAccessChecker.Factory.ROLES, Arrays.asList("DELETE_PATIENT"));
     when(claimMock.asMap()).thenReturn(map);
 
     when(requestMock.getResourceName()).thenReturn(null);
@@ -354,7 +318,7 @@ public class PermissionAccessCheckerTest {
     setUpFhirBundle("bundle_transaction_patient_and_non_patients.json");
 
     Map<String, Object> map = new HashMap<>();
-    map.put("roles", Arrays.asList("PUT_PATIENT", "PUT_OBSERVATION", "PUT_ENCOUNTER"));
+    map.put(PermissionAccessChecker.Factory.ROLES, Arrays.asList("PUT_PATIENT", "PUT_OBSERVATION", "PUT_ENCOUNTER"));
     when(claimMock.asMap()).thenReturn(map);
 
     when(requestMock.getResourceName()).thenReturn(null);
@@ -371,7 +335,7 @@ public class PermissionAccessCheckerTest {
     setUpFhirBundle("bundle_transaction_patient_and_non_patients.json");
 
     Map<String, Object> map = new HashMap<>();
-    map.put("roles", Arrays.asList("MANAGE_PATIENT", "MANAGE_OBSERVATION", "MANAGE_ENCOUNTER"));
+    map.put(PermissionAccessChecker.Factory.ROLES, Arrays.asList("MANAGE_PATIENT", "MANAGE_OBSERVATION", "MANAGE_ENCOUNTER"));
     when(claimMock.asMap()).thenReturn(map);
 
     when(requestMock.getResourceName()).thenReturn(null);
@@ -389,7 +353,7 @@ public class PermissionAccessCheckerTest {
     setUpFhirBundle("bundle_transaction_patient_and_non_patients.json");
 
     Map<String, Object> map = new HashMap<>();
-    map.put("roles", Arrays.asList("MANAGE_PATIENT", "MANAGE_ENCOUNTER"));
+    map.put(PermissionAccessChecker.Factory.ROLES, Arrays.asList("MANAGE_PATIENT", "MANAGE_ENCOUNTER"));
     when(claimMock.asMap()).thenReturn(map);
 
     when(requestMock.getResourceName()).thenReturn(null);
@@ -404,6 +368,10 @@ public class PermissionAccessCheckerTest {
   @Test(expected = InvalidRequestException.class)
   public void testBundleResourceNonTransactionTypeThrowsException() throws IOException {
     setUpFhirBundle("bundle_empty.json");
+
+    Map<String, Object> map = new HashMap<>();
+    map.put(PermissionAccessChecker.Factory.ROLES, Arrays.asList());
+    when(claimMock.asMap()).thenReturn(map);
 
     AccessChecker testInstance = getInstance();
     Assert.assertFalse(testInstance.checkAccess(requestMock).canAccess());
