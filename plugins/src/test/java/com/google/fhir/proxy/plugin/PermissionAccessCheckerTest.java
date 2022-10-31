@@ -20,7 +20,6 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.mockito.Mockito.when;
 
 import ca.uhn.fhir.context.FhirContext;
-import ca.uhn.fhir.model.primitive.IdDt;
 import ca.uhn.fhir.rest.api.RequestTypeEnum;
 import ca.uhn.fhir.rest.server.exceptions.InvalidRequestException;
 import com.auth0.jwt.interfaces.Claim;
@@ -40,14 +39,11 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnitRunner;
 
 @RunWith(MockitoJUnitRunner.class)
 public class PermissionAccessCheckerTest {
-  static final String PATIENT_AUTHORIZED = "be92a43f-de46-affa-b131-bbf9eea51140";
-  static final String PATIENT_NON_AUTHORIZED = "patient-non-authorized";
-  static final IdDt PATIENT_AUTHORIZED_ID = new IdDt("Patient", PATIENT_AUTHORIZED);
-  static final IdDt PATIENT_NON_AUTHORIZED_ID = new IdDt("Patient", PATIENT_NON_AUTHORIZED);
 
   @Mock protected DecodedJWT jwtMock;
 
@@ -318,7 +314,9 @@ public class PermissionAccessCheckerTest {
     setUpFhirBundle("bundle_transaction_patient_and_non_patients.json");
 
     Map<String, Object> map = new HashMap<>();
-    map.put(PermissionAccessChecker.Factory.ROLES, Arrays.asList("PUT_PATIENT", "PUT_OBSERVATION", "PUT_ENCOUNTER"));
+    map.put(
+        PermissionAccessChecker.Factory.ROLES,
+        Arrays.asList("PUT_PATIENT", "PUT_OBSERVATION", "PUT_ENCOUNTER"));
     when(claimMock.asMap()).thenReturn(map);
 
     when(requestMock.getResourceName()).thenReturn(null);
@@ -335,7 +333,9 @@ public class PermissionAccessCheckerTest {
     setUpFhirBundle("bundle_transaction_patient_and_non_patients.json");
 
     Map<String, Object> map = new HashMap<>();
-    map.put(PermissionAccessChecker.Factory.ROLES, Arrays.asList("MANAGE_PATIENT", "MANAGE_OBSERVATION", "MANAGE_ENCOUNTER"));
+    map.put(
+        PermissionAccessChecker.Factory.ROLES,
+        Arrays.asList("MANAGE_PATIENT", "MANAGE_OBSERVATION", "MANAGE_ENCOUNTER"));
     when(claimMock.asMap()).thenReturn(map);
 
     when(requestMock.getResourceName()).thenReturn(null);
@@ -353,7 +353,8 @@ public class PermissionAccessCheckerTest {
     setUpFhirBundle("bundle_transaction_patient_and_non_patients.json");
 
     Map<String, Object> map = new HashMap<>();
-    map.put(PermissionAccessChecker.Factory.ROLES, Arrays.asList("MANAGE_PATIENT", "MANAGE_ENCOUNTER"));
+    map.put(
+        PermissionAccessChecker.Factory.ROLES, Arrays.asList("MANAGE_PATIENT", "MANAGE_ENCOUNTER"));
     when(claimMock.asMap()).thenReturn(map);
 
     when(requestMock.getResourceName()).thenReturn(null);
@@ -375,5 +376,62 @@ public class PermissionAccessCheckerTest {
 
     AccessChecker testInstance = getInstance();
     Assert.assertFalse(testInstance.checkAccess(requestMock).canAccess());
+  }
+
+  @Test
+  public void testAccessGrantedWhenManageResourcePresentForTypeBundleResources() throws IOException {
+    setUpFhirBundle("test_bundle_transaction.json");
+
+    Map<String, Object> map = new HashMap<>();
+    map.put(PermissionAccessChecker.Factory.ROLES, Arrays.asList("MANAGE_PATIENT"));
+    when(claimMock.asMap()).thenReturn(map);
+
+    when(requestMock.getResourceName()).thenReturn(null);
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.POST);
+
+    PermissionAccessChecker testInstance = Mockito.spy((PermissionAccessChecker) getInstance());
+    when(testInstance.isDevMode()).thenReturn(true);
+
+    boolean canAccess = testInstance.checkAccess(requestMock).canAccess();
+
+    assertThat(canAccess, equalTo(true));
+  }
+
+  @Test
+  public void testAccessGrantedWhenAllRolesPresentForTypeBundleResources() throws IOException {
+    setUpFhirBundle("test_bundle_transaction.json");
+
+    Map<String, Object> map = new HashMap<>();
+    map.put(PermissionAccessChecker.Factory.ROLES, Arrays.asList("PUT_PATIENT", "POST_PATIENT"));
+    when(claimMock.asMap()).thenReturn(map);
+
+    when(requestMock.getResourceName()).thenReturn(null);
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.POST);
+
+    PermissionAccessChecker testInstance = Mockito.spy((PermissionAccessChecker) getInstance());
+    when(testInstance.isDevMode()).thenReturn(true);
+
+    boolean canAccess = testInstance.checkAccess(requestMock).canAccess();
+
+    assertThat(canAccess, equalTo(true));
+  }
+
+  @Test
+  public void testAccessDeniedWhenSingleRoleMissingForTypeBundleResources() throws IOException {
+    setUpFhirBundle("test_bundle_transaction.json");
+
+    Map<String, Object> map = new HashMap<>();
+    map.put(PermissionAccessChecker.Factory.ROLES, Arrays.asList("PUT_PATIENT"));
+    when(claimMock.asMap()).thenReturn(map);
+
+    when(requestMock.getResourceName()).thenReturn(null);
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.POST);
+
+    PermissionAccessChecker testInstance = Mockito.spy((PermissionAccessChecker) getInstance());
+    when(testInstance.isDevMode()).thenReturn(true);
+
+    boolean canAccess = testInstance.checkAccess(requestMock).canAccess();
+
+    assertThat(canAccess, equalTo(false));
   }
 }

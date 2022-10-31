@@ -23,6 +23,7 @@ import com.auth0.jwt.interfaces.DecodedJWT;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.fhir.proxy.BundleResources;
+import com.google.fhir.proxy.FhirProxyServer;
 import com.google.fhir.proxy.HttpFhirClient;
 import com.google.fhir.proxy.ResourceFinderImp;
 import com.google.fhir.proxy.interfaces.AccessChecker;
@@ -35,8 +36,11 @@ import com.google.fhir.proxy.interfaces.ResourceFinder;
 import java.util.List;
 import java.util.Map;
 import javax.inject.Named;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class PermissionAccessChecker implements AccessChecker {
+  private static final Logger logger = LoggerFactory.getLogger(PermissionAccessChecker.class);
   private final ResourceFinder resourceFinder;
   private final List<String> userRoles;
 
@@ -104,18 +108,29 @@ public class PermissionAccessChecker implements AccessChecker {
   }
 
   private AccessDecision processBundle(RequestDetailsReader requestDetails) {
-
+    boolean hasMissingRole = false;
     List<BundleResources> resourcesInBundle = resourceFinder.findResourcesInBundle(requestDetails);
-
     // Verify Authorization for individual requests in Bundle
     for (BundleResources bundleResources : resourcesInBundle) {
       if (!checkUserHasRole(
           bundleResources.getResource().fhirType(), bundleResources.getRequestType().name())) {
-        return NoOpAccessDecision.accessDenied();
+
+        if (isDevMode()) {
+          hasMissingRole = true;
+          logger.info(
+              "Missing role "
+                  + getRelevantRoleName(
+                      bundleResources.getResource().fhirType(),
+                      bundleResources.getRequestType().name()));
+        } else {
+          return NoOpAccessDecision.accessDenied();
+        }
       }
     }
 
-    return NoOpAccessDecision.accessGranted();
+    return (isDevMode() && !hasMissingRole) || !isDevMode()
+        ? NoOpAccessDecision.accessGranted()
+        : NoOpAccessDecision.accessDenied();
   }
 
   private String getRelevantRoleName(String resourceName, String methodType) {
@@ -124,6 +139,11 @@ public class PermissionAccessChecker implements AccessChecker {
 
   private String getAdminRoleName(String resourceName) {
     return "MANAGE_" + resourceName.toUpperCase();
+  }
+
+  @VisibleForTesting
+  protected boolean isDevMode() {
+    return FhirProxyServer.isDevMode();
   }
 
   private boolean checkIfRoleExists(String roleName, List<String> existingRoles) {
