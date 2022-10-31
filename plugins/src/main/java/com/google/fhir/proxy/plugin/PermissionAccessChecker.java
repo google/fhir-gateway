@@ -25,8 +25,14 @@ import com.google.common.base.Preconditions;
 import com.google.fhir.proxy.BundleResources;
 import com.google.fhir.proxy.FhirUtil;
 import com.google.fhir.proxy.HttpFhirClient;
-import com.google.fhir.proxy.JwtUtil;
-import com.google.fhir.proxy.interfaces.*;
+import com.google.fhir.proxy.ResourceFinderImp;
+import com.google.fhir.proxy.interfaces.AccessChecker;
+import com.google.fhir.proxy.interfaces.AccessCheckerFactory;
+import com.google.fhir.proxy.interfaces.AccessDecision;
+import com.google.fhir.proxy.interfaces.NoOpAccessDecision;
+import com.google.fhir.proxy.interfaces.PatientFinder;
+import com.google.fhir.proxy.interfaces.RequestDetailsReader;
+import com.google.fhir.proxy.interfaces.ResourceFinder;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -146,7 +152,7 @@ public class PermissionAccessChecker implements AccessChecker {
   }
 
   @Named(value = "permission")
-  static class Factory implements ResourceAccessCheckerFactory {
+  static class Factory implements AccessCheckerFactory {
 
     @VisibleForTesting static final String REALM_ACCESS_CLAIM = "realm_access";
 
@@ -165,22 +171,6 @@ public class PermissionAccessChecker implements AccessChecker {
       return rolesList;
     }
 
-    @VisibleForTesting static final String PATIENT_CLAIM = "patient_id";
-
-    private String getPatientId(DecodedJWT jwt) {
-      return FhirUtil.checkIdOrFail(JwtUtil.getClaimOrDie(jwt, PATIENT_CLAIM));
-    }
-
-    @Override
-    public AccessChecker create(
-        DecodedJWT jwt,
-        HttpFhirClient httpFhirClient,
-        FhirContext fhirContext,
-        ResourceFinder resourceFinder) {
-      List<String> userRoles = getUserRolesFromJWT(jwt);
-      return new PermissionAccessChecker(userRoles, resourceFinder);
-    }
-
     @Override
     public AccessChecker create(
         DecodedJWT jwt,
@@ -188,7 +178,8 @@ public class PermissionAccessChecker implements AccessChecker {
         FhirContext fhirContext,
         PatientFinder patientFinder)
         throws AuthenticationException {
-      return new PatientAccessChecker(getPatientId(jwt), patientFinder);
+      List<String> userRoles = getUserRolesFromJWT(jwt);
+      return new PermissionAccessChecker(userRoles, ResourceFinderImp.getInstance(fhirContext));
     }
   }
 }

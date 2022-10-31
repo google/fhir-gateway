@@ -26,7 +26,7 @@ import ca.uhn.fhir.rest.server.exceptions.InvalidRequestException;
 import com.auth0.jwt.interfaces.Claim;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import com.google.common.io.Resources;
-import com.google.fhir.proxy.ResourceFinderImp;
+import com.google.fhir.proxy.PatientFinderImp;
 import com.google.fhir.proxy.interfaces.AccessChecker;
 import com.google.fhir.proxy.interfaces.RequestDetailsReader;
 import java.io.IOException;
@@ -76,7 +76,7 @@ public class PermissionAccessCheckerTest {
 
   protected AccessChecker getInstance() {
     return new PermissionAccessChecker.Factory()
-        .create(jwtMock, null, fhirContext, ResourceFinderImp.getInstance(fhirContext));
+        .create(jwtMock, null, fhirContext, PatientFinderImp.getInstance(fhirContext));
   }
 
   @Test
