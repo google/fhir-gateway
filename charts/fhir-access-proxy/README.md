@@ -5,8 +5,8 @@
 ## TL;DR
 
 ```bash
-$ helm repo add opensrp-fhir-access-proxy https://opensrp.github.io/fhir-access-proxy
-$ helm install fhir-access-proxy fhir-access-proxy/opensrp-fhir-access-proxy
+helm repo add opensrp-fhir-access-proxy https://opensrp.github.io/fhir-access-proxy &&
+helm install fhir-access-proxy fhir-access-proxy/opensrp-fhir-access-proxy
 ```
 
 ## Introduction
@@ -117,6 +117,7 @@ To update config file on the pod with new changes one has to do the following:
             ]
           }
     ```
+
 2.  Create a configmap volume type:
     *   The name of the configMap resemble the ConfigMap manifest metadata.name i.e. `fhir-access-proxy` but we obtain the generated name from the function `'{{ include "fhir-access-proxy.fullname" . }}'` using tpl function.
     ```yaml
@@ -125,6 +126,7 @@ To update config file on the pod with new changes one has to do the following:
           configMap:
              name: '{{ include "fhir-access-proxy.fullname" . }}'
     ```
+
 3.  Mount the Configmap volume:
     *   mountPath is the location of the file in the pod.
     *   name is the name of the volume in point 2 above.
@@ -135,6 +137,7 @@ To update config file on the pod with new changes one has to do the following:
         name: hapi-page-url-allowed-queries
         subPath: hapi_page_url_allowed_queries.json
     ```
+
 4.  Deploy.
     *   To confirm it has picked the new changes you can check the file by:
     ```shell
