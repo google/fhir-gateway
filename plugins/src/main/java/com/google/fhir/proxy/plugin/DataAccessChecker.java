@@ -215,7 +215,7 @@ public class DataAccessChecker implements AccessChecker {
       String binaryResourceReference = getBinaryResourceReference(composition);
       Binary binary = findApplicationConfigBinaryResource(binaryResourceReference);
       List<String> syncStrategy = findSyncStrategy(binary);
-      PractitionerDetails practitionerDetails = readPractitionerDetails(jwt.getId());
+      PractitionerDetails practitionerDetails = readPractitionerDetails(jwt.getSubject());
       List<CareTeam> careTeams;
       List<Organization> organizations;
       List<Location> locations;
