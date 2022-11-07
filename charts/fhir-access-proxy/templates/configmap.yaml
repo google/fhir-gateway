@@ -1,0 +1,13 @@
+{{ $scope := .}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "fhir-access-proxy.fullname" . }}
+  labels:
+    {{- include "fhir-access-proxy.labels" . | nindent 4 }}
+data:
+  {{ range $value := .Values.configMaps -}}
+  {{ $value.name }}: |
+  {{ tpl $value.contents $scope | nindent 8 }}
+  {{ end }}
+
