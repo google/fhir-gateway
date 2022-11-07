@@ -81,6 +81,8 @@ tolerations: []
 
 affinity: {}
 
+recreatePodsWhenConfigMapChange: true
+
 livenessProbe:
   httpGet:
     path: /
