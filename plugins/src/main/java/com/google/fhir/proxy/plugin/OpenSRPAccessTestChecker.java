@@ -58,7 +58,7 @@ public class OpenSRPAccessTestChecker implements AccessChecker {
       List<String> organisationIds = new ArrayList<>();
       organisationIds.add("P0001");
       List<String> careTeamIds = new ArrayList<>();
-      return new OpenSRPSyncAccessDecision(true, locationIds, careTeamIds, organisationIds);
+      return new OpenSRPSyncAccessDecision("sample-application-id", true, locationIds, careTeamIds, organisationIds, null);
   }
 
   @Named(value = "OPENSRP_TEST_ACCESS_CHECKER")

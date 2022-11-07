@@ -22,7 +22,9 @@ import org.apache.http.HttpResponse;
 
 public interface AccessDecision {
 
-  /** @return true iff access was granted. */
+  /**
+   * @return true iff access was granted.
+   */
   boolean canAccess();
 
   void preProcess(ServletRequestDetails servletRequestDetails);

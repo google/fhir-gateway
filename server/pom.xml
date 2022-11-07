@@ -54,53 +54,6 @@
       <artifactId>hapi-fhir-server</artifactId>
       <version>${hapifhir_version}</version>
     </dependency>
-    <dependency>
-      <groupId>ca.uhn.hapi.fhir</groupId>
-      <artifactId>hapi-fhir-client</artifactId>
-      <version>${hapifhir_version}</version>
-    </dependency>
-    <dependency>
-      <groupId>org.smartregister</groupId>
-      <artifactId>fhir-common-utils</artifactId>
-      <version>0.0.2-SNAPSHOT</version>
-    </dependency>
-
-    <!-- This dependency includes the JPA server itself, which is packaged separately from the rest of HAPI FHIR -->
-    <dependency>
-      <groupId>ca.uhn.hapi.fhir</groupId>
-      <artifactId>hapi-fhir-jpaserver-base</artifactId>
-      <version>${hapifhir_version}</version>
-      <exclusions>
-        <exclusion>
-          <groupId>org.springframework</groupId>
-          <artifactId>spring-jcl</artifactId>
-        </exclusion>
-        <exclusion>
-          <groupId>commons-logging</groupId>
-          <artifactId>commons-logging</artifactId>
-        </exclusion>
-      </exclusions>
-    </dependency>
-
-    <!-- This dependency holds all the code extensions that OpenSRP will build on top of Hapi-Fhir-->
-    <dependency>
-      <groupId>org.smartregister.hapi-fhir-opensrp-extensions</groupId>
-      <artifactId>location</artifactId>
-      <version>0.0.4-SNAPSHOT</version>
-    </dependency>
-
-    <dependency>
-      <groupId>org.smartregister.hapi-fhir-opensrp-extensions</groupId>
-      <artifactId>practitioner</artifactId>
-      <version>0.0.5-SNAPSHOT</version>
-    </dependency>
-
-    <dependency>
-      <groupId>org.smartregister.hapi-fhir-opensrp-extensions</groupId>
-      <artifactId>configuration</artifactId>
-      <version>0.0.1-SNAPSHOT</version>
-    </dependency>
-
 
     <!-- At least one "structures" JAR must also be included -->
     <dependency>
@@ -194,6 +147,18 @@
       <groupId>org.projectlombok</groupId>
       <artifactId>lombok</artifactId>
       <version>1.18.24</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.smartregister</groupId>
+      <artifactId>fhir-common-utils</artifactId>
+      <version>0.0.3-SNAPSHOT</version>
+    </dependency>
+
+    <dependency>
+      <groupId>ca.uhn.hapi.fhir</groupId>
+      <artifactId>hapi-fhir-client</artifactId>
+      <version>${hapifhir_version}</version>
     </dependency>
 
   </dependencies>

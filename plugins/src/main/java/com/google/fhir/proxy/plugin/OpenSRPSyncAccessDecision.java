@@ -40,6 +40,10 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
 
 	public static final String SEARCH_PARAM_TAG = "_tag";
 
+	private String applicationId;
+
+	private final List<String> syncStrategy;
+
 	private boolean accessGranted;
 
 	private List<String> careTeamIds;
@@ -48,12 +52,14 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
 
 	private List<String> organizationIds;
 
-	public OpenSRPSyncAccessDecision(boolean accessGranted, List<String> locationIds, List<String> careTeamIds,
-			List<String> organizationIds) {
+	public OpenSRPSyncAccessDecision(String applicationId, boolean accessGranted, List<String> locationIds, List<String> careTeamIds,
+			List<String> organizationIds, List<String> syncStrategy) {
+		this.applicationId = applicationId;
 		this.accessGranted = accessGranted;
 		this.careTeamIds = careTeamIds;
 		this.locationIds = locationIds;
 		this.organizationIds = organizationIds;
+		this.syncStrategy = syncStrategy;
 	}
 
 	@Override

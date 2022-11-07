@@ -170,7 +170,7 @@ public class OpenSRPSyncAccessDecisionTest {
 	}
 
 	private OpenSRPSyncAccessDecision createOpenSRPSyncAccessDecisionTestInstance() {
-		return new OpenSRPSyncAccessDecision(true, locationIds, careTeamIds, organisationIds);
+		return new OpenSRPSyncAccessDecision("sample-application-id", true, locationIds, careTeamIds, organisationIds, null);
 	}
 
 }
