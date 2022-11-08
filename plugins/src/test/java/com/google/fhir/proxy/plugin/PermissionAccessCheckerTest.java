@@ -379,7 +379,8 @@ public class PermissionAccessCheckerTest {
   }
 
   @Test
-  public void testAccessGrantedWhenManageResourcePresentForTypeBundleResources() throws IOException {
+  public void testAccessGrantedWhenManageResourcePresentForTypeBundleResources()
+      throws IOException {
     setUpFhirBundle("test_bundle_transaction.json");
 
     Map<String, Object> map = new HashMap<>();

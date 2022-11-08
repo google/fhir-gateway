@@ -17,11 +17,8 @@ package com.google.fhir.proxy.interfaces;
 
 import com.google.fhir.proxy.BundleResources;
 import java.util.List;
-import java.util.Set;
 
 public interface ResourceFinder {
-
-  Set<String> findResourcesInResource(RequestDetailsReader request);
 
   List<BundleResources> findResourcesInBundle(RequestDetailsReader request);
 }
