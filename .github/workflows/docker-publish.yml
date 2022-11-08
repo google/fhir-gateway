@@ -6,6 +6,7 @@ on:
     # See also https://github.com/crazy-max/ghaction-docker-meta#basic
     branches:
       - main
+      - add-fhir-access-proxy-helm-chart
 
     # Publish `v1.2.3` tags as releases.
     tags:
