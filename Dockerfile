@@ -27,7 +27,7 @@ COPY plugins/pom.xml ./plugins/
 COPY license-header.txt .
 COPY pom.xml .
 
-RUN mvn --batch-mode package -Dmaven.test.skip=true -Pstandalone-app
+RUN mvn --batch-mode package -Dmaven.test.skip=true -Dspotless.apply.skip=true -Dspotless.check.skip=true -Pstandalone-app
 
 
 # Image for FHIR Access Proxy binary with configuration knobs as environment vars.
