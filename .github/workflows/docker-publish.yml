@@ -18,10 +18,6 @@ on:
       - 'Dockerfile'
 
   workflow_dispatch:
-    inputs:
-      customTag:
-        description: "Includes the specified tag to docker image tags"
-        required: false
 
 jobs:
   # Run image build test
@@ -30,7 +26,7 @@ jobs:
     if: github.event_name == 'pull_request'
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           submodules: recursive
 
@@ -42,12 +38,12 @@ jobs:
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           submodules: recursive
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v1
+        uses: docker/setup-qemu-action@v2
 
       - name: Cache Docker layers
         uses: actions/cache@v2.1.6
@@ -58,33 +54,33 @@ jobs:
             ${{ runner.os }}-buildx-
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1.3.0
+        uses: docker/setup-buildx-action@v2
 
       - name: Docker meta
         id: docker_meta
-        uses: crazy-max/ghaction-docker-meta@v1
+        uses: docker/metadata-action@v4
         with:
           images: opensrp/fhir-access-proxy
-          tag-custom: ${{ github.event.inputs.customTag }}
 
       - name: Login to DockerHub
-        uses: docker/login-action@v1.10.0
+        uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_TOKEN }}
 
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@v1.10.0
+        uses: docker/login-action@v2
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Push to Docker Image Repositories
-        uses: docker/build-push-action@v2.5.0
+        uses: docker/build-push-action@v3
         id: docker_build
         with:
           push: true
+          context: .
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.docker_meta.outputs.tags }}
           cache-from: type=local,src=/tmp/.buildx-cache
