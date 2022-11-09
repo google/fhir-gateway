@@ -18,9 +18,6 @@
 # the FHIR Access Proxy.
 FROM maven:3.8.5-openjdk-11 as build
 
-RUN apt-get update && apt-get install -y nodejs npm
-RUN npm cache clean -f && npm install -g n && n stable
-
 WORKDIR /app
 
 COPY server/src ./server/src
@@ -30,8 +27,7 @@ COPY plugins/pom.xml ./plugins/
 COPY license-header.txt .
 COPY pom.xml .
 
-RUN mvn spotless:check
-RUN mvn --batch-mode package -Pstandalone-app
+RUN mvn --batch-mode package -Dmaven.test.skip=true -Dspotless.apply.skip=true -Dspotless.check.skip=true -Pstandalone-app
 
 
 # Image for FHIR Access Proxy binary with configuration knobs as environment vars.
