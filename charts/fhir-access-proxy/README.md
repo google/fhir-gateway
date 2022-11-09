@@ -1,6 +1,7 @@
 # FHIR Access Proxy
 
-[FHIR Access Proxy](../../README.md) is a simple access-control proxy that sits in front of FHIR store and server and controls access to FHIR resources.
+[FHIR Access Proxy](../../README.md) is a simple access-control proxy that sits
+in front of FHIR store and server and controls access to FHIR resources.
 
 ## TL;DR
 
@@ -11,12 +12,14 @@ helm install fhir-access-proxy fhir-access-proxy/opensrp-fhir-access-proxy
 
 ## Introduction
 
-This chart bootstraps  [fhir access proxy](../../README.md) deployment on a [Kubernetes](http://kubernetes.io) cluster using the [Helm](https://helm.sh) package manager.
+This chart bootstraps [fhir access proxy](../../README.md) deployment on a
+[Kubernetes](http://kubernetes.io) cluster using the [Helm](https://helm.sh)
+package manager.
 
 ## Prerequisites
 
-*   Kubernetes 1.12+
-*   Helm 3.1.0
+- Kubernetes 1.12+
+- Helm 3.1.0
 
 ## Installing the Chart
 
@@ -35,16 +38,18 @@ To uninstall/delete the `fhir-access-proxy` deployment:
 helm delete fhir-access-proxy
 ```
 
-The command removes all the Kubernetes components associated with the chart and deletes the release.
+The command removes all the Kubernetes components associated with the chart and
+deletes the release.
 
 ## Parameters
 
-The following table lists the configurable parameters of the fhir access proxy chart and their default values.
+The following table lists the configurable parameters of the fhir access proxy
+chart and their default values.
 
 ## Common Parameters
 
 | Parameter                                    | Description | Default                                                                                                                                                                                                                                                                                  |
-|----------------------------------------------|-------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| -------------------------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `replicaCount`                               |             | `1`                                                                                                                                                                                                                                                                                      |
 | `image.repository`                           |             | `"opensrp/fhir-access-proxy"`                                                                                                                                                                                                                                                            |
 | `image.pullPolicy`                           |             | `"IfNotPresent"`                                                                                                                                                                                                                                                                         |
@@ -74,9 +79,9 @@ The following table lists the configurable parameters of the fhir access proxy c
 | `tolerations`                                |             | `[]`                                                                                                                                                                                                                                                                                     |
 | `affinity`                                   |             | `{}`                                                                                                                                                                                                                                                                                     |
 | `recreatePodsWhenConfigMapChange`            |             | `true`                                                                                                                                                                                                                                                                                   |
-| `livenessProbe.httpGet.path`                 |             | `"/"`                                                                                                                                                                                                                                                                                    |
+| `livenessProbe.httpGet.path`                 |             | `"/.well-known/smart-configuration"`                                                                                                                                                                                                                                                     |
 | `livenessProbe.httpGet.port`                 |             | `"http"`                                                                                                                                                                                                                                                                                 |
-| `readinessProbe.httpGet.path`                |             | `"/"`                                                                                                                                                                                                                                                                                    |
+| `readinessProbe.httpGet.path`                |             | `"/.well-known/smart-configuration"`                                                                                                                                                                                                                                                     |
 | `readinessProbe.httpGet.port`                |             | `"http"`                                                                                                                                                                                                                                                                                 |
 | `initContainers`                             |             | `null`                                                                                                                                                                                                                                                                                   |
 | `volumes`                                    |             | `null`                                                                                                                                                                                                                                                                                   |
@@ -94,11 +99,15 @@ The following table lists the configurable parameters of the fhir access proxy c
 
 To update config file on the pod with new changes one has to do the following:
 
-(Will be showcasing an example of overriding the [hapi\_page\_url\_allowed\_queries.json](../../resources/hapi\_page\_url\_allowed\_queries.json) file).
+(Will be showcasing an example of overriding the
+[hapi_page_url_allowed_queries.json](../../resources/hapi_page_url_allowed_queries.json)
+file).
 
 1.  Create a configmap entry, like below:
-    *   The `.Values.configMaps.name` should be unique per entry.
-    *   Ensure indentation of the content is okay.
+
+    - The `.Values.configMaps.name` should be unique per entry.
+    - Ensure indentation of the content is okay.
+
     ```yaml
     configMaps:
       - name: hapi_page_url_allowed_queries.json
@@ -119,18 +128,25 @@ To update config file on the pod with new changes one has to do the following:
     ```
 
 2.  Create a configmap volume type:
-    *   The name of the configMap resemble the ConfigMap manifest metadata.name i.e. `fhir-access-proxy` but we obtain the generated name from the function `'{{ include "fhir-access-proxy.fullname" . }}'` using tpl function.
+
+    - The name of the configMap resemble the ConfigMap manifest metadata.name
+      i.e. `fhir-access-proxy` but we obtain the generated name from the
+      function `'{{ include "fhir-access-proxy.fullname" . }}'` using tpl
+      function.
+
     ```yaml
     volumes:
-        - name: hapi-page-url-allowed-queries
-          configMap:
-             name: '{{ include "fhir-access-proxy.fullname" . }}'
+      - name: hapi-page-url-allowed-queries
+        configMap:
+          name: '{{ include "fhir-access-proxy.fullname" . }}'
     ```
 
 3.  Mount the Configmap volume:
-    *   mountPath is the location of the file in the pod.
-    *   name is the name of the volume in point 2 above.
-    *   subPath is the name of the configMap used in point 1 above.
+
+    - mountPath is the location of the file in the pod.
+    - name is the name of the volume in point 2 above.
+    - subPath is the name of the configMap used in point 1 above.
+
     ```yaml
     volumeMounts:
       - mountPath: /app/resources/hapi_page_url_allowed_queries.json
@@ -139,7 +155,7 @@ To update config file on the pod with new changes one has to do the following:
     ```
 
 4.  Deploy.
-    *   To confirm it has picked the new changes you can check the file by:
+    - To confirm it has picked the new changes you can check the file by:
     ```shell
     kubectl exec -it <pod-name>  -- cat resources/hapi_page_url_allowed_queries.json
     ```
