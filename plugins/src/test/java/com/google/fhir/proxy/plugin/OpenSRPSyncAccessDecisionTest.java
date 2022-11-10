@@ -18,6 +18,7 @@ package com.google.fhir.proxy.plugin;
 import ca.uhn.fhir.rest.api.RequestTypeEnum;
 import ca.uhn.fhir.rest.api.RestOperationTypeEnum;
 import ca.uhn.fhir.rest.server.servlet.ServletRequestDetails;
+import com.google.fhir.proxy.ProxyConstants;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -64,21 +65,21 @@ public class OpenSRPSyncAccessDecisionTest {
 			Assert.assertFalse(requestDetails.getCompleteUrl().contains(locationId));
 			Assert.assertFalse(requestDetails.getRequestPath().contains(locationId));
 			Assert.assertTrue(Arrays.asList(requestDetails.getParameters().get("_tag"))
-					.contains(OpenSRPSyncAccessDecision.LOCATION_TAG_URL + "|" + locationId));
+					.contains(ProxyConstants.LOCATION_TAG_URL + "|" + locationId));
 		}
 
 		for (String careTeamId : careTeamIds) {
 			Assert.assertFalse(requestDetails.getCompleteUrl().contains(careTeamId));
 			Assert.assertFalse(requestDetails.getRequestPath().contains(careTeamId));
 			Assert.assertTrue(Arrays.asList(requestDetails.getParameters().get("_tag"))
-					.contains(OpenSRPSyncAccessDecision.CARE_TEAM_TAG_URL + "|" + careTeamId));
+					.contains(ProxyConstants.CARE_TEAM_TAG_URL + "|" + careTeamId));
 		}
 
 		for (String organisationId : organisationIds) {
 			Assert.assertFalse(requestDetails.getCompleteUrl().contains(organisationId));
 			Assert.assertFalse(requestDetails.getRequestPath().contains(organisationId));
 			Assert.assertTrue(Arrays.asList(requestDetails.getParameters().get("_tag"))
-					.contains(OpenSRPSyncAccessDecision.ORGANISATION_TAG_URL + "|" + organisationId));
+					.contains(ProxyConstants.ORGANISATION_TAG_URL + "|" + organisationId));
 		}
 	}
 
@@ -102,12 +103,12 @@ public class OpenSRPSyncAccessDecisionTest {
 			Assert.assertFalse(requestDetails.getCompleteUrl().contains(locationId));
 			Assert.assertFalse(requestDetails.getRequestPath().contains(locationId));
 			Assert.assertTrue(Arrays.asList(requestDetails.getParameters().get("_tag"))
-					.contains(OpenSRPSyncAccessDecision.LOCATION_TAG_URL + "|" + locationId));
+					.contains(ProxyConstants.LOCATION_TAG_URL + "|" + locationId));
 		}
 
 		for (String param : requestDetails.getParameters().get("_tag")) {
-			Assert.assertFalse(param.contains(OpenSRPSyncAccessDecision.CARE_TEAM_TAG_URL));
-			Assert.assertFalse(param.contains(OpenSRPSyncAccessDecision.ORGANISATION_TAG_URL));
+			Assert.assertFalse(param.contains(ProxyConstants.CARE_TEAM_TAG_URL));
+			Assert.assertFalse(param.contains(ProxyConstants.ORGANISATION_TAG_URL));
 		}
 	}
 
@@ -131,12 +132,12 @@ public class OpenSRPSyncAccessDecisionTest {
 			Assert.assertFalse(requestDetails.getCompleteUrl().contains(locationId));
 			Assert.assertFalse(requestDetails.getRequestPath().contains(locationId));
 			Assert.assertTrue(Arrays.asList(requestDetails.getParameters().get("_tag"))
-					.contains(OpenSRPSyncAccessDecision.CARE_TEAM_TAG_URL + "|" + locationId));
+					.contains(ProxyConstants.CARE_TEAM_TAG_URL + "|" + locationId));
 		}
 
 		for (String param : requestDetails.getParameters().get("_tag")) {
-			Assert.assertFalse(param.contains(OpenSRPSyncAccessDecision.LOCATION_TAG_URL));
-			Assert.assertFalse(param.contains(OpenSRPSyncAccessDecision.ORGANISATION_TAG_URL));
+			Assert.assertFalse(param.contains(ProxyConstants.LOCATION_TAG_URL));
+			Assert.assertFalse(param.contains(ProxyConstants.ORGANISATION_TAG_URL));
 		}
 	}
 
@@ -160,12 +161,12 @@ public class OpenSRPSyncAccessDecisionTest {
 			Assert.assertFalse(requestDetails.getCompleteUrl().contains(locationId));
 			Assert.assertFalse(requestDetails.getRequestPath().contains(locationId));
 			Assert.assertTrue(Arrays.asList(requestDetails.getParameters().get("_tag"))
-					.contains(OpenSRPSyncAccessDecision.ORGANISATION_TAG_URL + "|" + locationId));
+					.contains(ProxyConstants.ORGANISATION_TAG_URL + "|" + locationId));
 		}
 
 		for (String param : requestDetails.getParameters().get("_tag")) {
-			Assert.assertFalse(param.contains(OpenSRPSyncAccessDecision.LOCATION_TAG_URL));
-			Assert.assertFalse(param.contains(OpenSRPSyncAccessDecision.CARE_TEAM_TAG_URL));
+			Assert.assertFalse(param.contains(ProxyConstants.LOCATION_TAG_URL));
+			Assert.assertFalse(param.contains(ProxyConstants.CARE_TEAM_TAG_URL));
 		}
 	}
 

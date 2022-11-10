@@ -17,6 +17,7 @@ package com.google.fhir.proxy.plugin;
 
 import ca.uhn.fhir.rest.api.RequestTypeEnum;
 import ca.uhn.fhir.rest.server.servlet.ServletRequestDetails;
+import com.google.fhir.proxy.ProxyConstants;
 import com.google.fhir.proxy.interfaces.AccessDecision;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
@@ -31,14 +32,6 @@ import java.util.List;
 import java.util.Map;
 
 public class OpenSRPSyncAccessDecision implements AccessDecision {
-
-	public static final String CARE_TEAM_TAG_URL = "http://smartregister.org/fhir/care-team-tag";
-
-	public static final String LOCATION_TAG_URL = "http://smartregister.org/fhir/location-id";
-
-	public static final String ORGANISATION_TAG_URL = "http://smartregister.org/organisation-tag";
-
-	public static final String SEARCH_PARAM_TAG = "_tag";
 
 	private String applicationId;
 
@@ -78,31 +71,37 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
 				locationIds.add(
 						"CR1bAeGgaYqIpsNkG0iidfE5WVb5BJV1yltmL4YFp3o6mxj3iJPhKh4k9ROhlyZveFC8298lYzft8SIy8yMNLl5GVWQXNRr1sSeBkP2McfFZjbMYyrxlNFOJgqvtccDKKYSwBiLHq2By5tRupHcmpIIghV7Hp39KgF4iBDNqIGMKhgOIieQwt5BRih5FgnwdHrdlK9ix");
 			}
-			addSyncTags(servletRequestDetails, getSyncTags(locationIds, careTeamIds, organizationIds));
+			addSyncFilters(servletRequestDetails, getSyncTags(locationIds, careTeamIds, organizationIds));
 		}
 	}
 
-	private void addSyncTags(ServletRequestDetails servletRequestDetails, Pair<String, Map<String, String[]>> syncTags) {
+	/**
+	 * Adds filters to the {@link ServletRequestDetails} for the _tag property to allow filtering by specific code-url-values that match specific locations, teams
+	 * or organisations
+	 *
+	 * @param servletRequestDetails
+	 * @param syncTags
+	 */
+	private void addSyncFilters(ServletRequestDetails servletRequestDetails, Pair<String, Map<String, String[]>> syncTags) {
+		List<String> paramValues = new ArrayList<>();
 
-		List<String> params = new ArrayList<>();
-
-		for (Map.Entry<String, String[]> entry : syncTags.getValue().entrySet()) {
-			String tagName = entry.getKey();
-			for (String tagValue : entry.getValue()) {
-				StringBuilder sb = new StringBuilder(tagName.length() + tagValue.length() + 2);
-				sb.append(tagName);
-				sb.append("|");
-				sb.append(tagValue);
-				params.add(sb.toString());
+		for (Map.Entry<String, String[]> codeUrlValuesMap : syncTags.getValue().entrySet()) {
+			String codeUrl = codeUrlValuesMap.getKey();
+			for (String codeValue : codeUrlValuesMap.getValue()) {
+				StringBuilder paramValueSb = new StringBuilder(codeUrl.length() + codeValue.length() + 2);
+				paramValueSb.append(codeUrl);
+				paramValueSb.append(ProxyConstants.CODE_URL_VALUE_SEPARATOR);
+				paramValueSb.append(codeValue);
+				paramValues.add(paramValueSb.toString());
 			}
 		}
 
-		String[] prevTagFilters = servletRequestDetails.getParameters().get(SEARCH_PARAM_TAG);
+		String[] prevTagFilters = servletRequestDetails.getParameters().get(ProxyConstants.SEARCH_PARAM_TAG);
 		if (prevTagFilters != null && prevTagFilters.length > 1) {
-			Collections.addAll(params, prevTagFilters);
+			Collections.addAll(paramValues, prevTagFilters);
 		}
 
-		servletRequestDetails.addParameter(SEARCH_PARAM_TAG, params.toArray(new String[0]));
+		servletRequestDetails.addParameter(ProxyConstants.SEARCH_PARAM_TAG, paramValues.toArray(new String[0]));
 	}
 
 	@Override
@@ -110,38 +109,49 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
 		return null;
 	}
 
+	/**
+	 * Generates a map of Code.url to multiple Code.Value which contains all the possible
+	 * filters that will be used in syncing
+	 *
+	 * @param locationIds
+	 * @param careTeamIds
+	 * @param organizationIds
+	 * @return Pair of URL to [Code.url, [Code.Value]] map. The URL is complete url
+	 */
 	private Pair<String, Map<String, String[]>> getSyncTags(List<String> locationIds, List<String> careTeamIds,
 			List<String> organizationIds) {
 		StringBuilder sb = new StringBuilder();
 		Map<String, String[]> map = new HashMap<>();
 
-		sb.append(SEARCH_PARAM_TAG);
-		sb.append("=");
-		addTags(LOCATION_TAG_URL, locationIds, map, sb);
-		addTags(ORGANISATION_TAG_URL, organizationIds, map, sb);
-		addTags(CARE_TEAM_TAG_URL, careTeamIds, map, sb);
+		sb.append(ProxyConstants.SEARCH_PARAM_TAG);
+		sb.append(ProxyConstants.Literals.EQUALS);
+
+		addTags(ProxyConstants.LOCATION_TAG_URL, locationIds, map, sb);
+		addTags(ProxyConstants.ORGANISATION_TAG_URL, organizationIds, map, sb);
+		addTags(ProxyConstants.CARE_TEAM_TAG_URL, careTeamIds, map, sb);
 
 		return new ImmutablePair<>(sb.toString(), map);
 	}
 
-	private void addTags(String tagUrl, List<String> values, Map<String, String[]> map, StringBuilder sb) {
+	private void addTags(String tagUrl, List<String> values, Map<String, String[]> map, StringBuilder urlStringBuilder) {
 		int len = values.size();
 		if (len > 0) {
-			if (sb.length() != (SEARCH_PARAM_TAG + "=").length()) {
-				sb.append(",");
+			if (urlStringBuilder.length() != (ProxyConstants.SEARCH_PARAM_TAG + ProxyConstants.Literals.EQUALS).length()) {
+				urlStringBuilder.append(ProxyConstants.PARAM_VALUES_SEPARATOR);
 			}
 
 			map.put(tagUrl, values.toArray(new String[0]));
 
 			int i = 0;
 			for (String tagValue : values) {
-				sb.append(tagUrl);
-				sb.append(":");
-				sb.append(tagValue);
+				urlStringBuilder.append(tagUrl);
+				urlStringBuilder.append(ProxyConstants.CODE_URL_VALUE_SEPARATOR);
+				urlStringBuilder.append(tagValue);
 
 				if (i != len - 1) {
-					sb.append(",");
+					urlStringBuilder.append(ProxyConstants.PARAM_VALUES_SEPARATOR);
 				}
+				i++;
 			}
 		}
 	}

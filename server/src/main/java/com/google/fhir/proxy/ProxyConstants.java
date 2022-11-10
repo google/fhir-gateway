@@ -20,8 +20,25 @@ import org.apache.http.entity.ContentType;
 
 public class ProxyConstants {
 
+  public static final String CARE_TEAM_TAG_URL = "http://smartregister.org/fhir/care-team-tag";
+
+  public static final String LOCATION_TAG_URL = "http://smartregister.org/fhir/location-id";
+
+  public static final String ORGANISATION_TAG_URL = "http://smartregister.org/organisation-tag";
+
+  public static final String SEARCH_PARAM_TAG = "_tag";
+
+  public static final String PARAM_VALUES_SEPARATOR = ",";
+
+  public static final String CODE_URL_VALUE_SEPARATOR = "|";
+
   // Note we should not set charset here; otherwise GCP FHIR store complains about Content-Type.
   static final ContentType JSON_PATCH_CONTENT = ContentType.create(Constants.CT_JSON_PATCH);
   public static final String SYNC_STRATEGY = "syncStrategy";
   public static final String REALM_ACCESS = "realm_access";
+
+  public interface Literals {
+    String EQUALS = "=";
+  }
+
 }
