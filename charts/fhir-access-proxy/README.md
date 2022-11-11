@@ -6,8 +6,8 @@ in front of FHIR store and server and controls access to FHIR resources.
 ## TL;DR
 
 ```bash
-helm repo add opensrp-fhir-access-proxy https://opensrp.github.io/fhir-access-proxy &&
-helm install fhir-access-proxy fhir-access-proxy/opensrp-fhir-access-proxy
+helm repo add opensrp-fhir-access-proxy https://fhir-access-proxy.helm.smartregister.org &&
+helm install fhir-access-proxy opensrp-fhir-access-proxy/fhir-access-proxy
 ```
 
 ## Introduction
@@ -26,8 +26,8 @@ package manager.
 To install the chart with the release name `fhir-access-proxy`:
 
 ```shell
-helm repo add opensrp-fhir-access-proxy https://opensrp.github.io/fhir-access-proxy &&
-helm install fhir-access-proxy fhir-access-proxy/opensrp-fhir-access-proxy
+helm repo add opensrp-fhir-access-proxy https://fhir-access-proxy.helm.smartregister.org &&
+helm install fhir-access-proxy opensrp-fhir-access-proxy/fhir-access-proxy
 ```
 
 ## Uninstalling the Chart
