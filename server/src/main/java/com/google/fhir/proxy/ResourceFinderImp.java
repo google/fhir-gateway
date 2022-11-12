@@ -24,9 +24,7 @@ import com.google.fhir.proxy.interfaces.ResourceFinder;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.model.Bundle;
 import org.slf4j.Logger;
@@ -51,23 +49,6 @@ public final class ResourceFinderImp implements ResourceFinder {
     String requestContent = new String(requestContentBytes, charset);
     IParser jsonParser = fhirContext.newJsonParser();
     return jsonParser.parseResource(requestContent);
-  }
-
-  @Override
-  public Set<String> findResourcesInResource(RequestDetailsReader request) {
-    IBaseResource resource = createResourceFromRequest(request);
-    if (!resource.fhirType().equals(request.getResourceName())) {
-      ExceptionUtil.throwRuntimeExceptionAndLog(
-          logger,
-          String.format(
-              "The provided resource %s is different from what is on the path: %s ",
-              resource.fhirType(), request.getResourceName()),
-          InvalidRequestException.class);
-    }
-
-    Set<String> resourceIds = new HashSet<>();
-    resourceIds.add(resource.getIdElement().getIdPart());
-    return resourceIds;
   }
 
   @Override
