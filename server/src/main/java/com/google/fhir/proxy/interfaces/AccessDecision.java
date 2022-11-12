@@ -16,6 +16,8 @@
 package com.google.fhir.proxy.interfaces;
 
 import java.io.IOException;
+
+import ca.uhn.fhir.rest.server.servlet.ServletRequestDetails;
 import org.apache.http.HttpResponse;
 
 public interface AccessDecision {
@@ -24,6 +26,8 @@ public interface AccessDecision {
    * @return true iff access was granted.
    */
   boolean canAccess();
+
+  void preProcess(ServletRequestDetails servletRequestDetails);
 
   /**
    * Depending on the outcome of the FHIR operations, this does any post-processing operations that

@@ -265,6 +265,7 @@ public class BearerAuthorizationInterceptor {
       return false;
     }
     AccessDecision outcome = checkAuthorization(requestDetails);
+    outcome.preProcess(servletDetails);
     logger.debug("Authorized request path " + requestPath);
     // TODO: Add DataAccessChecker here (preprocessing part)
     try {

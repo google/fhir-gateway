@@ -134,7 +134,7 @@ public class PermissionAccessChecker implements AccessChecker {
     }
 
     private AccessDecision getAccessDecision(boolean userHasRole) {
-        return userHasRole ? NoOpAccessDecision.accessGranted() : NoOpAccessDecision.accessDenied();
+        return userHasRole ? new OpenSRPSyncAccessDecision(applicationId, true, locationIds, careTeamIds, organizationIds, syncStrategy) : NoOpAccessDecision.accessDenied();
     }
 
     private AccessDecision processPost(boolean userHasRole) {

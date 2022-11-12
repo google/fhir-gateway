@@ -15,6 +15,7 @@
  */
 package com.google.fhir.proxy.interfaces;
 
+import ca.uhn.fhir.rest.server.servlet.ServletRequestDetails;
 import org.apache.http.HttpResponse;
 
 public final class NoOpAccessDecision implements AccessDecision {
@@ -33,6 +34,10 @@ public final class NoOpAccessDecision implements AccessDecision {
   @Override
   public String postProcess(HttpResponse response) {
     return null;
+  }
+
+  @Override
+  public void preProcess(ServletRequestDetails servletRequestDetails) {
   }
 
   public static AccessDecision accessGranted() {
