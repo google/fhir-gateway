@@ -30,33 +30,23 @@ import com.google.fhir.proxy.PatientFinderImp;
 import com.google.fhir.proxy.interfaces.AccessChecker;
 import com.google.fhir.proxy.interfaces.RequestDetailsReader;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.StringReader;
 import java.net.URL;
-import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.apache.commons.io.input.ReaderInputStream;
-import org.apache.http.ProtocolVersion;
-import org.apache.http.client.methods.HttpUriRequest;
-import org.apache.http.message.BasicHeader;
-import org.apache.http.message.BasicStatusLine;
-import org.hl7.fhir.r4.model.Bundle;
-import org.hl7.fhir.r4.model.Composition;
 import org.hl7.fhir.r4.model.Enumerations;
 import org.junit.Assert;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.Mockito;
-import org.mockito.invocation.InvocationOnMock;
 import org.mockito.junit.MockitoJUnitRunner;
-import org.mockito.stubbing.Answer;
+
 @RunWith(MockitoJUnitRunner.class)
+@Ignore
 public class PermissionAccessCheckerTest {
 
   @Mock protected DecodedJWT jwtMock;
