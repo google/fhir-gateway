@@ -15,6 +15,7 @@
  */
 package com.google.fhir.proxy.plugin;
 
+import static com.google.fhir.proxy.plugin.PermissionAccessChecker.Factory.PROXY_TO_ENV;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.mockito.Mockito.when;
@@ -29,19 +30,32 @@ import com.google.fhir.proxy.PatientFinderImp;
 import com.google.fhir.proxy.interfaces.AccessChecker;
 import com.google.fhir.proxy.interfaces.RequestDetailsReader;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.StringReader;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+
+import org.apache.commons.io.input.ReaderInputStream;
+import org.apache.http.ProtocolVersion;
+import org.apache.http.client.methods.HttpUriRequest;
+import org.apache.http.message.BasicHeader;
+import org.apache.http.message.BasicStatusLine;
+import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.Composition;
 import org.hl7.fhir.r4.model.Enumerations;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.Mockito;
+import org.mockito.invocation.InvocationOnMock;
 import org.mockito.junit.MockitoJUnitRunner;
-
+import org.mockito.stubbing.Answer;
 @RunWith(MockitoJUnitRunner.class)
 public class PermissionAccessCheckerTest {
 
@@ -64,9 +78,10 @@ public class PermissionAccessCheckerTest {
   }
 
   @Before
-  public void setUp() {
+  public void setUp() throws IOException {
     when(jwtMock.getClaim(PermissionAccessChecker.Factory.REALM_ACCESS_CLAIM))
         .thenReturn(claimMock);
+    when(jwtMock.getClaim(PermissionAccessChecker.Factory.FHIR_CORE_APPLICATION_ID_CLAIM)).thenReturn( claimMock);
     when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.GET);
   }
 
@@ -82,8 +97,8 @@ public class PermissionAccessCheckerTest {
 
     Map<String, Object> map = new HashMap<>();
     map.put(PermissionAccessChecker.Factory.ROLES, Arrays.asList("MANAGE_PATIENT"));
-    map.put(PermissionAccessChecker.Factory.FHIR_CORE_APPLICATION_ID_CLAIM, "ecbis-saa");
     when(claimMock.asMap()).thenReturn(map);
+    when(claimMock.asString()).thenReturn("ecbis-saa");
 
     when(requestMock.getResourceName()).thenReturn(Enumerations.ResourceType.PATIENT.name());
     when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.GET);

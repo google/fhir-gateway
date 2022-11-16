@@ -199,6 +199,7 @@ public class PermissionAccessChecker implements AccessChecker {
         @VisibleForTesting
         static final String FHIR_CORE_APPLICATION_ID_CLAIM = "fhir_core_app_id";
 
+        @VisibleForTesting
         static final String PROXY_TO_ENV = "PROXY_TO";
 
         private List<String> getUserRolesFromJWT(DecodedJWT jwt) {
@@ -219,8 +220,7 @@ public class PermissionAccessChecker implements AccessChecker {
             return client;
         }
 
-        private Composition readCompositionResource(
-                HttpFhirClient httpFhirClient, String applicationId) {
+        private Composition readCompositionResource(String applicationId) {
             IGenericClient client = createFhirClientForR4();
             Bundle compositionBundle =
                     client
@@ -334,7 +334,7 @@ public class PermissionAccessChecker implements AccessChecker {
                 throws AuthenticationException {
           List<String> userRoles = getUserRolesFromJWT(jwt);
           String applicationId = getApplicationIdFromJWT(jwt);
-          Composition composition = readCompositionResource(httpFhirClient, applicationId);
+          Composition composition = readCompositionResource(applicationId);
           String binaryResourceReference = getBinaryResourceReference(composition);
           Binary binary = findApplicationConfigBinaryResource(binaryResourceReference);
           List<String> syncStrategy = findSyncStrategy(binary);
