@@ -42,6 +42,19 @@
     <license-maven-plugin.version>4.1</license-maven-plugin.version>
   </properties>
 
+  <distributionManagement>
+    <repository>
+      <id>nexus-releases</id>
+      <url>https://oss.sonatype.org/service/local/staging/deploy/maven2</url>
+    </repository>
+    <snapshotRepository>
+      <id>nexus-snapshots</id>
+      <name>Nexus Snapshots Repository</name>
+      <uniqueVersion>false</uniqueVersion>
+      <url>https://oss.sonatype.org/content/repositories/snapshots</url>
+    </snapshotRepository>
+  </distributionManagement>
+
   <dependencies>
 
     <!-- TODO consolidate between logback and log4j in Spring dependencies -->
