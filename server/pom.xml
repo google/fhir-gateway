@@ -34,7 +34,7 @@
   <dependencyManagement>
     <dependencies>
       <!-- Instead of using spring-boot-starter-parent as POM parent we add
-      pieces needed from it; alse see:
+      pieces needed from it; also see:
       https://docs.spring.io/spring-boot/docs/current/maven-plugin/reference/htmlsingle/#using.import
       -->
       <dependency>
@@ -160,6 +160,7 @@
       <plugin>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>
+        <version>${spring-boot.version}</version>
         <executions>
           <execution>
             <id>repackage</id>

@@ -31,7 +31,8 @@ COPY license-header.txt .
 COPY pom.xml .
 
 RUN mvn spotless:check
-RUN mvn --batch-mode package -Pstandalone-app
+# Updating license will fail in e2e and there is no point doing it here anyways.
+RUN mvn --batch-mode package -Pstandalone-app -Dlicense.skip=true
 
 
 # Image for FHIR Access Proxy binary with configuration knobs as environment vars.
