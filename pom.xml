@@ -38,7 +38,11 @@
     <root.basedir>${project.basedir}</root.basedir>
     <maven.compiler.source>11</maven.compiler.source>
     <maven.compiler.target>11</maven.compiler.target>
-    <spring-boot.version>3.0.0</spring-boot.version>
+    <spring-boot.version>2.7.5</spring-boot.version>
+    <slf4j.version>1.7.36</slf4j.version>
+    <!-- Check this for why we are not using a higher version for now:
+      https://www.slf4j.org/codes.html#StaticLoggerBinder -->
+    <logback.version>1.2.11</logback.version>
     <license-maven-plugin.version>4.1</license-maven-plugin.version>
   </properties>
 
@@ -51,10 +55,21 @@
     also need to include a logging library. Logback is used here, but log4j
     would also be fine.
     -->
+    <!-- Add slf4j API frontend binding with JUL backend -->
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+      <version>${slf4j.version}</version>
+    </dependency>
     <dependency>
       <groupId>ch.qos.logback</groupId>
       <artifactId>logback-classic</artifactId>
-      <version>1.4.5</version>
+      <version>${logback.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>ch.qos.logback</groupId>
+      <artifactId>logback-core</artifactId>
+      <version>${logback.version}</version>
     </dependency>
 
     <!-- For Dependency Injection annotations -->
