@@ -26,17 +26,10 @@ function setup() {
                  up --force-recreate --remove-orphans -d --quiet-pull
   # TODO find a way to expose docker container logs in the output; currently
   #   with -d we don't get any logs and it makes debugging failures difficult.
-  # TODO what does `--wait` do? It does not seem to be a documented option and
-  #   fails some versions of docker-compose.
+  # Note `--wait` is an option in the new version of `docker compose` to make
+  # sure that all services are up in a healthy state (old version fails).
   docker-compose -f docker/hapi-proxy-compose.yaml \
-                 up --force-recreate --remove-orphans -d --quiet-pull
-  # Making sure that all services are up
-  # TODO this is a hack; we need to make the downstream clients more resilient.
-  echo "Containers status before wait:"
-  docker ps
-  sleep 120
-  echo "Containers status after wait:"
-  docker ps
+                 up --force-recreate --remove-orphans -d --quiet-pull --wait
 }
 
 setup
