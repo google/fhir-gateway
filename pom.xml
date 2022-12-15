@@ -32,13 +32,17 @@
   </modules>
 
   <properties>
-    <hapifhir_version>5.7.1</hapifhir_version>
+    <hapifhir_version>6.2.2</hapifhir_version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <spotless.version>2.22.8</spotless.version>
+    <spotless.version>2.28.0</spotless.version>
     <root.basedir>${project.basedir}</root.basedir>
     <maven.compiler.source>11</maven.compiler.source>
     <maven.compiler.target>11</maven.compiler.target>
     <spring-boot.version>2.7.5</spring-boot.version>
+    <slf4j.version>1.7.36</slf4j.version>
+    <!-- Check this for why we are not using a higher version for now:
+      https://www.slf4j.org/codes.html#StaticLoggerBinder -->
+    <logback.version>1.2.11</logback.version>
     <license-maven-plugin.version>4.1</license-maven-plugin.version>
   </properties>
 
@@ -51,10 +55,21 @@
     also need to include a logging library. Logback is used here, but log4j
     would also be fine.
     -->
+    <!-- Add slf4j API frontend binding with JUL backend -->
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+      <version>${slf4j.version}</version>
+    </dependency>
     <dependency>
       <groupId>ch.qos.logback</groupId>
       <artifactId>logback-classic</artifactId>
-      <version>1.2.0</version>
+      <version>${logback.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>ch.qos.logback</groupId>
+      <artifactId>logback-core</artifactId>
+      <version>${logback.version}</version>
     </dependency>
 
     <!-- For Dependency Injection annotations -->
@@ -75,7 +90,7 @@
     <dependency>
       <groupId>org.mockito</groupId>
       <artifactId>mockito-core</artifactId>
-      <version>4.1.0</version>
+      <version>4.9.0</version>
       <scope>test</scope>
     </dependency>
 
@@ -94,7 +109,7 @@
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-compiler-plugin</artifactId>
-          <version>3.3</version>
+          <version>3.10.1</version>
           <configuration>
             <source>1.8</source>
             <target>1.8</target>
