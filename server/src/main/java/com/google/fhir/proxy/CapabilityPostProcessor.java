@@ -17,6 +17,7 @@ package com.google.fhir.proxy;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
+import ca.uhn.fhir.rest.server.servlet.ServletRequestDetails;
 import com.google.common.base.Preconditions;
 import com.google.common.io.CharStreams;
 import com.google.fhir.proxy.interfaces.AccessDecision;
@@ -91,5 +92,10 @@ public class CapabilityPostProcessor implements AccessDecision {
         .setSystem(RestfulSecurityService.OAUTH.getSystem())
         .setCode(RestfulSecurityService.OAUTH.toCode());
     security.setDescription(SECURITY_DESCRIPTION);
+  }
+
+  @Override
+  public void preProcess(ServletRequestDetails servletRequestDetails) {
+
   }
 }

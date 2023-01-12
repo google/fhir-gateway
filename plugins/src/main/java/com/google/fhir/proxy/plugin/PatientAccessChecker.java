@@ -49,7 +49,7 @@ public class PatientAccessChecker implements AccessChecker {
   private final String authorizedPatientId;
   private final PatientFinder patientFinder;
 
-  private PatientAccessChecker(String authorizedPatientId, PatientFinder patientFinder) {
+  protected PatientAccessChecker(String authorizedPatientId, PatientFinder patientFinder) {
     Preconditions.checkNotNull(authorizedPatientId);
     Preconditions.checkNotNull(patientFinder);
     this.authorizedPatientId = authorizedPatientId;

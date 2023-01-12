@@ -48,7 +48,7 @@ public class FhirProxyServer extends RestfulServer {
 
   @Autowired private Map<String, AccessCheckerFactory> accessCheckerFactories;
 
-  static boolean isDevMode() {
+  public static boolean isDevMode() {
     String runMode = System.getenv("RUN_MODE");
     return "DEV".equals(runMode);
   }

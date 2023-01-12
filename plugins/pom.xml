@@ -23,7 +23,7 @@
     implementations do not have to do this; they can redeclare those deps. -->
     <groupId>com.google.fhir.proxy</groupId>
     <artifactId>fhir-proxy</artifactId>
-    <version>0.1.0</version>
+    <version>0.1.0-Beta</version>
   </parent>
 
   <artifactId>plugins</artifactId>
@@ -37,6 +37,18 @@
       <groupId>${project.groupId}</groupId>
       <artifactId>server</artifactId>
       <version>${project.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>ca.uhn.hapi.fhir</groupId>
+      <artifactId>hapi-fhir-client</artifactId>
+      <version>${hapifhir_version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.smartregister</groupId>
+      <artifactId>fhir-common-utils</artifactId>
+      <version>0.0.3-SNAPSHOT</version>
+      <scope>compile</scope>
     </dependency>
   </dependencies>
 
