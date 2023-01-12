@@ -43,7 +43,38 @@ public abstract class HttpFhirClient {
 
   // The list of header names to keep in a response sent from the proxy; use lower case only.
   // Note we don't copy content-length/type because we may modify the response.
-  static final Set<String> HEADERS_TO_KEEP = Sets.newHashSet("last-modified", "date");
+  static final Set<String> RESPONSE_HEADERS_TO_KEEP =
+      Sets.newHashSet(
+          "last-modified",
+          "date",
+          "expires",
+          "content-location",
+          "etag",
+          "location",
+          "x-progress",
+          "x-request-id",
+          "x-correlation-id");
+
+  // The list of incoming header names to keep for forwarding request to the FHIR server; use lower
+  // case only.
+  // We should NOT copy Content-Length as this is automatically set by the RequestBuilder when
+  // setting content Entity; otherwise we will get a ClientProtocolException.
+  static final Set<String> REQUEST_HEADERS_TO_KEEP =
+      Sets.newHashSet(
+          "content-type",
+          "last-modified",
+          "etag",
+          "prefer",
+          "fhirVersion",
+          "if-match",
+          "if-none-match",
+          "if-modified-since",
+          "if-unmodified-since",
+          "if-range",
+          "x-request-id",
+          "x-correlation-id",
+          "x-forwarded-for",
+          "x-forwarded-host");
 
   protected abstract String getBaseUrl();
 
@@ -123,7 +154,7 @@ public abstract class HttpFhirClient {
   List<Header> responseHeadersToKeep(HttpResponse response) {
     List<Header> headers = Lists.newArrayList();
     for (Header header : response.getAllHeaders()) {
-      if (HEADERS_TO_KEEP.contains(header.getName().toLowerCase())) {
+      if (RESPONSE_HEADERS_TO_KEEP.contains(header.getName().toLowerCase())) {
         headers.add(header);
       }
     }
@@ -132,13 +163,10 @@ public abstract class HttpFhirClient {
 
   @VisibleForTesting
   void copyRequiredHeaders(ServletRequestDetails request, RequestBuilder builder) {
-    // We should NOT copy Content-Length as this is automatically set by the RequestBuilder when
-    // setting content Entity; otherwise we will get a ClientProtocolException.
-    Set<String> requiredHeaders = Sets.newHashSet("content-type");
     for (Map.Entry<String, List<String>> entry : request.getHeaders().entrySet()) {
-      if (requiredHeaders.contains(entry.getKey().toLowerCase())) {
+      if (REQUEST_HEADERS_TO_KEEP.contains(entry.getKey().toLowerCase())) {
         for (String value : entry.getValue()) {
-          builder.setHeader(entry.getKey(), value);
+          builder.addHeader(entry.getKey(), value);
         }
       }
     }
