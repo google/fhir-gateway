@@ -219,6 +219,12 @@ public class BearerAuthorizationInterceptor {
       return CapabilityPostProcessor.getInstance(server.getFhirContext());
     }
     // Check the Bearer token to be a valid JWT with required claims.
+
+    RequestDetailsReader requestDetailsReader = new RequestDetailsToReader(requestDetails);
+    AccessDecision allowedQueriesDecision = allowedQueriesChecker.checkAccess(requestDetailsReader);
+    if (allowedQueriesDecision.canAccess()) {
+      return allowedQueriesDecision;
+    }
     String authHeader = requestDetails.getHeader("Authorization");
     if (authHeader == null) {
       ExceptionUtil.throwRuntimeExceptionAndLog(
@@ -226,11 +232,6 @@ public class BearerAuthorizationInterceptor {
     }
     DecodedJWT decodedJwt = decodeAndVerifyBearerToken(authHeader);
     FhirContext fhirContext = server.getFhirContext();
-    RequestDetailsReader requestDetailsReader = new RequestDetailsToReader(requestDetails);
-    AccessDecision allowedQueriesDecision = allowedQueriesChecker.checkAccess(requestDetailsReader);
-    if (allowedQueriesDecision.canAccess()) {
-      return allowedQueriesDecision;
-    }
     PatientFinderImp patientFinder = PatientFinderImp.getInstance(fhirContext);
     AccessChecker accessChecker =
         accessFactory.create(decodedJwt, fhirClient, fhirContext, patientFinder);

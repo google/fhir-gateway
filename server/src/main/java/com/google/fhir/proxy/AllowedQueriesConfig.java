@@ -32,6 +32,9 @@ class AllowedQueriesConfig {
   @Getter
   public static class AllowedQueryEntry {
     private String path;
+    private String pathVariables;
+
+    private String methodType;
     private Map<String, String> queryParams;
     // If true, this means other parameters not listed in `queryParams` are allowed too.
     private boolean allowExtraParams;
@@ -43,6 +46,8 @@ class AllowedQueriesConfig {
       String builder =
           "path="
               + path
+              + pathVariables
+              + methodType
               + " queryParams="
               + Arrays.toString(queryParams.entrySet().toArray())
               + " allowExtraParams="
