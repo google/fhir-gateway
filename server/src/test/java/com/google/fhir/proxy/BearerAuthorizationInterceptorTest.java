@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2022 Google LLC
+ * Copyright 2021-2023 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -59,6 +59,7 @@ import java.util.Base64;
 import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
 import org.apache.http.HttpResponse;
+import org.apache.http.HttpStatus;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.model.CapabilityStatement;
 import org.junit.Before;
@@ -236,6 +237,18 @@ public class BearerAuthorizationInterceptorTest {
     authorizeRequestCommonSetUp(testPatientIdSearch);
     testInstance.authorizeRequest(requestMock);
     String replaced = testPatientIdSearch.replaceAll(FHIR_STORE, BASE_URL);
+    assertThat(replaced, equalTo(writerStub.toString()));
+  }
+
+  @Test
+  public void authorizeRequestTestResourceErrorResponse() throws IOException {
+    URL errorUrl = Resources.getResource("error_operation_outcome.json");
+    String errorResponse = Resources.toString(errorUrl, StandardCharsets.UTF_8);
+    authorizeRequestCommonSetUp(errorResponse);
+    when(fhirResponseMock.getStatusLine().getStatusCode())
+        .thenReturn(HttpStatus.SC_INTERNAL_SERVER_ERROR);
+    testInstance.authorizeRequest(requestMock);
+    String replaced = errorResponse.replaceAll(FHIR_STORE, BASE_URL);
     assertThat(replaced, equalTo(writerStub.toString()));
   }
 

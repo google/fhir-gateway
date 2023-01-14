@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2022 Google LLC
+ * Copyright 2021-2023 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -268,21 +268,21 @@ public class BearerAuthorizationInterceptor {
     logger.debug("Authorized request path " + requestPath);
     try {
       HttpResponse response = fhirClient.handleRequest(servletDetails);
-      // TODO pass along the response to the client in case of errors (b/211233113).
-      HttpUtil.validateResponseEntityOrFail(response, requestPath);
       // TODO communicate post-processing failures to the client (b/211243404).
       String content = null;
-      try {
-        // For post-processing rationale/example see b/207589782#comment3.
-        content = outcome.postProcess(response);
-      } catch (Exception e) {
-        // Note this is after a successful fetch/update of the FHIR store. That success must be
-        // passed to the client even if the access related post-processing fails.
-        logger.error(
-            "Exception in access related post-processing for {} {}",
-            requestDetails.getRequestType(),
-            requestDetails.getRequestPath(),
-            e);
+      if (HttpUtil.isResponseEntityValid(response)) {
+        try {
+          // For post-processing rationale/example see b/207589782#comment3.
+          content = outcome.postProcess(response);
+        } catch (Exception e) {
+          // Note this is after a successful fetch/update of the FHIR store. That success must be
+          // passed to the client even if the access related post-processing fails.
+          logger.error(
+              "Exception in access related post-processing for {} {}",
+              requestDetails.getRequestType(),
+              requestDetails.getRequestPath(),
+              e);
+        }
       }
       HttpEntity entity = response.getEntity();
       logger.debug(String.format("The response for %s is %s ", requestPath, response));
