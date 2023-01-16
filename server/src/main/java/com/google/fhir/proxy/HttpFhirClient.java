@@ -42,6 +42,8 @@ public abstract class HttpFhirClient {
   private static final Logger logger = LoggerFactory.getLogger(HttpFhirClient.class);
 
   // The list of header names to keep in a response sent from the proxy; use lower case only.
+  // Reference documentation - https://www.hl7.org/fhir/http.html#ops,
+  // https://www.hl7.org/fhir/async.html
   // Note we don't copy content-length/type because we may modify the response.
   static final Set<String> RESPONSE_HEADERS_TO_KEEP =
       Sets.newHashSet(
@@ -57,6 +59,8 @@ public abstract class HttpFhirClient {
 
   // The list of incoming header names to keep for forwarding request to the FHIR server; use lower
   // case only.
+  // Reference documentation - https://www.hl7.org/fhir/http.html#ops,
+  // https://www.hl7.org/fhir/async.html
   // We should NOT copy Content-Length as this is automatically set by the RequestBuilder when
   // setting content Entity; otherwise we will get a ClientProtocolException.
   static final Set<String> REQUEST_HEADERS_TO_KEEP =
@@ -66,6 +70,7 @@ public abstract class HttpFhirClient {
           "etag",
           "prefer",
           "fhirVersion",
+          "if-none-exist",
           "if-match",
           "if-none-match",
           "if-modified-since",
