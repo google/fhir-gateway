@@ -30,34 +30,38 @@ The initial design doc for this work is available
 The proxy consists of a core, which is in the [server](server) module, and a set
 of _access-checker_ plugins, which can be implemented by third parties and added
 to the proxy server. Two sample plugins are implemented in the
-[plugins](plugins) module. To build both modules, from the root run:
+[plugins](plugins) module. There is also a sample `exec` module which shows how
+all pieces can be woven together into a single Spring Boot app. To build all
+modules, from the root run:
 
 ```shell
 mvn package
 ```
 
-This creates an executable server and a plugin jar which can be run together:
+The server and the plugins can be run together through this executable jar (
+`--server.port` is just one of the many default Spring Boot flags):
 
 ```shell
-java -Dloader.path="plugins/target/plugins-0.1.0.jar" \
-  -jar server/target/server-0.1.0-exec.jar --server.port=8081
+java -jar exec/target/exec-0.1.0.jar --server.port=8081
+```
+
+Note that extra access-checker plugins can be added through the `loader.path`
+property (although it is probably easier to build them into your server):
+
+```shell
+java -Dloader.path="PATH-TO-ADDITIONAL-PLUGINGS/custom-plugins.jar" \
+  -jar exec/target/exec-0.1.0.jar --server.port=8081
 ```
 
 The plugin library can be swapped with any third party access-checker as
-described in the [plugins](plugins) directory. If you prefer to combine
-everything into a single standalone jar, you can do:
+described in the [plugins](plugins) directory. Note Spring Boot is not a
+requirement for using the access-proxy; we just use it to simplify the
+[MainApp](exec/src/main/java/com/google/fhir/proxy/MainApp.java). The only
+Spring-related requirement is to do a
+[@ComponentScan](https://docs.spring.io/spring-framework/docs/current/javadoc-api/org/springframework/context/annotation/ComponentScan.html)
+to find all access-checker plugins in the classpath.
 
-```shell
-mvn package -Pstandalone-app
-```
-
-and then run:
-
-```shell
-java -jar plugins/target/plugins-0.0.1-exec.jar --server.port=8081
-```
-
-# Proxy setup
+# Proxy configuration parameters
 
 The proxy configuration parameters are currently provided through environment
 variables:
@@ -136,7 +140,7 @@ server uses [Apache Tomcat](https://tomcat.apache.org/) through
 configuration parameters apply, e.g., to run on port 8081:
 
 ```shell
-java -jar plugins/target/plugins-0.1.0-exec.jar --server.port=8081
+java -jar exec/target/exec-0.1.0.jar --server.port=8081
 ```
 
 ## Docker

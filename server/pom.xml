@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
 
-    Copyright 2021-2022 Google LLC
+    Copyright 2021-2023 Google LLC
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -29,23 +29,10 @@
 
   <properties>
     <root.basedir>${project.parent.basedir}</root.basedir>
+    <!-- This is chosen based on the Spring Boot version used in exec module.
+      Note this module should have no Spring Boot dependency. -->
+    <spring.version>5.3.23</spring.version>
   </properties>
-
-  <dependencyManagement>
-    <dependencies>
-      <!-- Instead of using spring-boot-starter-parent as POM parent we add
-      pieces needed from it; also see:
-      https://docs.spring.io/spring-boot/docs/current/maven-plugin/reference/htmlsingle/#using.import
-      -->
-      <dependency>
-        <groupId>org.springframework.boot</groupId>
-        <artifactId>spring-boot-dependencies</artifactId>
-        <version>${spring-boot.version}</version>
-        <type>pom</type>
-        <scope>import</scope>
-      </dependency>
-    </dependencies>
-  </dependencyManagement>
 
   <dependencies>
     <!-- This dependency includes the HAPI FHIR Server Framework -->
@@ -79,16 +66,10 @@
 
     <!-- For Spring -->
     <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-web</artifactId>
+      <groupId>org.springframework</groupId>
+      <artifactId>spring-web</artifactId>
+      <version>${spring.version}</version>
     </dependency>
-
-    <!-- TODO add when needed after checking the implications!
-    <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-test</artifactId>
-      <scope>test</scope>
-    </dependency -->
 
     <!-- For GCP APIs -->
     <dependency>
@@ -150,36 +131,5 @@
     </dependency>
 
   </dependencies>
-  <build>
-    <plugins>
-      <!-- With this we can create a standalone executable JAR. We don't
-      want the default jar to be overwritten as it causes dependency issues:
-      https://docs.spring.io/spring-boot/docs/current/maven-plugin/reference/htmlsingle/#packaging.examples.custom-classifier
-      TODO: document how to add plugin jars when executing this.
-      -->
-      <plugin>
-        <groupId>org.springframework.boot</groupId>
-        <artifactId>spring-boot-maven-plugin</artifactId>
-        <version>${spring-boot.version}</version>
-        <executions>
-          <execution>
-            <id>repackage</id>
-            <goals>
-              <goal>repackage</goal>
-            </goals>
-            <configuration>
-              <classifier>exec</classifier>
-              <mainClass>com.google.fhir.proxy.MainApp</mainClass>
-              <!-- We use ZIP layout such that PropertiesLauncher is used and we
-              can add extra jars through `loader.path` property:
-              https://docs.spring.io/spring-boot/docs/current/reference/html/executable-jar.html#appendix.executable-jar.property-launcher
-              -->
-              <layout>ZIP</layout>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin>
-    </plugins>
-  </build>
 
 </project>

@@ -1,5 +1,5 @@
 #
-# Copyright 2021-2022 Google LLC
+# Copyright 2021-2023 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,6 +27,8 @@ COPY server/src ./server/src
 COPY server/pom.xml ./server/
 COPY plugins/src ./plugins/src
 COPY plugins/pom.xml ./plugins/
+COPY exec/src ./exec/src
+COPY exec/pom.xml ./exec/
 COPY license-header.txt .
 COPY pom.xml .
 
@@ -38,7 +40,7 @@ RUN mvn --batch-mode package -Pstandalone-app -Dlicense.skip=true
 # Image for FHIR Access Proxy binary with configuration knobs as environment vars.
 FROM eclipse-temurin:11-jdk-focal as main
 
-COPY --from=build /app/plugins/target/plugins-0.1.0-exec.jar /
+COPY --from=build /app/exec/target/exec-0.1.0.jar /
 COPY resources/hapi_page_url_allowed_queries.json resources/hapi_page_url_allowed_queries.json
 
 ENV PROXY_PORT=8080
@@ -52,4 +54,4 @@ ENV BACKEND_TYPE="HAPI"
 ENV ACCESS_CHECKER="list"
 ENV RUN_MODE="PROD"
 
-ENTRYPOINT java -jar plugins-0.1.0-exec.jar --server.port=${PROXY_PORT}
+ENTRYPOINT java -jar exec-0.1.0.jar --server.port=${PROXY_PORT}
