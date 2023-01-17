@@ -63,6 +63,7 @@ public abstract class HttpFhirClient {
   // https://www.hl7.org/fhir/async.html
   // We should NOT copy Content-Length as this is automatically set by the RequestBuilder when
   // setting content Entity; otherwise we will get a ClientProtocolException.
+  // TODO(http://go/gh/google/fhir-access-proxy/issues/60): Allow Accept header
   static final Set<String> REQUEST_HEADERS_TO_KEEP =
       Sets.newHashSet(
           "content-type",
@@ -73,6 +74,7 @@ public abstract class HttpFhirClient {
           "if-none-exist",
           "if-match",
           "if-none-match",
+          // Condition header spec - https://www.rfc-editor.org/rfc/rfc7232#section-7.2
           "if-modified-since",
           "if-unmodified-since",
           "if-range",
