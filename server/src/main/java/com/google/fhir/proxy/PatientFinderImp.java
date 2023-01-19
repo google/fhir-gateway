@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2022 Google LLC
+ * Copyright 2021-2023 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -250,7 +250,8 @@ public final class PatientFinderImp implements PatientFinder {
     Bundle bundle = (Bundle) resource;
 
     if (bundle.getType() != BundleType.TRANSACTION) {
-      // Currently, support only for transaction bundles (b/217392030)
+      // Currently, support only for transaction bundles; see:
+      //   https://github.com/google/fhir-access-proxy/issues/67
       ExceptionUtil.throwRuntimeExceptionAndLog(
           logger, "Bundle type needs to be transaction!", InvalidRequestException.class);
     }
@@ -359,7 +360,7 @@ public final class PatientFinderImp implements PatientFinder {
 
   private void processGet(BundleEntryComponent entryComponent, BundlePatientsBuilder builder)
       throws URISyntaxException {
-    // Ignore body content and just look at request (b/217237806)
+    // Ignore body content and just look at request.
     String patientId = findPatientId(entryComponent.getRequest());
     builder.addPatient(PatientOp.READ, patientId);
   }

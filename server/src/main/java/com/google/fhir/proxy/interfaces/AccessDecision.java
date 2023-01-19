@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2022 Google LLC
+ * Copyright 2021-2023 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,6 +27,9 @@ public interface AccessDecision {
    * Depending on the outcome of the FHIR operations, this does any post-processing operations that
    * are related to access policies. This is expected to be called only if the actual FHIR operation
    * is finished successfully.
+   *
+   * <p>An example of this is when a new patient is created as the result of the query and that
+   * patient ID should be added to some access lists.
    *
    * @param response the response returned from the FHIR store
    * @return the response entity content (with any post-processing modifications needed) if this

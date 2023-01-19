@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2022 Google LLC
+ * Copyright 2021-2023 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -112,7 +112,8 @@ public class ListAccessChecker implements AccessChecker {
     if (patientIds == null) {
       return false;
     }
-    // TODO consider using the HAPI FHIR client instead (b/211231483).
+    // TODO consider using the HAPI FHIR client instead; see:
+    //   https://github.com/google/fhir-access-proxy/issues/65.
     String patientParam =
         queryBuilder(patientIds, PARAM_ESCAPER.escape("Patient/"), PARAM_ESCAPER.escape(","));
     return listIncludesItems("item=" + patientParam);
@@ -130,7 +131,8 @@ public class ListAccessChecker implements AccessChecker {
   }
 
   private boolean patientsExist(String patientId) throws IOException {
-    // TODO consider using the HAPI FHIR client instead (b/211231483).
+    // TODO consider using the HAPI FHIR client instead; see:
+    //   https://github.com/google/fhir-access-proxy/issues/65
     String searchQuery =
         String.format("/Patient?_id=%s&_elements=id", PARAM_ESCAPER.escape(patientId));
     HttpResponse response = httpFhirClient.getResource(searchQuery);
