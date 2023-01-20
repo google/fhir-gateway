@@ -13,20 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.google.fhir.proxy.interfaces;
+package com.google.fhir.proxy;
 
-/**
- * The main interface for deciding whether to grant access to a request or not. Implementations of
- * this do not have to be thread-safe as it is guaranteed by the server code not to call {@code
- * checkAccess} concurrently.
- */
-public interface AccessChecker {
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.junit4.SpringRunner;
 
-  /**
-   * Checks whether the current user has access to requested resources.
-   *
-   * @param requestDetails details about the resource and operation requested
-   * @return the outcome of access checking
-   */
-  AccessDecision checkAccess(RequestDetailsReader requestDetails);
+// TODO change this test to fail if the expected plugins cannot be found.
+@RunWith(SpringRunner.class)
+@SpringBootTest
+public class MainAppTest {
+
+  @Test
+  public void contextLoads() {}
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2022 Google LLC
+ * Copyright 2021-2023 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -89,7 +89,8 @@ class AccessGrantedAndUpdateList implements AccessDecision {
     }
 
     if (FhirUtil.isSameResourceType(resource.fhirType(), ResourceType.Bundle)) {
-      // TODO Response potentially too large to be loaded into memory b/215786247
+      // TODO Response potentially too large to be loaded into memory; see:
+      //   https://github.com/google/fhir-access-proxy/issues/64
       Bundle bundle = (Bundle) parser.parseResource(content);
 
       Set<String> patientIdsInResponse = Sets.newHashSet();
@@ -111,7 +112,8 @@ class AccessGrantedAndUpdateList implements AccessDecision {
 
   private void addPatientToList(String newPatient) throws IOException {
     Preconditions.checkNotNull(newPatient);
-    // TODO create this with HAPI client instead of handcrafting (b/211231483)!
+    // TODO create this with HAPI client instead of handcrafting; see:
+    //   https://github.com/google/fhir-access-proxy/issues/65
     String jsonPatch =
         String.format(
             "[{"
@@ -126,7 +128,8 @@ class AccessGrantedAndUpdateList implements AccessDecision {
                 + "}]",
             newPatient);
     logger.info("Updating access list {} with patch {}", patientListId, jsonPatch);
-    // TODO decide how to handle failures in access list updates (b/211243404).
+    // TODO decide how to handle failures in access list updates; see:
+    //   https://github.com/google/fhir-access-proxy/issues/66
     httpFhirClient.patchResource(
         String.format("List/%s", PARAM_ESCAPER.escape(patientListId)), jsonPatch);
   }

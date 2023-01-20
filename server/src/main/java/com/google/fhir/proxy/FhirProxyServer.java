@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2022 Google LLC
+ * Copyright 2021-2023 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -46,6 +46,10 @@ public class FhirProxyServer extends RestfulServer {
   private static final String WELL_KNOWN_ENDPOINT_DEFAULT = ".well-known/openid-configuration";
   private static final String ALLOWED_QUERIES_FILE_ENV = "ALLOWED_QUERIES_FILE";
 
+  // TODO: improve this mixture of Spring based IOC with non-@Component classes. This is the
+  //   only place we use Spring annotations to automatically discover AccessCheckerFactory plugins.
+  //   But this implicitly means that the wrapper executable code (or container) should enable
+  //   Spring's automatic scanning.
   @Autowired private Map<String, AccessCheckerFactory> accessCheckerFactories;
 
   static boolean isDevMode() {
