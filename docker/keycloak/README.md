@@ -15,9 +15,9 @@ There are three components involved here which are all combined in
   We could also use the base Keycloak image if the access-checker does not care
   about [SMART on FHIR](http://www.hl7.org/fhir/smart-app-launch/) spec (for
   example the
-  [`list` access-checker](../../plugins/src/main/java/com/google/fhir/proxy/plugin/ListAccessChecker.java)).
+  [`list` access-checker](../../plugins/src/main/java/com/google/fhir/gateway/plugin/ListAccessChecker.java)).
   The
-  [`patient` access-checker](../../plugins/src/main/java/com/google/fhir/proxy/plugin/PatientAccessChecker.java)
+  [`patient` access-checker](../../plugins/src/main/java/com/google/fhir/gateway/plugin/PatientAccessChecker.java)
   is intended for a SMART on FHIR app with patient scopes.
 
 - The `alvearie/keycloak-config:latest` docker image to configure a SMART

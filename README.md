@@ -56,7 +56,7 @@ java -Dloader.path="PATH-TO-ADDITIONAL-PLUGINGS/custom-plugins.jar" \
 The plugin library can be swapped with any third party access-checker as
 described in the [plugins](plugins) directory. Note Spring Boot is not a
 requirement for using the access-proxy; we just use it to simplify the
-[MainApp](exec/src/main/java/com/google/fhir/proxy/MainApp.java). The only
+[MainApp](exec/src/main/java/com/google/fhir/gateway/MainApp.java). The only
 Spring-related requirement is to do a
 [@ComponentScan](https://docs.spring.io/spring-framework/docs/current/javadoc-api/org/springframework/context/annotation/ComponentScan.html)
 to find all access-checker plugins in the classpath.
