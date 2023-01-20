@@ -90,7 +90,7 @@
               <goal>repackage</goal>
             </goals>
             <configuration>
-              <mainClass>com.google.fhir.proxy.MainApp</mainClass>
+              <mainClass>com.google.fhir.gateway.MainApp</mainClass>
               <!-- We use ZIP layout such that PropertiesLauncher is used and we
               can add extra jars through `loader.path` property:
               https://docs.spring.io/spring-boot/docs/current/reference/html/executable-jar.html#appendix.executable-jar.property-launcher
