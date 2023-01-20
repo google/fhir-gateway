@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2022 Google LLC
+ * Copyright 2021-2023 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,10 @@ import ca.uhn.fhir.rest.server.exceptions.AuthenticationException;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import com.google.fhir.proxy.HttpFhirClient;
 
+/**
+ * The factory for creating {@link AccessChecker} instances. A single instance of this might be used
+ * for multiple queries; this is expected to be thread-safe.
+ */
 public interface AccessCheckerFactory {
 
   /**

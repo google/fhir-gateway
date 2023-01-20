@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2022 Google LLC
+ * Copyright 2021-2023 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,8 +15,11 @@
  */
 package com.google.fhir.proxy.interfaces;
 
-// TODO: change this interface to pass the access token and other required objects to `checkAccess`
-// and remove `AccessCheckerFactory` (implementations can choose to have a factory internally).
+/**
+ * The main interface for deciding whether to grant access to a request or not. Implementations of
+ * this do not have to be thread-safe as it is guaranteed by the server code not to call {@code
+ * checkAccess} concurrently.
+ */
 public interface AccessChecker {
 
   /**
