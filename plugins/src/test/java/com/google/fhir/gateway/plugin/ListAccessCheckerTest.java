@@ -17,8 +17,7 @@ package com.google.fhir.gateway.plugin;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 import ca.uhn.fhir.model.primitive.IdDt;
 import ca.uhn.fhir.rest.api.RequestTypeEnum;
@@ -262,6 +261,48 @@ public class ListAccessCheckerTest extends AccessCheckerTestBase {
     setUpFhirListSearchMock(
         "item=Patient%2Fmichael%2CPatient%2Fbob&item=Patient%2F" + PATIENT_AUTHORIZED,
         "bundle_empty.json");
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
+  }
+
+  @Test
+  public void canAccessDeletePatient() throws IOException {
+    when(requestMock.getResourceName()).thenReturn("Patient");
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.DELETE);
+    when(requestMock.getId()).thenReturn(PATIENT_AUTHORIZED_ID);
+    AccessChecker testInstance = getInstance();
+
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(true));
+  }
+
+  @Test
+  public void canAccessDeletePatientUnauthorized() throws IOException {
+    when(requestMock.getResourceName()).thenReturn("Patient");
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.DELETE);
+    when(requestMock.getId()).thenReturn(PATIENT_NON_AUTHORIZED_ID);
+    AccessChecker testInstance = getInstance();
+
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
+  }
+
+  @Test
+  public void canAccessDeleteObservation() throws IOException {
+    when(requestMock.getResourceName()).thenReturn("Observation");
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.DELETE);
+    when(requestMock.getParameters())
+        .thenReturn(Map.of("subject", new String[] {PATIENT_AUTHORIZED}));
+    AccessChecker testInstance = getInstance();
+
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(true));
+  }
+
+  @Test
+  public void canAccessDeleteObservationUnauthorized() throws IOException {
+    when(requestMock.getResourceName()).thenReturn("Observation");
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.DELETE);
+    when(requestMock.getParameters())
+        .thenReturn(Map.of("subject", new String[] {PATIENT_NON_AUTHORIZED}));
+    AccessChecker testInstance = getInstance();
+
     assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
   }
   // TODO add an Appointment POST

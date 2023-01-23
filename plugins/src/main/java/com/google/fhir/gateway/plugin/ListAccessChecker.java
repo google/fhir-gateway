@@ -171,8 +171,9 @@ public class ListAccessChecker implements AccessChecker {
           return processPut(requestDetails);
         case PATCH:
           return processPatch(requestDetails);
+        case DELETE:
+          return processDelete(requestDetails);
         default:
-          // TODO decide what to do for other methods like DELETE.
           return NoOpAccessDecision.accessDenied();
       }
     } catch (IOException e) {
@@ -225,6 +226,22 @@ public class ListAccessChecker implements AccessChecker {
       return accessDecision;
     }
     return checkNonPatientAccessInUpdate(requestDetails, RequestTypeEnum.PATCH);
+  }
+
+  private AccessDecision processDelete(RequestDetailsReader requestDetails) {
+    // We don't support deletion of List resource used as an access list for a user.
+    if (FhirUtil.isSameResourceType(requestDetails.getResourceName(), ResourceType.List)) {
+      if (patientListId.equals(FhirUtil.getIdOrNull(requestDetails))) {
+        return NoOpAccessDecision.accessGranted();
+      }
+      return NoOpAccessDecision.accessDenied();
+    }
+
+    // TODO(https://github.com/google/fhir-access-proxy/issues/63):Support direct resource deletion.
+
+    // There should be a patient id in search params; the param name is based on the resource.
+    String patientId = patientFinder.findPatientFromParams(requestDetails);
+    return new NoOpAccessDecision(serverListIncludesAnyPatient(Sets.newHashSet(patientId)));
   }
 
   private AccessDecision checkNonPatientAccessInUpdate(
