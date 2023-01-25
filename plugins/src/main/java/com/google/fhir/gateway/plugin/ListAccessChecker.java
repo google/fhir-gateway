@@ -230,10 +230,8 @@ public class ListAccessChecker implements AccessChecker {
 
   private AccessDecision processDelete(RequestDetailsReader requestDetails) {
     // We don't support deletion of List resource used as an access list for a user.
-    if (FhirUtil.isSameResourceType(requestDetails.getResourceName(), ResourceType.List)) {
-      if (patientListId.equals(FhirUtil.getIdOrNull(requestDetails))) {
-        return NoOpAccessDecision.accessGranted();
-      }
+    if (FhirUtil.isSameResourceType(requestDetails.getResourceName(), ResourceType.List)
+        && patientListId.equals(FhirUtil.getIdOrNull(requestDetails))) {
       return NoOpAccessDecision.accessDenied();
     }
 

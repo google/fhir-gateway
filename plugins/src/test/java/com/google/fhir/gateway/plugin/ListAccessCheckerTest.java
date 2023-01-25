@@ -17,7 +17,8 @@ package com.google.fhir.gateway.plugin;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.when;
 
 import ca.uhn.fhir.model.primitive.IdDt;
 import ca.uhn.fhir.rest.api.RequestTypeEnum;
@@ -279,6 +280,16 @@ public class ListAccessCheckerTest extends AccessCheckerTestBase {
     when(requestMock.getResourceName()).thenReturn("Patient");
     when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.DELETE);
     when(requestMock.getId()).thenReturn(PATIENT_NON_AUTHORIZED_ID);
+    AccessChecker testInstance = getInstance();
+
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
+  }
+
+  @Test
+  public void canAccessDeleteAccessListUnauthorized() throws IOException {
+    when(requestMock.getResourceName()).thenReturn("List");
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.DELETE);
+    when(requestMock.getId()).thenReturn(new IdDt("List", TEST_LIST_ID));
     AccessChecker testInstance = getInstance();
 
     assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
