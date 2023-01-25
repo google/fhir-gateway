@@ -101,4 +101,35 @@ public class PatientAccessCheckerTest extends AccessCheckerTestBase {
     AccessChecker testInstance = getInstance();
     assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
   }
+
+  @Test
+  public void canAccessDeletePatientUnauthorized() {
+    when(requestMock.getResourceName()).thenReturn("Patient");
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.DELETE);
+    AccessChecker testInstance = getInstance();
+
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
+  }
+
+  @Test
+  public void canAccessDeleteObservationAuthorized() {
+    when(requestMock.getResourceName()).thenReturn("Observation");
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.DELETE);
+    when(requestMock.getParameters())
+        .thenReturn(Map.of("subject", new String[] {PATIENT_AUTHORIZED}));
+    AccessChecker testInstance = getInstance();
+
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(true));
+  }
+
+  @Test
+  public void canAccessDeleteObservationUnauthorized() {
+    when(requestMock.getResourceName()).thenReturn("Observation");
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.DELETE);
+    when(requestMock.getParameters())
+        .thenReturn(Map.of("subject", new String[] {PATIENT_NON_AUTHORIZED}));
+    AccessChecker testInstance = getInstance();
+
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
+  }
 }

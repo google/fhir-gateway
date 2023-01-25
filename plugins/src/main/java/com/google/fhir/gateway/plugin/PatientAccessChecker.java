@@ -74,8 +74,9 @@ public class PatientAccessChecker implements AccessChecker {
         return processPut(requestDetails);
       case PATCH:
         return processPatch(requestDetails);
+      case DELETE:
+        return processDelete(requestDetails);
       default:
-        // TODO handle other cases like DELETE
         return NoOpAccessDecision.accessDenied();
     }
   }
@@ -106,6 +107,16 @@ public class PatientAccessChecker implements AccessChecker {
       return checkPatientAccessInUpdate(requestDetails);
     }
     return checkNonPatientAccessInUpdate(requestDetails, HTTPVerb.PATCH);
+  }
+
+  private AccessDecision processDelete(RequestDetailsReader requestDetails) {
+    // This AccessChecker does not allow deletion of Patient resource
+    if (FhirUtil.isSameResourceType(requestDetails.getResourceName(), ResourceType.Patient)) {
+      return NoOpAccessDecision.accessDenied();
+    }
+    // TODO(https://github.com/google/fhir-access-proxy/issues/63):Support direct resource deletion.
+    String patientId = patientFinder.findPatientFromParams(requestDetails);
+    return new NoOpAccessDecision(authorizedPatientId.equals(patientId));
   }
 
   private AccessDecision checkNonPatientAccessInUpdate(
