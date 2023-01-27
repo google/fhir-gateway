@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2022 Google LLC
+ * Copyright 2021-2023 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -75,19 +75,20 @@ class AllowedQueriesChecker implements AccessChecker {
   }
 
   private boolean requestMatches(RequestDetailsReader requestDetails, AllowedQueryEntry entry) {
-    if (entry.getMethodType() != null && entry.getMethodType().equals(requestDetails.getRequestType().name()) && requestContainsPathVariables(requestDetails.getRequestPath())) {
+    if (entry.getMethodType() != null
+        && entry.getMethodType().equals(requestDetails.getRequestType().name())
+        && requestContainsPathVariables(requestDetails.getRequestPath())) {
       String requestPath = getResourceFromCompleteRequestPath(requestDetails.getRequestPath());
       if (!entry.getPath().equals(requestPath)) {
         return false;
       }
     } else if (!entry.getPath().equals(requestDetails.getRequestPath())) {
       return false;
-    } else if (entry.getMethodType() != null && entry.getMethodType().equals(requestDetails.getRequestType().name())) {
+    } else if (entry.getMethodType() != null
+        && entry.getMethodType().equals(requestDetails.getRequestType().name())) {
       Set<String> matchedQueryParams = Sets.newHashSet();
-      for (Entry<String, String> expectedParam : entry.getQueryParams()
-              .entrySet()) {
-        String[] actualQueryValue = requestDetails.getParameters()
-                .get(expectedParam.getKey());
+      for (Entry<String, String> expectedParam : entry.getQueryParams().entrySet()) {
+        String[] actualQueryValue = requestDetails.getParameters().get(expectedParam.getKey());
         if (actualQueryValue == null && entry.isAllParamsRequired()) {
           // This allow-list entry does not match the query.
           return false;
@@ -107,12 +108,13 @@ class AllowedQueriesChecker implements AccessChecker {
         }
         matchedQueryParams.add(expectedParam.getKey());
       }
-      if (!entry.isAllowExtraParams() && matchedQueryParams.size() != requestDetails.getParameters()
-              .size()) {
+      if (!entry.isAllowExtraParams()
+          && matchedQueryParams.size() != requestDetails.getParameters().size()) {
         return false;
       }
     } else {
-      logger.info("Allowed-queries entry {} matched query {}", entry, requestDetails.getCompleteUrl());
+      logger.info(
+          "Allowed-queries entry {} matched query {}", entry, requestDetails.getCompleteUrl());
       return true;
     }
     return true;
@@ -120,22 +122,22 @@ class AllowedQueriesChecker implements AccessChecker {
 
   private boolean requestContainsPathVariables(String completeRequestPath) {
     String requestResourcePath = trimForwardSlashFromRequestPath(completeRequestPath);
-    if(requestResourcePath != null && requestResourcePath.startsWith("/")) {
+    if (requestResourcePath != null && requestResourcePath.startsWith("/")) {
       requestResourcePath = requestResourcePath.substring(1);
     }
-    if(requestResourcePath.contains("/")) {
+    if (requestResourcePath.contains("/")) {
       return true;
     }
     return false;
   }
 
   private String getResourceFromCompleteRequestPath(String completeRequestPath) {
-   String requestResourcePath = trimForwardSlashFromRequestPath(completeRequestPath);
-    if(requestResourcePath.contains("/")) {
+    String requestResourcePath = trimForwardSlashFromRequestPath(completeRequestPath);
+    if (requestResourcePath.contains("/")) {
 
       int pathVarIndex = requestResourcePath.indexOf("/");
-      String pathVar = requestResourcePath.substring(pathVarIndex+1);
-      String requestPath = requestResourcePath.substring(0,pathVarIndex+1);
+      String pathVar = requestResourcePath.substring(pathVarIndex + 1);
+      String requestPath = requestResourcePath.substring(0, pathVarIndex + 1);
       requestPath = "/" + requestPath;
       return requestPath;
     }
@@ -144,7 +146,7 @@ class AllowedQueriesChecker implements AccessChecker {
 
   private String trimForwardSlashFromRequestPath(String completeRequestPath) {
     String requestResourcePath = completeRequestPath;
-    if(completeRequestPath.startsWith("/")) {
+    if (completeRequestPath.startsWith("/")) {
       requestResourcePath = completeRequestPath.substring(1);
     }
     return requestResourcePath;
