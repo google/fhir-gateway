@@ -27,7 +27,7 @@
       },
       "request": {
         "method": "DELETE",
-        "url": "Patient/7890"
+        "url": "Patient/be92a43f-de46-affa-b131-bbf9eea51140"
       }
     }
   ]
