@@ -264,5 +264,57 @@ public class ListAccessCheckerTest extends AccessCheckerTestBase {
         "bundle_empty.json");
     assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
   }
+
+  @Test
+  public void canAccessDeletePatient() throws IOException {
+    when(requestMock.getResourceName()).thenReturn("Patient");
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.DELETE);
+    when(requestMock.getId()).thenReturn(PATIENT_AUTHORIZED_ID);
+    AccessChecker testInstance = getInstance();
+
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(true));
+  }
+
+  @Test
+  public void canAccessDeletePatientUnauthorized() throws IOException {
+    when(requestMock.getResourceName()).thenReturn("Patient");
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.DELETE);
+    when(requestMock.getId()).thenReturn(PATIENT_NON_AUTHORIZED_ID);
+    AccessChecker testInstance = getInstance();
+
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
+  }
+
+  @Test
+  public void canAccessDeleteAccessListUnauthorized() throws IOException {
+    when(requestMock.getResourceName()).thenReturn("List");
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.DELETE);
+    when(requestMock.getId()).thenReturn(new IdDt("List", TEST_LIST_ID));
+    AccessChecker testInstance = getInstance();
+
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
+  }
+
+  @Test
+  public void canAccessDeleteObservation() throws IOException {
+    when(requestMock.getResourceName()).thenReturn("Observation");
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.DELETE);
+    when(requestMock.getParameters())
+        .thenReturn(Map.of("subject", new String[] {PATIENT_AUTHORIZED}));
+    AccessChecker testInstance = getInstance();
+
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(true));
+  }
+
+  @Test
+  public void canAccessDeleteObservationUnauthorized() throws IOException {
+    when(requestMock.getResourceName()).thenReturn("Observation");
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.DELETE);
+    when(requestMock.getParameters())
+        .thenReturn(Map.of("subject", new String[] {PATIENT_NON_AUTHORIZED}));
+    AccessChecker testInstance = getInstance();
+
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
+  }
   // TODO add an Appointment POST
 }
