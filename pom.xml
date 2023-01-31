@@ -51,7 +51,7 @@
     <root.basedir>${project.basedir}</root.basedir>
     <maven.compiler.source>11</maven.compiler.source>
     <maven.compiler.target>11</maven.compiler.target>
-    <spring-boot.version>2.6.6</spring-boot.version>
+    <spring-boot.version>2.6.14</spring-boot.version>
     <license-maven-plugin.version>4.1</license-maven-plugin.version>
   </properties>
 
