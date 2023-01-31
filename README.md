@@ -1,4 +1,4 @@
-# FHIR Access Proxy
+# FHIR Information Gateway
 
 <!-- Build status of the main branch -->
 
@@ -20,7 +20,7 @@ for a FHIR query.
 
 ![Modules involved in FHIR authorization/access-control](doc/summary.png)
 
-The initial design doc for this work is available [here](doc/design.md).
+For more information on the technical design, [see the design doc](doc/design.md).
 
 # Modules
 
@@ -51,8 +51,10 @@ java -Dloader.path="PATH-TO-ADDITIONAL-PLUGINGS/custom-plugins.jar" \
 ```
 
 The plugin library can be swapped with any third party access-checker as
-described in the [plugins](plugins) directory. Note Spring Boot is not a
-requirement for using the access-proxy; we just use it to simplify the
+described in the [plugins](plugins) directory and [the
+wiki](https://github.com/google/fhir-gateway/wiki/Understanding-access-checker-plugins).
+
+Note: Spring Boot is not a requirement for using the access-proxy; we just use it to simplify the
 [MainApp](exec/src/main/java/com/google/fhir/gateway/MainApp.java). The only
 Spring-related requirement is to do a
 [@ComponentScan](https://docs.spring.io/spring-framework/docs/current/javadoc-api/org/springframework/context/annotation/ComponentScan.html)
@@ -63,14 +65,13 @@ to find all access-checker plugins in the classpath.
 The proxy configuration parameters are currently provided through environment
 variables:
 
-- **FHIR store location**: This is set by `PROXY_TO` environment variable, using
-  the base url of the FHIR store e.g.:
+- `PROXY_TO`: The base url of the FHIR store e.g.:
 
   ```shell
   export PROXY_TO=https://example.com/fhir
   ```
 
-- **Access token issuer**: This is set by `TOKEN_ISSUER` variable, e.g.:
+- `TOKEN_ISSUER`: The URL of the access token issuer, e.g.:
 
   ```shell
   export TOKEN_ISSUER=http://localhost:9080/auth/realms/test
@@ -86,53 +87,63 @@ variables:
   export TOKEN_ISSUER=http://localhost:9080/auth/realms/test-smart
   ```
 
-- **AccessChecker**: As mentioned above, access-checkers can be provided as
-  plugins and easily swapped. Each access-checker has a name (see
-  [plugins](plugins) for details) and `ACCESS_CHECKER` variable should be set to
-  this name. For example, the two plugins that are provided in this repository,
-  can be selected by either of:
+- `ACCESS_CHECKER`: The access-checker to use. Each access-checker has a name (see
+  [plugins](plugins) for details) and this variable should be set to the
+  name of the plugin to use. For example, to use one of the sample plugins
+  include one of:
 
   ```shell
   export ACCESS_CHECKER=list
   export ACCESS_CHECKER=patient
   ```
+  
+  For more information on how access-checkers work and building your own, see
+  [Understanding access checker plugins](https://github.com/google/fhir-gateway/wiki/Understanding-access-checker-plugins).
 
-- **AllowedQueriesChecker**: There are URL requests that the server can allow
-  without going through an access checker.
+- `ALLOWED_QUERIES_FILE`: A list of URL requests that should bypass the access
+  checker and always be allowed.
   [`AllowedQueriesChecker`](https://github.com/google/fhir-access-proxy/blob/main/server/src/main/java/com/google/fhir/proxy/AllowedQueriesChecker.java)
   is a special `AccessChecker` that compares the incoming request with a
   configured set of allowed-queries. The intended use of this checker is to
   override all other access-checkers for certain user-defined criteria. The user
   defines their criteria in a config file and if the URL query matches an entry
-  in the config file, access is granted. An example of this is:
+  in the config file, access is granted. An example of this is
   [`hapi_page_url_allowed_queries.json`](https://github.com/google/fhir-access-proxy/blob/main/resources/hapi_page_url_allowed_queries.json).
-  To use the file, set the `ALLOWED_QUERIES_FILE` variable:
+  To use this file with `ALLOWED_QUERIES_FILE`:
 
   ```shell
   export ALLOWED_QUERIES_FILE="resources/hapi_page_url_allowed_queries.json"
   ```
 
-- The proxy makes no assumptions about what the FHIR server is, but the proxy
-  should be able to send any FHIR queries to the server. For example, if you use
-  a [GCP FHIR store](https://cloud.google.com/healthcare-api/docs/concepts/fhir)
-  you have the following options:
-  - If you have access to the FHIR store, you can use your own credentials by
-    doing
-    [application-default login](https://cloud.google.com/sdk/gcloud/reference/auth/application-default/login).
-    This is useful when testing the proxy on your local machine, and you have
-    access to the FHIR server through your credentials.
-  - Use a service account with required access (e.g., "Healthcare FHIR Resource
-    Reader", "Healthcare Dataset Viewer", "Healthcare FHIR Store Viewer"). You
-    can then run the proxy in the same GCP project on a VM with this service
-    account.
-  - [not-recommended] You can create and download a key file for the above
-    service account, then use it with
+- `BACKEND_TYPE`: The type of backend, either `HAPI` or `GCP`. `HAPI` should be
+  used for most FHIR servers, while `GCP` should be used for GCP FHIR stores.
+
+## Gateway to server access
+
+The proxy must be able to send FHIR queries to the FHIR server. The FHIR server
+must be configured to accept connections from the proxy while rejecting most
+other requests.
+
+If you use a [GCP FHIR store](https://cloud.google.com/healthcare-api/docs/concepts/fhir)
+you have the following options:
+
+- If you have access to the FHIR store, you can use your own credentials by
+  doing
+  [application-default login](https://cloud.google.com/sdk/gcloud/reference/auth/application-default/login).
+  This is useful when testing the proxy on your local machine, and you have
+  access to the FHIR server through your credentials.
+- Use a service account with required access (e.g., "Healthcare FHIR Resource
+  Reader", "Healthcare Dataset Viewer", "Healthcare FHIR Store Viewer"). You
+  can then run the proxy in the same GCP project on a VM with this service
+  account.
+- [not-recommended] You can create and download a key file for the above
+  service account, then use it with
   ```shell
   export GOOGLE_APPLICATION_CREDENTIALS="PATH_TO_THE_JSON_KEY_FILE"
   ```
 
-Once you have set all the above, you can run the proxy server. By default, the
-server uses [Apache Tomcat](https://tomcat.apache.org/) through
+Once you have set all the above, you can run the proxy server. The sample
+`exec` module uses [Apache Tomcat](https://tomcat.apache.org/) through
 [Spring Boot](https://spring.io/projects/spring-boot) and the usual
 configuration parameters apply, e.g., to run on port 8081:
 
@@ -150,8 +161,11 @@ $ docker run -p 8081:8080 -e TOKEN_ISSUER=[token_issuer_url] \
   us-docker.pkg.dev/fhir-proxy-build/stable/fhir-access-proxy:latest
 ```
 
-Note if the `TOKEN_ISSUER` is on the `localhost` you need to bypass proxy's
-token issuer check by setting `RUN_MODE=DEV` environment variable.
+Note if the `TOKEN_ISSUER` is on the `localhost` you may need to bypass proxy's
+token issuer check by setting `RUN_MODE=DEV` environment variable if you are
+accessing the proxy from an Android emulator, which runs on a separate network.
+
+[Try the proxy with test servers in Docker](https://github.com/google/fhir-gateway/wiki/Try-out-FHIR-Information-Gateway).
 
 GCP note: if this is not on a VM with proper service account (e.g., on a local
 host), you need to pass GCP credentials to it, for example by mapping the
