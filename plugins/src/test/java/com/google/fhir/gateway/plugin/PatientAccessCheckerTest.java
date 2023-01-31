@@ -20,6 +20,8 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.mockito.Mockito.when;
 
 import ca.uhn.fhir.rest.api.RequestTypeEnum;
+import ca.uhn.fhir.rest.server.exceptions.InvalidRequestException;
+import com.auth0.jwt.interfaces.Claim;
 import com.google.common.io.Resources;
 import com.google.fhir.gateway.PatientFinderImp;
 import com.google.fhir.gateway.interfaces.AccessChecker;
@@ -29,16 +31,22 @@ import java.util.Map;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnitRunner;
 
 @RunWith(MockitoJUnitRunner.class)
 public class PatientAccessCheckerTest extends AccessCheckerTestBase {
 
+  @Mock protected Claim scopeClaimMock;
+
+  static final String DEFAULT_TEST_SCOPES_CLAIM = "patient/*.*";
+
   @Before
   public void setUp() throws IOException {
     when(jwtMock.getClaim(PatientAccessChecker.Factory.PATIENT_CLAIM)).thenReturn(claimMock);
+    when(jwtMock.getClaim(PatientAccessChecker.Factory.SCOPES_CLAIM)).thenReturn(scopeClaimMock);
     when(claimMock.asString()).thenReturn(PATIENT_AUTHORIZED);
-    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.GET);
+    when(scopeClaimMock.asString()).thenReturn(DEFAULT_TEST_SCOPES_CLAIM);
   }
 
   @Override
@@ -118,7 +126,38 @@ public class PatientAccessCheckerTest extends AccessCheckerTestBase {
     when(requestMock.getParameters())
         .thenReturn(Map.of("subject", new String[] {PATIENT_AUTHORIZED}));
     AccessChecker testInstance = getInstance();
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(true));
+  }
 
+  @Test
+  public void canAccessPatchObservationNoValidPermissionForPatient() throws IOException {
+    // Query: PATCH /Observation?subject=Patient/PATIENT_AUTHORIZED -d @test_obs_patch.json
+    when(requestMock.getResourceName()).thenReturn("Observation");
+    when(requestMock.getParameters())
+        .thenReturn(Map.of("subject", new String[] {"be92a43f-de46-affa-b131-bbf9eea51140"}));
+    URL listUrl = Resources.getResource("test_obs_patch.json");
+    byte[] obsBytes = Resources.toByteArray(listUrl);
+    when(requestMock.loadRequestContents()).thenReturn(obsBytes);
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.PATCH);
+    when(scopeClaimMock.asString()).thenReturn("patient/Patient.write patient/Observation.read");
+    AccessChecker testInstance = getInstance();
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
+  }
+
+  @Test(expected = InvalidRequestException.class)
+  public void canAccessPutObservationInvalidPermissionScope() {
+    // Query: PUT /Observation -d @test_obs_unauthorized.json
+    when(requestMock.getResourceName()).thenReturn("Observation");
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.PUT);
+    when(scopeClaimMock.asString()).thenReturn("patient/Observation.invalid");
+    AccessChecker testInstance = getInstance();
+    testInstance.checkAccess(requestMock).canAccess();
+  }
+
+  @Test
+  public void canAccessBundlePutPatient() throws IOException {
+    setUpFhirBundle("bundle_transaction_put_authorized_patient.json");
+    AccessChecker testInstance = getInstance();
     assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(true));
   }
 
@@ -129,7 +168,44 @@ public class PatientAccessCheckerTest extends AccessCheckerTestBase {
     when(requestMock.getParameters())
         .thenReturn(Map.of("subject", new String[] {PATIENT_NON_AUTHORIZED}));
     AccessChecker testInstance = getInstance();
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
+  }
 
+  @Test
+  public void canAccessBundlePutPatientNoValidPermission() throws IOException {
+    setUpFhirBundle("bundle_transaction_put_authorized_patient.json");
+    when(scopeClaimMock.asString()).thenReturn("patient/Observation.*");
+    AccessChecker testInstance = getInstance();
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
+  }
+
+  @Test
+  public void canAccessBundlePatchResources() throws IOException {
+    setUpFhirBundle("bundle_transaction_patch_authorized.json");
+    AccessChecker testInstance = getInstance();
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(true));
+  }
+
+  @Test
+  public void canAccessBundlePatchResourcesNoValidPermission() throws IOException {
+    setUpFhirBundle("bundle_transaction_patch_authorized.json");
+    when(scopeClaimMock.asString()).thenReturn("patient/Observation.*");
+    AccessChecker testInstance = getInstance();
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
+  }
+
+  @Test
+  public void canAccessBundleSearchResources() throws IOException {
+    setUpFhirBundle("bundle_transaction_get_non_patient_authorized.json");
+    AccessChecker testInstance = getInstance();
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(true));
+  }
+
+  @Test
+  public void canAccessBundleSearchResourcesNoValidPermission() throws IOException {
+    setUpFhirBundle("bundle_transaction_get_non_patient_authorized.json");
+    when(scopeClaimMock.asString()).thenReturn("patient/Observation.*");
+    AccessChecker testInstance = getInstance();
     assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
   }
 }

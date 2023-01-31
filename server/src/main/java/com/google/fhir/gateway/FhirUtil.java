@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 import org.apache.http.HttpResponse;
+import org.hl7.fhir.exceptions.FHIRException;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.ResourceType;
@@ -60,6 +61,15 @@ public class FhirUtil {
 
   public static boolean isValidId(String id) {
     return ID_PATTERN.matcher(id).matches();
+  }
+
+  public static boolean isValidFhirResourceType(String resourceType) {
+    try {
+      ResourceType.fromCode(resourceType);
+      return true;
+    } catch (FHIRException fe) {
+      return false;
+    }
   }
 
   public static String checkIdOrFail(String idPart) {
