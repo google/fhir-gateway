@@ -2,7 +2,7 @@
 
 In the context of healthcare data systems in resource constrained environments
 
-GitHub repository: https://github.com/google/fhir-access-proxy
+GitHub repository: https://github.com/google/fhir-gateway
 
 ## Summary
 
@@ -21,7 +21,7 @@ For more context, please see the [Introduction](#introduction) section.
 Here is a summary of proposals and decisions in this design document, for the
 first version (V1) of the FHIR gateway:
 
-![Architecture](summary.png)
+<img src="summary.png" width=50% height=50%>
 
 *   There are three main components responsible for access decisions: an
     Identity Provider (IDP) which authenticates the user, an Authorization
@@ -202,7 +202,7 @@ sometimes referred to as the Identity and Access Management (IAM) or simply
 We also have an "access gateway" which is responsible for processing any access
 request for the FHIR server and is the main focus of this design doc.
 
-![Architecture](summary.png)
+<img src="summary.png" width=50% height=50%>
 
 ### Authentication and authorization flow
 
@@ -231,7 +231,7 @@ to use
 [PKCE](https://auth0.com/docs/authorization/flows/authorization-code-flow-with-proof-key-for-code-exchange-pkce)
 which is not shown in this diagram)[^1]:
 
-![Flow diagram](flow.png)
+<img src="flow.png">
 
 Here is a brief description of each step:
 
@@ -270,7 +270,7 @@ to AuthZ which in turn maps the user identity to some access rules to FHIR
 resources. Popular IAM servers like [Keycloak](https://www.keycloak.org/),
 support separate/3rd party IDPs.
 
-![Separate IDP](separate.png)
+<img src="separate.png" width=50% height=50%>
 
 **Integrated AuthZ+Gateway**
 
@@ -282,7 +282,7 @@ simplifies the deployment architecture significantly, however we note that the
 elimination of the access token might be incompatible with some use-cases like
 SoF apps.
 
-![Integrated AuthZ+Gateway](integrated.png)
+<img src="integrated.png" width=50% height=50%>
 
 ## Access gateway
 
@@ -310,9 +310,9 @@ challenges before diving into solutions. Some examples are provided in the
 [query examples appendix](#fhir-query-examples-and-access-control-challenges).
 We propose four main approaches for access control:
 
-*   **Patient context enforcement**: Limit queries to data for a single patient.
-    *   **Query templates**: Limit the non-patient queries to a small number of
-        templates.
+*   **Patient context enforcement**: Limit queries to data for a single patient
+*   **Query templates**: Limit the non-patient queries to a small number of
+    templates.
 *   **Query rewrite**: Send a modified query to the FHIR store which guarantees
     access-control requirements.
 *   **Post processing**: Post process FHIR store results and redact sensitive
