@@ -32,6 +32,7 @@ import com.google.fhir.gateway.JwtUtil;
 import com.google.fhir.gateway.interfaces.AccessChecker;
 import com.google.fhir.gateway.interfaces.AccessCheckerFactory;
 import com.google.fhir.gateway.interfaces.AccessDecision;
+import com.google.fhir.gateway.interfaces.BundleEntryPatientFinder;
 import com.google.fhir.gateway.interfaces.NoOpAccessDecision;
 import com.google.fhir.gateway.interfaces.PatientFinder;
 import com.google.fhir.gateway.interfaces.RequestDetailsReader;
@@ -384,7 +385,8 @@ public class ListAccessChecker implements AccessChecker {
         DecodedJWT jwt,
         HttpFhirClient httpFhirClient,
         FhirContext fhirContext,
-        PatientFinder patientFinder) {
+        PatientFinder patientFinder,
+        BundleEntryPatientFinder bundleEntryPatientFinder) {
       String patientListId = getListId(jwt);
       return new ListAccessChecker(httpFhirClient, patientListId, fhirContext, patientFinder);
     }

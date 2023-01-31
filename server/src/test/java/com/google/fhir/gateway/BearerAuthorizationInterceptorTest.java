@@ -126,7 +126,7 @@ public class BearerAuthorizationInterceptorTest {
         "test",
         serverMock,
         httpUtilMock,
-        (jwt, httpFhirClient, fhirContext, patientFinder) ->
+        (jwt, httpFhirClient, fhirContext, patientFinder, bundlePatientFinder) ->
             new AccessChecker() {
               @Override
               public AccessDecision checkAccess(RequestDetailsReader requestDetails) {

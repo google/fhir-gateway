@@ -83,9 +83,9 @@ public class ListAccessCheckerTest extends AccessCheckerTestBase {
 
   @Override
   protected AccessChecker getInstance() {
+    PatientFinderImp patientFinderImp = PatientFinderImp.getInstance(fhirContext);
     return new ListAccessChecker.Factory()
-        .create(
-            jwtMock, httpFhirClientMock, fhirContext, PatientFinderImp.getInstance(fhirContext));
+        .create(jwtMock, httpFhirClientMock, fhirContext, patientFinderImp, patientFinderImp);
   }
 
   @Test
@@ -219,8 +219,8 @@ public class ListAccessCheckerTest extends AccessCheckerTestBase {
     setUpFhirBundle("bundle_transaction_patient_and_non_patients.json");
     setUpFhirListSearchMock(
         String.format(
-            "item=Patient%%2F%s&item=Patient%%2F%s%%2CPatient%%2F%s",
-            PATIENT_IN_BUNDLE_1, PATIENT_IN_BUNDLE_1, PATIENT_AUTHORIZED),
+            "item=Patient%%2F%s%%2CPatient%%2F%s&item=Patient%%2F%s",
+            PATIENT_IN_BUNDLE_1, PATIENT_AUTHORIZED, PATIENT_IN_BUNDLE_1),
         "bundle_list_patient_item.json");
     setUpPatientSearchMock(PATIENT_IN_BUNDLE_2, "bundle_empty.json");
     AccessChecker testInstance = getInstance();
@@ -233,7 +233,7 @@ public class ListAccessCheckerTest extends AccessCheckerTestBase {
     setUpPatientSearchMock(PATIENT_AUTHORIZED, "bundle_list_patient_item.json");
     setUpFhirListSearchMock(
         String.format(
-            "item=Patient%%2Fmichael%%2CPatient%%2Fbob&item=Patient%%2F%s&item=Patient%%2F%s",
+            "item=Patient%%2Fmichael%%2CPatient%%2F%s%%2CPatient%%2Fbob&item=Patient%%2F%s",
             PATIENT_IN_BUNDLE_1, PATIENT_AUTHORIZED),
         "bundle_empty.json");
     AccessChecker testInstance = getInstance();

@@ -51,8 +51,9 @@ public class PatientAccessCheckerTest extends AccessCheckerTestBase {
 
   @Override
   protected AccessChecker getInstance() {
+    PatientFinderImp patientFinderImp = PatientFinderImp.getInstance(fhirContext);
     return new PatientAccessChecker.Factory()
-        .create(jwtMock, null, fhirContext, PatientFinderImp.getInstance(fhirContext));
+        .create(jwtMock, null, fhirContext, patientFinderImp, patientFinderImp);
   }
 
   @Test
