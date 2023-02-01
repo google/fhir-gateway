@@ -203,3 +203,8 @@ This proxy is implemented as a
 starting from this
 [hapi-fhirstarters-simple-server](https://github.com/FirelyTeam/fhirstarters/tree/master/java/hapi-fhirstarters-simple-server)
 example.
+
+# Disclaimer
+This is not an officially supported Google product. 
+
+HL7®, and FHIR® are the registered trademarks of Health Level Seven International and their use of these trademarks does not constitute an endorsement by HL7.
