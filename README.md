@@ -4,11 +4,14 @@
 
 [![Build Status](https://storage.googleapis.com/fhir-proxy-build-badges/build.svg)](https://storage.googleapis.com/fhir-proxy-build-badges/build.html)
 
-This is a simple access-control proxy that sits in front of a
-[FHIR](https://www.hl7.org/fhir/) store (e.g., a
+FHIR Information Gateway is a simple access-control proxy that sits in front of
+a [FHIR](https://www.hl7.org/fhir/) store (e.g., a
 [HAPI FHIR](https://hapifhir.io/) server,
 [GCP FHIR store](https://cloud.google.com/healthcare-api/docs/concepts/fhir),
 etc.) and controls access to FHIR resources.
+
+Note: "gateway" and "proxy" are used interchangably here, as the gateway is
+implemented as a proxy server.
 
 The authorization and access-control have three components; one of them is this
 access proxy. The other two are an Identity Provider (IDP) and an Authorization
@@ -18,9 +21,10 @@ The requests to the access proxy should have the access token as a Bearer
 Authorization header. Based on that, the proxy decides whether to grant access
 for a FHIR query.
 
-![Modules involved in FHIR authorization/access-control](doc/summary.png)
+<img src="doc/summary.png" width=50% alt="Modules involved in FHIR authorization/access-control">
 
-For more information on the technical design, [see the design doc](doc/design.md).
+For more information on the technical design,
+[see the design doc](doc/design.md).
 
 # Modules
 
@@ -51,19 +55,19 @@ java -Dloader.path="PATH-TO-ADDITIONAL-PLUGINGS/custom-plugins.jar" \
 ```
 
 The plugin library can be swapped with any third party access-checker as
-described in the [plugins](plugins) directory and [the
-wiki](https://github.com/google/fhir-gateway/wiki/Understanding-access-checker-plugins).
+described in the [plugins](plugins) directory and
+[the wiki](https://github.com/google/fhir-gateway/wiki/Understanding-access-checker-plugins).
 
-Note: Spring Boot is not a requirement for using the access-proxy; we just use it to simplify the
+Note: Spring Boot is not a requirement for using FHIR Information Gateway; we
+just use it to simplify the
 [MainApp](exec/src/main/java/com/google/fhir/gateway/MainApp.java). The only
 Spring-related requirement is to do a
 [@ComponentScan](https://docs.spring.io/spring-framework/docs/current/javadoc-api/org/springframework/context/annotation/ComponentScan.html)
 to find all access-checker plugins in the classpath.
 
-# Proxy configuration parameters
+# Configuration parameters
 
-The proxy configuration parameters are currently provided through environment
-variables:
+The configuration parameters are provided through environment variables:
 
 - `PROXY_TO`: The base url of the FHIR store e.g.:
 
@@ -87,8 +91,8 @@ variables:
   export TOKEN_ISSUER=http://localhost:9080/auth/realms/test-smart
   ```
 
-- `ACCESS_CHECKER`: The access-checker to use. Each access-checker has a name (see
-  [plugins](plugins) for details) and this variable should be set to the
+- `ACCESS_CHECKER`: The access-checker to use. Each access-checker has a name
+  (see [plugins](plugins) for details) and this variable should be set to the
   name of the plugin to use. For example, to use one of the sample plugins
   include one of:
 
@@ -96,19 +100,19 @@ variables:
   export ACCESS_CHECKER=list
   export ACCESS_CHECKER=patient
   ```
-  
+
   For more information on how access-checkers work and building your own, see
   [Understanding access checker plugins](https://github.com/google/fhir-gateway/wiki/Understanding-access-checker-plugins).
 
 - `ALLOWED_QUERIES_FILE`: A list of URL requests that should bypass the access
   checker and always be allowed.
-  [`AllowedQueriesChecker`](https://github.com/google/fhir-access-proxy/blob/main/server/src/main/java/com/google/fhir/proxy/AllowedQueriesChecker.java)
+  [`AllowedQueriesChecker`](https://github.com/google/fhir-gateway/blob/main/server/src/main/java/com/google/fhir/gateway/AllowedQueriesChecker.java)
   is a special `AccessChecker` that compares the incoming request with a
   configured set of allowed-queries. The intended use of this checker is to
   override all other access-checkers for certain user-defined criteria. The user
   defines their criteria in a config file and if the URL query matches an entry
   in the config file, access is granted. An example of this is
-  [`hapi_page_url_allowed_queries.json`](https://github.com/google/fhir-access-proxy/blob/main/resources/hapi_page_url_allowed_queries.json).
+  [`hapi_page_url_allowed_queries.json`](https://github.com/google/fhir-gateway/blob/main/resources/hapi_page_url_allowed_queries.json).
   To use this file with `ALLOWED_QUERIES_FILE`:
 
   ```shell
@@ -124,8 +128,9 @@ The proxy must be able to send FHIR queries to the FHIR server. The FHIR server
 must be configured to accept connections from the proxy while rejecting most
 other requests.
 
-If you use a [GCP FHIR store](https://cloud.google.com/healthcare-api/docs/concepts/fhir)
-you have the following options:
+If you use a
+[GCP FHIR store](https://cloud.google.com/healthcare-api/docs/concepts/fhir) you
+have the following options:
 
 - If you have access to the FHIR store, you can use your own credentials by
   doing
@@ -133,17 +138,16 @@ you have the following options:
   This is useful when testing the proxy on your local machine, and you have
   access to the FHIR server through your credentials.
 - Use a service account with required access (e.g., "Healthcare FHIR Resource
-  Reader", "Healthcare Dataset Viewer", "Healthcare FHIR Store Viewer"). You
-  can then run the proxy in the same GCP project on a VM with this service
-  account.
-- [not-recommended] You can create and download a key file for the above
-  service account, then use it with
+  Reader", "Healthcare Dataset Viewer", "Healthcare FHIR Store Viewer"). You can
+  then run the proxy in the same GCP project on a VM with this service account.
+- [not-recommended] You can create and download a key file for the above service
+  account, then use it with
   ```shell
   export GOOGLE_APPLICATION_CREDENTIALS="PATH_TO_THE_JSON_KEY_FILE"
   ```
 
-Once you have set all the above, you can run the proxy server. The sample
-`exec` module uses [Apache Tomcat](https://tomcat.apache.org/) through
+Once you have set all the above, you can run the proxy server. The sample `exec`
+module uses [Apache Tomcat](https://tomcat.apache.org/) through
 [Spring Boot](https://spring.io/projects/spring-boot) and the usual
 configuration parameters apply, e.g., to run on port 8081:
 
