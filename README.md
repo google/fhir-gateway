@@ -18,7 +18,7 @@ The requests to the FHIR Info Gateway should have the access token as a Bearer
 Authorization header. Based on that, the proxy decides whether to grant access
 for a FHIR query.
 
-![Modules involved in FHIR authorization/access-control](doc/summary.png)
+![Modules involved in FHIR authorization/access-control](doc/arch_simple.png)
 
 The initial design doc for this work is available [here](doc/design.md).
 
