@@ -4,17 +4,17 @@
 
 [![Build Status](https://storage.googleapis.com/fhir-proxy-build-badges/build.svg)](https://storage.googleapis.com/fhir-proxy-build-badges/build.html)
 
-The FHIR Information Gateway (FHIR Gateway) is an access-control proxy that sits in front of a
+The FHIR Information Gateway (or FHIR Info Gateway) is an access-control proxy that sits in front of a
 [FHIR](https://www.hl7.org/fhir/) store (e.g., a
 [HAPI FHIR](https://hapifhir.io/) server,
 [GCP FHIR store](https://cloud.google.com/healthcare-api/docs/concepts/fhir),
 etc.) and controls access to FHIR resources.
 
 The authorization and access-control have three components; one of them is this
-FHIR Gateway. The other two are an Identity Provider (IDP) and an Authorization
+FHIR Info Gateway. The other two are an Identity Provider (IDP) and an Authorization
 server (AuthZ). The responsibility of this pair is to authenticate the user and
 issue access tokens (in JWT format and using authorization flow of OAuth 2.0).
-The requests to the FHIR Gateway should have the access token as a Bearer
+The requests to the FHIR Info Gateway should have the access token as a Bearer
 Authorization header. Based on that, the proxy decides whether to grant access
 for a FHIR query.
 
@@ -24,7 +24,7 @@ The initial design doc for this work is available [here](doc/design.md).
 
 # Modules
 
-The FHIR Gateway consists of a core, which is in the [server](server) module, and a set
+The FHIR Info Gateway consists of a core, which is in the [server](server) module, and a set
 of _access-checker_ plugins, which can be implemented by third parties and added
 to the proxy server. 
 
@@ -61,9 +61,9 @@ Spring-related requirement is to do a
 [@ComponentScan](https://docs.spring.io/spring-framework/docs/current/javadoc-api/org/springframework/context/annotation/ComponentScan.html)
 to find all access-checker plugins in the classpath.
 
-# FHIR Gateway configuration parameters
+# FHIR Info Gateway configuration parameters
 
-The FHIR Gateway configuration parameters are currently provided through environment
+The FHIR Info Gateway configuration parameters are currently provided through environment
 variables:
 
 - **FHIR store location**: This is set by `PROXY_TO` environment variable, using
@@ -117,7 +117,7 @@ variables:
   export ALLOWED_QUERIES_FILE="resources/hapi_page_url_allowed_queries.json"
   ```
 
-- The FHIR Gateway makes no assumptions about what the FHIR server is, but it should be able to send any FHIR queries to the server. For example, if you use a [GCP FHIR store](https://cloud.google.com/healthcare-api/docs/concepts/fhir) you have the following options:
+- The FHIR Info Gateway makes no assumptions about what the FHIR server is, but it should be able to send any FHIR queries to the server. For example, if you use a [GCP FHIR store](https://cloud.google.com/healthcare-api/docs/concepts/fhir) you have the following options:
   - If you have access to the FHIR store, you can use your own credentials by
     doing
     [application-default login](https://cloud.google.com/sdk/gcloud/reference/auth/application-default/login).
@@ -133,7 +133,7 @@ variables:
   export GOOGLE_APPLICATION_CREDENTIALS="PATH_TO_THE_JSON_KEY_FILE"
   ```
 
-Once you have set all the above, you can run the FHIR Gateway server. By default, the
+Once you have set all the above, you can run the FHIR Info Gateway server. By default, the
 server uses [Apache Tomcat](https://tomcat.apache.org/) through
 [Spring Boot](https://spring.io/projects/spring-boot) and the usual
 configuration parameters apply, e.g., to run on port 8081:
@@ -144,7 +144,7 @@ java -jar exec/target/exec-0.1.0.jar --server.port=8081
 
 ## Docker
 
-The FHIR Gateway is also available as a [docker image](Dockerfile):
+The FHIR Info Gateway is also available as a [docker image](Dockerfile):
 
 ```shell
 $ docker run -p 8081:8080 -e TOKEN_ISSUER=[token_issuer_url] \
@@ -160,9 +160,9 @@ host), you need to pass GCP credentials to it, for example by mapping the
 `.config/gcloud` volume (i.e., add `-v ~/.config/gcloud:/root/.config/gcloud` to
 the above command).
 
-# How to use this FHIR Gateway
+# How to use this FHIR Info Gateway
 
-Once the FHIR Gateway proxy is running, we first need to fetch an access token from the
+Once the FHIR Info Gateway proxy is running, we first need to fetch an access token from the
 `TOKEN_ISSUER`; you need the test `username` and `password` plus the
 `client_id`:
 
