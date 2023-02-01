@@ -1,20 +1,20 @@
-# FHIR Access Proxy
+# FHIR Information Gateway
 
 <!-- Build status of the main branch -->
 
 [![Build Status](https://storage.googleapis.com/fhir-proxy-build-badges/build.svg)](https://storage.googleapis.com/fhir-proxy-build-badges/build.html)
 
-This is a simple access-control proxy that sits in front of a
+The FHIR Information Gateway (FHIR Gateway) is an access-control proxy that sits in front of a
 [FHIR](https://www.hl7.org/fhir/) store (e.g., a
 [HAPI FHIR](https://hapifhir.io/) server,
 [GCP FHIR store](https://cloud.google.com/healthcare-api/docs/concepts/fhir),
 etc.) and controls access to FHIR resources.
 
 The authorization and access-control have three components; one of them is this
-access proxy. The other two are an Identity Provider (IDP) and an Authorization
+FHIR Gateway. The other two are an Identity Provider (IDP) and an Authorization
 server (AuthZ). The responsibility of this pair is to authenticate the user and
 issue access tokens (in JWT format and using authorization flow of OAuth 2.0).
-The requests to the access proxy should have the access token as a Bearer
+The requests to the FHIR Gateway should have the access token as a Bearer
 Authorization header. Based on that, the proxy decides whether to grant access
 for a FHIR query.
 
@@ -24,12 +24,14 @@ The initial design doc for this work is available [here](doc/design.md).
 
 # Modules
 
-The proxy consists of a core, which is in the [server](server) module, and a set
+The FHIR Gateway consists of a core, which is in the [server](server) module, and a set
 of _access-checker_ plugins, which can be implemented by third parties and added
-to the proxy server. Two sample plugins are implemented in the
-[plugins](plugins) module. There is also a sample `exec` module which shows how
-all pieces can be woven together into a single Spring Boot app. To build all
-modules, from the root run:
+to the proxy server. 
+
+* Two sample plugins are implemented in the [plugins](plugins) module. 
+* There is also a sample `exec` module which shows how all pieces can be woven together into a single Spring Boot app. 
+
+To build all modules, from the root run:
 
 ```shell
 mvn package
@@ -51,16 +53,17 @@ java -Dloader.path="PATH-TO-ADDITIONAL-PLUGINGS/custom-plugins.jar" \
 ```
 
 The plugin library can be swapped with any third party access-checker as
-described in the [plugins](plugins) directory. Note Spring Boot is not a
-requirement for using the access-proxy; we just use it to simplify the
+described in the [plugins](plugins) directory. 
+
+**Note** Spring Boot is not a requirement for using the access-proxy; we just use it to simplify the
 [MainApp](exec/src/main/java/com/google/fhir/gateway/MainApp.java). The only
 Spring-related requirement is to do a
 [@ComponentScan](https://docs.spring.io/spring-framework/docs/current/javadoc-api/org/springframework/context/annotation/ComponentScan.html)
 to find all access-checker plugins in the classpath.
 
-# Proxy configuration parameters
+# FHIR Gateway configuration parameters
 
-The proxy configuration parameters are currently provided through environment
+The FHIR Gateway configuration parameters are currently provided through environment
 variables:
 
 - **FHIR store location**: This is set by `PROXY_TO` environment variable, using
@@ -78,6 +81,7 @@ variables:
 
   The above example is based on the default config of a test IDP+AuthZ
   [Keycloak](https://github.com/Alvearie/keycloak-extensions-for-fhir) server.
+  
   To see how this server is configured, check the
   [docker/keycloak](docker/keycloak) directory. If you want to use a
   SMART-on-FHIR app use this realm instead:
@@ -89,22 +93,23 @@ variables:
 - **AccessChecker**: As mentioned above, access-checkers can be provided as
   plugins and easily swapped. Each access-checker has a name (see
   [plugins](plugins) for details) and `ACCESS_CHECKER` variable should be set to
-  this name. For example, the two plugins that are provided in this repository,
-  can be selected by either of:
+  this name. 
+  
+  For example, the two plugins that are provided in this repository, can be selected by either of:
 
   ```shell
   export ACCESS_CHECKER=list
   export ACCESS_CHECKER=patient
   ```
+  NOTE: The above are just samples provided to demonstrate the concept of a pluggable access-checker. Custom access-checkers can be implemented to support common patterns such as use of `Location`, `Care Team` or `General Practitioner` to return the conceptual list of Patients for an authenticated user
 
 - **AllowedQueriesChecker**: There are URL requests that the server can allow
   without going through an access checker.
   [`AllowedQueriesChecker`](https://github.com/google/fhir-access-proxy/blob/main/server/src/main/java/com/google/fhir/proxy/AllowedQueriesChecker.java)
   is a special `AccessChecker` that compares the incoming request with a
-  configured set of allowed-queries. The intended use of this checker is to
-  override all other access-checkers for certain user-defined criteria. The user
-  defines their criteria in a config file and if the URL query matches an entry
-  in the config file, access is granted. An example of this is:
+  configured set of allowed-queries. 
+  
+  The intended use of this checker is to override all other access-checkers for certain user-defined criteria. The user defines their criteria in a config file and if the URL query matches an entry in the config file, access is granted. An example of this is:
   [`hapi_page_url_allowed_queries.json`](https://github.com/google/fhir-access-proxy/blob/main/resources/hapi_page_url_allowed_queries.json).
   To use the file, set the `ALLOWED_QUERIES_FILE` variable:
 
@@ -112,10 +117,7 @@ variables:
   export ALLOWED_QUERIES_FILE="resources/hapi_page_url_allowed_queries.json"
   ```
 
-- The proxy makes no assumptions about what the FHIR server is, but the proxy
-  should be able to send any FHIR queries to the server. For example, if you use
-  a [GCP FHIR store](https://cloud.google.com/healthcare-api/docs/concepts/fhir)
-  you have the following options:
+- The FHIR Gateway makes no assumptions about what the FHIR server is, but it should be able to send any FHIR queries to the server. For example, if you use a [GCP FHIR store](https://cloud.google.com/healthcare-api/docs/concepts/fhir) you have the following options:
   - If you have access to the FHIR store, you can use your own credentials by
     doing
     [application-default login](https://cloud.google.com/sdk/gcloud/reference/auth/application-default/login).
@@ -131,7 +133,7 @@ variables:
   export GOOGLE_APPLICATION_CREDENTIALS="PATH_TO_THE_JSON_KEY_FILE"
   ```
 
-Once you have set all the above, you can run the proxy server. By default, the
+Once you have set all the above, you can run the FHIR Gateway server. By default, the
 server uses [Apache Tomcat](https://tomcat.apache.org/) through
 [Spring Boot](https://spring.io/projects/spring-boot) and the usual
 configuration parameters apply, e.g., to run on port 8081:
@@ -142,7 +144,7 @@ java -jar exec/target/exec-0.1.0.jar --server.port=8081
 
 ## Docker
 
-The proxy is also available as a [docker image](Dockerfile):
+The FHIR Gateway is also available as a [docker image](Dockerfile):
 
 ```shell
 $ docker run -p 8081:8080 -e TOKEN_ISSUER=[token_issuer_url] \
@@ -158,9 +160,9 @@ host), you need to pass GCP credentials to it, for example by mapping the
 `.config/gcloud` volume (i.e., add `-v ~/.config/gcloud:/root/.config/gcloud` to
 the above command).
 
-# How to use this proxy
+# How to use this FHIR Gateway
 
-Once the proxy is running, we first need to fetch an access token from the
+Once the FHIR Gateway proxy is running, we first need to fetch an access token from the
 `TOKEN_ISSUER`; you need the test `username` and `password` plus the
 `client_id`:
 
