@@ -21,7 +21,9 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import java.util.List;
 import java.util.Set;
+import lombok.Getter;
 
+@Getter
 public class BundlePatients {
 
   private final ImmutableList<ImmutableSet<String>> referencedPatients;
@@ -39,18 +41,6 @@ public class BundlePatients {
     this.updatedPatients = ImmutableSet.copyOf(updatedPatients);
     this.deletedPatients = ImmutableSet.copyOf(deletedPatients);
     this.patientsToCreate = patientIdsToCreate;
-  }
-
-  public ImmutableList<ImmutableSet<String>> getReferencedPatients() {
-    return referencedPatients;
-  }
-
-  public ImmutableSet<String> getUpdatedPatients() {
-    return updatedPatients;
-  }
-
-  public ImmutableSet<String> getDeletedPatients() {
-    return deletedPatients;
   }
 
   public boolean areTherePatientToCreate() {
