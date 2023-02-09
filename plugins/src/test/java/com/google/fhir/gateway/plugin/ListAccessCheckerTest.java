@@ -248,6 +248,14 @@ public class ListAccessCheckerTest extends AccessCheckerTestBase {
   }
 
   @Test
+  public void canAccessBundleDeletePatient() throws IOException {
+    // Query: POST / -d @bundle_transaction_delete_patient.json
+    setUpFhirBundle("bundle_transaction_delete_patient.json");
+    AccessChecker testInstance = getInstance();
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(true));
+  }
+
+  @Test
   public void canAccessPatchObservationUnauthorizedPatient() throws IOException {
     // Query: PATCH /Observation?subject=Patient/PATIENT_AUTHORIZED -d \
     // @test_obs_patch_unauthorized_patient.json

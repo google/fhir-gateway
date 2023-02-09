@@ -27,7 +27,7 @@
       },
       "request": {
         "method": "DELETE",
-        "url": "Patient/7890"
+        "url": "Patient/patient-non-authorized"
       }
     }
   ]

@@ -292,12 +292,22 @@ public abstract class AccessCheckerTestBase {
     testInstance.checkAccess(requestMock).canAccess();
   }
 
-  @Test(expected = InvalidRequestException.class)
-  public void canAccessBundleDeletePatient() throws IOException {
+  @Test
+  public void canAccessBundleDeleteNonPatient() throws IOException {
     // Query: POST / -d @bundle_transaction_delete.json
-    setUpFhirBundle("bundle_transaction_delete.json");
+    setUpFhirBundle("bundle_transaction_delete_non_patient.json");
     AccessChecker testInstance = getInstance();
-    testInstance.checkAccess(requestMock).canAccess();
+
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(true));
+  }
+
+  @Test
+  public void canAccessBundleDeletePatientUnAuthorized() throws IOException {
+    // Query: POST / -d @bundle_transaction_delete_patient_unauthorized.json
+    setUpFhirBundle("bundle_transaction_delete_patient_unauthorized.json");
+    AccessChecker testInstance = getInstance();
+
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
   }
 
   @Test(expected = InvalidRequestException.class)
