@@ -165,25 +165,15 @@ public final class PatientFinderImp implements PatientFinder {
     return patientId;
   }
 
-  private String findResourceTypeFromRequest(BundleEntryRequestComponent requestComponent)
+  /** Checks if the request is for a Patient resource. */
+  private Boolean isPatientResourceType(BundleEntryRequestComponent requestComponent)
       throws URISyntaxException {
-    String resourceType = null;
     if (requestComponent.getUrl() != null) {
       URI resourceUri = new URI(requestComponent.getUrl());
       IIdType referenceElement = new Reference(resourceUri.getPath()).getReferenceElement();
-      if (referenceElement.getResourceType() != null) {
-        resourceType = referenceElement.getResourceType();
-      } else {
-        resourceType = referenceElement.getIdPart();
-      }
+      return FhirUtil.isSameResourceType(referenceElement.getResourceType(), ResourceType.Patient);
     }
-    if (resourceType == null) {
-      ExceptionUtil.throwRuntimeExceptionAndLog(
-          logger,
-          "Resource type cannot be found in " + requestComponent.getUrl(),
-          InvalidRequestException.class);
-    }
-    return resourceType;
+    return false;
   }
 
   @Override
@@ -452,8 +442,7 @@ public final class PatientFinderImp implements PatientFinder {
       throws URISyntaxException {
     // Ignore body content and just look at request.
     String patientId = findPatientId(entryComponent.getRequest());
-    String resourceName = findResourceTypeFromRequest(entryComponent.getRequest());
-    if (FhirUtil.isSameResourceType(resourceName, ResourceType.Patient)) {
+    if (isPatientResourceType(entryComponent.getRequest())) {
       builder.addDeletedPatients(ImmutableSet.of(patientId));
     } else {
       builder.addReferencedPatients(ImmutableSet.of(patientId));

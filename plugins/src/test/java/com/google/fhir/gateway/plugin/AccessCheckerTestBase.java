@@ -301,6 +301,15 @@ public abstract class AccessCheckerTestBase {
     assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(true));
   }
 
+  @Test
+  public void canAccessBundleDeletePatientUnAuthorized() throws IOException {
+    // Query: POST / -d @bundle_transaction_delete_patient_unauthorized.json
+    setUpFhirBundle("bundle_transaction_delete_patient_unauthorized.json");
+    AccessChecker testInstance = getInstance();
+
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
+  }
+
   @Test(expected = InvalidRequestException.class)
   public void canAccessBundleNoResourceFieldUnauthorized() throws IOException {
     // Query: POST / -d @bundle_transaction_no_resource_field.json
