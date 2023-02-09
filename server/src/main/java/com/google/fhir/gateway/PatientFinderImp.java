@@ -24,6 +24,7 @@ import ca.uhn.fhir.rest.server.exceptions.ForbiddenOperationException;
 import ca.uhn.fhir.rest.server.exceptions.InvalidRequestException;
 import ca.uhn.fhir.util.UrlUtil;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -164,6 +165,17 @@ public final class PatientFinderImp implements PatientFinder {
     return patientId;
   }
 
+  /** Checks if the request is for a Patient resource. */
+  private Boolean isPatientResourceType(BundleEntryRequestComponent requestComponent)
+      throws URISyntaxException {
+    if (requestComponent.getUrl() != null) {
+      URI resourceUri = new URI(requestComponent.getUrl());
+      IIdType referenceElement = new Reference(resourceUri.getPath()).getReferenceElement();
+      return FhirUtil.isSameResourceType(referenceElement.getResourceType(), ResourceType.Patient);
+    }
+    return false;
+  }
+
   @Override
   public String findPatientFromParams(RequestDetailsReader requestDetails) {
     String resourceName = requestDetails.getResourceName();
@@ -264,7 +276,9 @@ public final class PatientFinderImp implements PatientFinder {
     try {
       for (BundleEntryComponent entryComponent : bundle.getEntry()) {
         HTTPVerb httpMethod = entryComponent.getRequest().getMethod();
-        if (httpMethod != HTTPVerb.GET && !entryComponent.hasResource()) {
+        if (httpMethod != HTTPVerb.GET
+            && httpMethod != HTTPVerb.DELETE
+            && !entryComponent.hasResource()) {
           ExceptionUtil.throwRuntimeExceptionAndLog(
               logger, "Bundle entry requires a resource field!", InvalidRequestException.class);
         }
@@ -280,6 +294,9 @@ public final class PatientFinderImp implements PatientFinder {
             break;
           case PATCH:
             processPatch(entryComponent, builder);
+            break;
+          case DELETE:
+            processDelete(entryComponent, builder);
             break;
           default:
             ExceptionUtil.throwRuntimeExceptionAndLog(
@@ -418,6 +435,17 @@ public final class PatientFinderImp implements PatientFinder {
       builder.setPatientCreationFlag(true);
     } else {
       addPatientReference(resource, builder);
+    }
+  }
+
+  private void processDelete(BundleEntryComponent entryComponent, BundlePatientsBuilder builder)
+      throws URISyntaxException {
+    // Ignore body content and just look at request.
+    String patientId = findPatientId(entryComponent.getRequest());
+    if (isPatientResourceType(entryComponent.getRequest())) {
+      builder.addDeletedPatients(ImmutableSet.of(patientId));
+    } else {
+      builder.addReferencedPatients(ImmutableSet.of(patientId));
     }
   }
 

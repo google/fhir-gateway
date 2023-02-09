@@ -21,28 +21,26 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import java.util.List;
 import java.util.Set;
+import lombok.Getter;
 
+@Getter
 public class BundlePatients {
 
   private final ImmutableList<ImmutableSet<String>> referencedPatients;
   private final ImmutableSet<String> updatedPatients;
   private final boolean patientsToCreate;
 
+  private final ImmutableSet<String> deletedPatients;
+
   private BundlePatients(
       List<ImmutableSet<String>> referencedPatients,
       Set<String> updatedPatients,
+      Set<String> deletedPatients,
       boolean patientIdsToCreate) {
     this.referencedPatients = ImmutableList.copyOf(referencedPatients);
     this.updatedPatients = ImmutableSet.copyOf(updatedPatients);
+    this.deletedPatients = ImmutableSet.copyOf(deletedPatients);
     this.patientsToCreate = patientIdsToCreate;
-  }
-
-  public ImmutableList<ImmutableSet<String>> getReferencedPatients() {
-    return referencedPatients;
-  }
-
-  public ImmutableSet<String> getUpdatedPatients() {
-    return updatedPatients;
   }
 
   public boolean areTherePatientToCreate() {
@@ -51,11 +49,18 @@ public class BundlePatients {
 
   public static class BundlePatientsBuilder {
     private final Set<String> updatedPatients = Sets.newHashSet();
+    private final Set<String> deletedPatients = Sets.newHashSet();
     private final List<ImmutableSet<String>> referencedPatients = Lists.newArrayList();
     private boolean patientsToCreate = false;
 
     public BundlePatientsBuilder addUpdatePatients(Set<String> patientsToUpdate) {
       updatedPatients.addAll(patientsToUpdate);
+      return this;
+    }
+
+    public BundlePatientsBuilder addDeletedPatients(Set<String> patientsToDelete) {
+      deletedPatients.addAll(patientsToDelete);
+      addReferencedPatients(patientsToDelete);
       return this;
     }
 
@@ -83,7 +88,8 @@ public class BundlePatients {
     }
 
     public BundlePatients build() {
-      return new BundlePatients(referencedPatients, updatedPatients, patientsToCreate);
+      return new BundlePatients(
+          referencedPatients, updatedPatients, deletedPatients, patientsToCreate);
     }
   }
 }

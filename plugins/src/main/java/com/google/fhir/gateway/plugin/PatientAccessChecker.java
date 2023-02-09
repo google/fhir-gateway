@@ -154,7 +154,9 @@ public class PatientAccessChecker implements AccessChecker {
   private AccessDecision processBundle(RequestDetailsReader requestDetails) {
     BundlePatients patientsInBundle = patientFinder.findPatientsInBundle(requestDetails);
 
-    if (patientsInBundle == null || patientsInBundle.areTherePatientToCreate()) {
+    if (patientsInBundle == null
+        || patientsInBundle.areTherePatientToCreate()
+        || !patientsInBundle.getDeletedPatients().isEmpty()) {
       return NoOpAccessDecision.accessDenied();
     }
 
