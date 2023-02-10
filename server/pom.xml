@@ -21,7 +21,7 @@
   <parent>
     <groupId>com.google.fhir.proxy</groupId>
     <artifactId>fhir-proxy</artifactId>
-    <version>0.1.1-beta</version>
+    <version>0.1.3-beta</version>
   </parent>
 
   <artifactId>server</artifactId>
