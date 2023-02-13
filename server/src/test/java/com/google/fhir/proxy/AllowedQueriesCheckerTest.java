@@ -124,4 +124,34 @@ public class AllowedQueriesCheckerTest {
     AllowedQueriesChecker testInstance = new AllowedQueriesChecker(configFileUrl.getPath());
     assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
   }
+
+  @Test
+  public void validGetCompositionQueryWithAnyValue() throws IOException {
+    // Query: GET /Composition/some-random-value
+    when(requestMock.getRequestPath()).thenReturn("/Composition/some-random-value");
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.GET);
+    URL configFileUrl = Resources.getResource("hapi_page_url_allowed_queries.json");
+    AllowedQueriesChecker testInstance = new AllowedQueriesChecker(configFileUrl.getPath());
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(true));
+  }
+
+  @Test
+  public void validGetBinaryQueryWithExpectedPathVariable() throws IOException {
+    // Query: GET /Binary/1234567
+    when(requestMock.getRequestPath()).thenReturn("/Binary/1234567");
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.GET);
+    URL configFileUrl = Resources.getResource("hapi_page_url_allowed_queries.json");
+    AllowedQueriesChecker testInstance = new AllowedQueriesChecker(configFileUrl.getPath());
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(true));
+  }
+
+  @Test
+  public void denyGetBinaryQueryWithUnexpectedPathVariable() throws IOException {
+    // Query: GET /Binary/unauthorized-path-variable
+    when(requestMock.getRequestPath()).thenReturn("/Binary/unauthorized-path-variable");
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.GET);
+    URL configFileUrl = Resources.getResource("hapi_page_url_allowed_queries.json");
+    AllowedQueriesChecker testInstance = new AllowedQueriesChecker(configFileUrl.getPath());
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
+  }
 }

@@ -26,6 +26,7 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.Map.Entry;
 import java.util.Set;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -79,10 +80,16 @@ class AllowedQueriesChecker implements AccessChecker {
         && entry.getMethodType().equals(requestDetails.getRequestType().name())
         && requestContainsPathVariables(requestDetails.getRequestPath())) {
       String requestPath = getResourceFromCompleteRequestPath(requestDetails.getRequestPath());
-      if (!entry.getPath().equals(requestPath)) {
+      if (!StringUtils.strip(entry.getPath(), "/").equals(requestPath)) {
         return false;
-      }
-    } else if (!entry.getPath().equals(requestDetails.getRequestPath())) {
+      } else if (!AllowedQueriesConfig.MATCHES_ANY_VALUE.equals(entry.getPathVariables())
+          && !getPathVariable(requestDetails.getRequestPath()).equals(entry.getPathVariables())) {
+        return false;
+
+      } else return true;
+
+    } else if (!getResourceFromCompleteRequestPath(entry.getPath())
+        .equals(getResourceFromCompleteRequestPath(requestDetails.getRequestPath()))) {
       return false;
     } else if (entry.getMethodType() != null
         && entry.getMethodType().equals(requestDetails.getRequestType().name())) {
@@ -125,30 +132,24 @@ class AllowedQueriesChecker implements AccessChecker {
     if (requestResourcePath != null && requestResourcePath.startsWith("/")) {
       requestResourcePath = requestResourcePath.substring(1);
     }
-    if (requestResourcePath.contains("/")) {
-      return true;
-    }
-    return false;
+    return requestResourcePath.contains("/");
   }
 
   private String getResourceFromCompleteRequestPath(String completeRequestPath) {
     String requestResourcePath = trimForwardSlashFromRequestPath(completeRequestPath);
-    if (requestResourcePath.contains("/")) {
-
-      int pathVarIndex = requestResourcePath.indexOf("/");
-      String pathVar = requestResourcePath.substring(pathVarIndex + 1);
-      String requestPath = requestResourcePath.substring(0, pathVarIndex + 1);
-      requestPath = "/" + requestPath;
-      return requestPath;
-    }
-    return requestResourcePath;
+    return requestResourcePath.contains("/")
+        ? requestResourcePath.substring(0, requestResourcePath.indexOf('/'))
+        : requestResourcePath;
   }
 
   private String trimForwardSlashFromRequestPath(String completeRequestPath) {
-    String requestResourcePath = completeRequestPath;
-    if (completeRequestPath.startsWith("/")) {
-      requestResourcePath = completeRequestPath.substring(1);
-    }
-    return requestResourcePath;
+    return completeRequestPath.startsWith("/")
+        ? completeRequestPath.substring(1)
+        : completeRequestPath;
+  }
+
+  private String getPathVariable(String completeRequestPath) {
+    String pathVariable = trimForwardSlashFromRequestPath(completeRequestPath);
+    return pathVariable.substring(pathVariable.indexOf('/') + 1);
   }
 }

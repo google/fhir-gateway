@@ -8,6 +8,26 @@
       },
       "allowExtraParams": true,
       "allParamsRequired": true
+    },
+    {
+      "path": "/Composition/",
+      "pathVariables": "ANY_VALUE",
+      "methodType": "GET",
+      "queryParams": {
+
+      },
+      "allowExtraParams": true,
+      "allParamsRequired": false
+    },
+    {
+      "path": "/Binary/",
+      "pathVariables": "1234567",
+      "methodType": "GET",
+      "queryParams": {
+
+      },
+      "allowExtraParams": true,
+      "allParamsRequired": false
     }
   ]
 }
