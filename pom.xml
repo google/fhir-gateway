@@ -19,18 +19,55 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
+  <parent>
+    <groupId>org.sonatype.oss</groupId>
+    <artifactId>oss-parent</artifactId>
+    <version>9</version>
+  </parent>
+
   <groupId>com.google.fhir.gateway</groupId>
   <artifactId>fhir-gateway</artifactId>
-  <version>0.1.0</version>
+  <version>0.1.1</version>
   <packaging>pom</packaging>
 
-  <name>FHIR Access Proxy</name>
+  <name>FHIR Information Gateway</name>
+  <description>A pluggable access-control gateway for any generic FHIR server.</description>
+  <url>https://github.com/google/fhir-gateway</url>
   <inceptionYear>2021</inceptionYear>
+
+  <licenses>
+    <license>
+      <name>The Apache License, Version 2.0</name>
+      <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+    </license>
+  </licenses>
+
   <modules>
     <module>exec</module>
     <module>plugins</module>
     <module>server</module>
   </modules>
+
+  <scm>
+    <connection>scm:git:git://github.com/google/fhir-gateway.git</connection>
+    <developerConnection>scm:git:ssh://github.com:google/fhir-gateway.git</developerConnection>
+    <url>https://github.com/google/fhir-gateway/tree/main</url>
+  </scm>
+
+  <!-- For release documentation see:
+    https://central.sonatype.org/publish/publish-maven/
+    Note, although it suggests new projects should use s01.oss.sonatype.org but
+    with our sonatype.org credentials, it fails with a "Forbidden" message. -->
+  <distributionManagement>
+    <repository>
+      <id>ossrh</id>
+      <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
+    </repository>
+    <snapshotRepository>
+      <id>ossrh</id>
+      <url>https://oss.sonatype.org/content/repositories/snapshots</url>
+    </snapshotRepository>
+  </distributionManagement>
 
   <properties>
     <hapifhir_version>6.2.5</hapifhir_version>

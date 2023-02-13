@@ -40,7 +40,7 @@ RUN mvn --batch-mode package -Pstandalone-app -Dlicense.skip=true
 # Image for FHIR Access Proxy binary with configuration knobs as environment vars.
 FROM eclipse-temurin:11-jdk-focal as main
 
-COPY --from=build /app/exec/target/exec-0.1.0.jar /
+COPY --from=build /app/exec/target/exec-0.1.1.jar /
 COPY resources/hapi_page_url_allowed_queries.json resources/hapi_page_url_allowed_queries.json
 
 ENV PROXY_PORT=8080
@@ -54,4 +54,4 @@ ENV BACKEND_TYPE="HAPI"
 ENV ACCESS_CHECKER="list"
 ENV RUN_MODE="PROD"
 
-ENTRYPOINT java -jar exec-0.1.0.jar --server.port=${PROXY_PORT}
+ENTRYPOINT java -jar exec-0.1.1.jar --server.port=${PROXY_PORT}
