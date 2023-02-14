@@ -21,54 +21,37 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.regex.Pattern;
+import lombok.Getter;
 
+/**
+ * This class models the SMART-on-FHIR permission scopes that are meant ot be used for accessing
+ * clinical data. The constraints in this class are according to the official guidelines here:
+ * https://build.fhir.org/ig/HL7/smart-app-launch/scopes-and-launch-context.html#scopes-for-requesting-clinical-data
+ */
 public class SmartFhirScope {
-  SmartFhirScopeResourcePrincipalContext principalContext;
-  String resourceType;
-
-  public SmartFhirScopeResourcePrincipalContext getPrincipalContext() {
-    return principalContext;
-  }
-
-  public String getResourceType() {
-    return resourceType;
-  }
-
-  public Set<SmartFhirScopeResourcePermission> getResourcePermissions() {
-    return resourcePermissions;
-  }
-
-  Set<SmartFhirScopeResourcePermission> resourcePermissions;
-
-  private SmartFhirScope(
-      SmartFhirScopeResourcePrincipalContext principalContext,
-      String resourceType,
-      Set<SmartFhirScopeResourcePermission> resourcePermissions) {
-    this.principalContext = principalContext;
-    this.resourcePermissions = resourcePermissions;
-    this.resourceType = resourceType;
-  }
-
-  private static final Pattern PATIENT_SCOPE_PATTERN =
+  private static final Pattern VALID_SCOPE_PATTERN =
       Pattern.compile(
           "(\\buser|patient|system\\b)(\\/((\\*)|([a-zA-Z]+)))(\\.((\\*)|([cruds]+)|(\\bread|write\\b)))");
   static final String ALL_RESOURCE_TYPES_WILDCARD = "*";
-  static final String ALL_RESOURCE_PERMISSIONS_WILDCARD = "*";
-  static final String SMART_V1_READ_RESOURCE_PERMISSIONS = "read";
-  static final String SMART_V1_WRITE_RESOURCE_PERMISSIONS = "write";
+  private static final String ALL_RESOURCE_PERMISSIONS_WILDCARD = "*";
+  private static final String SMART_V1_READ_RESOURCE_PERMISSIONS = "read";
+  private static final String SMART_V1_WRITE_RESOURCE_PERMISSIONS = "write";
 
-  private static final List<SmartFhirScopeResourcePermission> resourcePermissionsSequence =
-      List.of(
-          SmartFhirScopeResourcePermission.CREATE,
-          SmartFhirScopeResourcePermission.READ,
-          SmartFhirScopeResourcePermission.UPDATE,
-          SmartFhirScopeResourcePermission.DELETE,
-          SmartFhirScopeResourcePermission.SEARCH);
+  @Getter private final PrincipalContext principalContext;
+  @Getter private final String resourceType;
+  @Getter private final Set<Permission> permissions;
+
+  private SmartFhirScope(
+      PrincipalContext principalContext, String resourceType, Set<Permission> resourcePermissions) {
+    this.principalContext = principalContext;
+    this.permissions = resourcePermissions;
+    this.resourceType = resourceType;
+  }
 
   static List<SmartFhirScope> extractSmartFhirScopesFromTokens(List<String> tokens) {
     List<SmartFhirScope> scopes = new ArrayList<>();
     for (String scope : tokens) {
-      if (PATIENT_SCOPE_PATTERN.matcher(scope).matches()) {
+      if (VALID_SCOPE_PATTERN.matcher(scope).matches()) {
         scopes.add(createSmartScope(scope));
       }
     }
@@ -76,17 +59,15 @@ public class SmartFhirScope {
   }
 
   private static SmartFhirScope createSmartScope(String scope) {
-    String[] principalTokenSplit = scope.split("/");
-    SmartFhirScopeResourcePrincipalContext principalContext =
-        SmartFhirScopeResourcePrincipalContext.getPrincipalContext(principalTokenSplit[0]);
-    String[] resourceTypeAndPermissionSplit = principalTokenSplit[1].split("\\.");
-    if (!isValidResourceType(resourceTypeAndPermissionSplit[0])) {
+    String[] split = scope.split("/");
+    PrincipalContext principalContext = PrincipalContext.getPrincipalContext(split[0]);
+    String[] permissionSplit = split[1].split("\\.");
+    if (!isValidResourceType(permissionSplit[0])) {
       throw new IllegalArgumentException(
-          String.format("Invalid resource type %s", resourceTypeAndPermissionSplit[0]));
+          String.format("Invalid resource type %s", permissionSplit[0]));
     }
-    String resourceType = resourceTypeAndPermissionSplit[0];
-    Set<SmartFhirScopeResourcePermission> permissions =
-        extractPermissions(resourceTypeAndPermissionSplit[1]);
+    String resourceType = permissionSplit[0];
+    Set<Permission> permissions = extractPermissions(permissionSplit[1]);
     return new SmartFhirScope(principalContext, resourceType, permissions);
   }
 
@@ -95,30 +76,31 @@ public class SmartFhirScope {
         || FhirUtil.isValidFhirResourceType(resourceType);
   }
 
-  private static Set<SmartFhirScopeResourcePermission> extractPermissions(String permissionString) {
-    // TODO(anchitag): Assumes that the permissions are in v2 format only
-    Set<SmartFhirScopeResourcePermission> permissions = new HashSet<>();
+  private static Set<Permission> extractPermissions(String permissionString) {
+    Set<Permission> permissions = new HashSet<>();
     if (ALL_RESOURCE_PERMISSIONS_WILDCARD.equals(permissionString)) {
-      permissions.addAll(resourcePermissionsSequence);
+      permissions.addAll(List.of(Permission.values()));
       return permissions;
     }
+    // We will support both v1 and v2 versions of the permissions:
     // https://build.fhir.org/ig/HL7/smart-app-launch/scopes-and-launch-context.html#scopes-for-requesting-clinical-data
     if (SMART_V1_READ_RESOURCE_PERMISSIONS.equals(permissionString)) {
-      permissions.add(SmartFhirScopeResourcePermission.READ);
-      permissions.add(SmartFhirScopeResourcePermission.SEARCH);
+      permissions.add(Permission.READ);
+      permissions.add(Permission.SEARCH);
       return permissions;
     }
     if (SMART_V1_WRITE_RESOURCE_PERMISSIONS.equals(permissionString)) {
-      permissions.add(SmartFhirScopeResourcePermission.CREATE);
-      permissions.add(SmartFhirScopeResourcePermission.UPDATE);
-      permissions.add(SmartFhirScopeResourcePermission.DELETE);
+      permissions.add(Permission.CREATE);
+      permissions.add(Permission.UPDATE);
+      permissions.add(Permission.DELETE);
       return permissions;
     }
     char[] permissionTokens = permissionString.toCharArray();
     int permissionTokensCounter = 0;
-    for (SmartFhirScopeResourcePermission permission : resourcePermissionsSequence) {
-      if (SmartFhirScopeResourcePermission.getPermission(permissionTokens[permissionTokensCounter])
-          == permission) {
+    // SMART guidelines recommend enforcing order in the permissions string:
+    // https://build.fhir.org/ig/HL7/smart-app-launch/scopes-and-launch-context.html#scopes-for-requesting-clinical-data
+    for (Permission permission : Permission.values()) {
+      if (Permission.getPermission(permissionTokens[permissionTokensCounter]) == permission) {
         permissionTokensCounter++;
         permissions.add(permission);
       }
@@ -132,49 +114,40 @@ public class SmartFhirScope {
     }
     return permissions;
   }
-}
 
-enum SmartFhirScopeResourcePrincipalContext {
-  USER,
-  PATIENT,
-  SYSTEM;
+  enum PrincipalContext {
+    USER,
+    PATIENT,
+    SYSTEM;
 
-  static SmartFhirScopeResourcePrincipalContext getPrincipalContext(String principal) {
-    switch (principal.toLowerCase()) {
-      case "user":
-        return USER;
-      case "patient":
-        return PATIENT;
-      case "system":
-        return SYSTEM;
-      default:
-        throw new IllegalArgumentException(String.format("Invalid principal %s", principal));
+    static PrincipalContext getPrincipalContext(String principal) {
+      return PrincipalContext.valueOf(principal.toUpperCase());
     }
   }
-}
 
-enum SmartFhirScopeResourcePermission {
-  CREATE,
-  READ,
-  UPDATE,
-  DELETE,
-  SEARCH;
+  enum Permission {
+    CREATE,
+    READ,
+    UPDATE,
+    DELETE,
+    SEARCH;
 
-  static SmartFhirScopeResourcePermission getPermission(char permissionCode) {
-    switch (permissionCode) {
-      case 'c':
-        return CREATE;
-      case 'r':
-        return READ;
-      case 'u':
-        return UPDATE;
-      case 'd':
-        return DELETE;
-      case 's':
-        return SEARCH;
-      default:
-        throw new IllegalArgumentException(
-            String.format("Invalid permission code. %s", permissionCode));
+    static Permission getPermission(char permissionCode) {
+      switch (permissionCode) {
+        case 'c':
+          return CREATE;
+        case 'r':
+          return READ;
+        case 'u':
+          return UPDATE;
+        case 'd':
+          return DELETE;
+        case 's':
+          return SEARCH;
+        default:
+          throw new IllegalArgumentException(
+              String.format("Invalid permission code. %s", permissionCode));
+      }
     }
   }
 }

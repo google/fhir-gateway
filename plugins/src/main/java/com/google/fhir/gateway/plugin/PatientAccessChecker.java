@@ -33,16 +33,14 @@ import com.google.fhir.gateway.interfaces.AccessDecision;
 import com.google.fhir.gateway.interfaces.NoOpAccessDecision;
 import com.google.fhir.gateway.interfaces.PatientFinder;
 import com.google.fhir.gateway.interfaces.RequestDetailsReader;
+import com.google.fhir.gateway.plugin.SmartFhirScope.Permission;
+import com.google.fhir.gateway.plugin.SmartFhirScope.PrincipalContext;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 import javax.inject.Named;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.instance.model.api.IIdType;
@@ -55,7 +53,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * This access-checker uses the `patient_id` and the `scope` claim in the access token to decide
+ * This access-checker uses the `patient_id` and `scope` claims in the access token to decide
  * whether access to a request should be granted or not. The `scope` claims are expected to tbe
  * SMART-on-FHIR compliant.
  */
@@ -66,28 +64,22 @@ public class PatientAccessChecker implements AccessChecker {
   private final PatientFinder patientFinder;
 
   private final FhirContext fhirContext;
-  private final Map<String, Set<SmartFhirScopeResourcePermission>> permissionsByResourceType;
+
+  private final SmartFhirPermissionChecker smartFhirPermissionChecker;
 
   private PatientAccessChecker(
       FhirContext fhirContext,
       String authorizedPatientId,
       PatientFinder patientFinder,
-      List<SmartFhirScope> scopes) {
+      SmartFhirPermissionChecker smartFhirPermissionChecker) {
     Preconditions.checkNotNull(authorizedPatientId);
     Preconditions.checkNotNull(patientFinder);
-    Preconditions.checkNotNull(scopes);
+    Preconditions.checkNotNull(smartFhirPermissionChecker);
     Preconditions.checkNotNull(fhirContext);
     this.authorizedPatientId = authorizedPatientId;
     this.patientFinder = patientFinder;
     this.fhirContext = fhirContext;
-    this.permissionsByResourceType =
-        scopes.stream()
-            .collect(
-                Collectors.groupingBy(
-                    SmartFhirScope::getResourceType,
-                    Collectors.flatMapping(
-                        resourceScopes -> resourceScopes.getResourcePermissions().stream(),
-                        Collectors.toSet())));
+    this.smartFhirPermissionChecker = smartFhirPermissionChecker;
   }
 
   @Override
@@ -131,29 +123,20 @@ public class PatientAccessChecker implements AccessChecker {
     return processCreate(requestDetails);
   }
 
-  private boolean hasPermission(String resourceType, SmartFhirScopeResourcePermission permission) {
-    return this.permissionsByResourceType
-            .getOrDefault(resourceType, Collections.emptySet())
-            .contains(permission)
-        || this.permissionsByResourceType
-            .getOrDefault(SmartFhirScope.ALL_RESOURCE_TYPES_WILDCARD, Collections.emptySet())
-            .contains(permission);
-  }
-
   private AccessDecision processRead(RequestDetailsReader requestDetails) {
     String patientId = patientFinder.findPatientFromParams(requestDetails);
     return new NoOpAccessDecision(
         authorizedPatientId.equals(patientId)
-            && hasPermission(
-                requestDetails.getResourceName(), SmartFhirScopeResourcePermission.READ));
+            && smartFhirPermissionChecker.hasPermission(
+                requestDetails.getResourceName(), Permission.READ));
   }
 
   private AccessDecision processSearch(RequestDetailsReader requestDetails) {
     String patientId = patientFinder.findPatientFromParams(requestDetails);
     return new NoOpAccessDecision(
         authorizedPatientId.equals(patientId)
-            && hasPermission(
-                requestDetails.getResourceName(), SmartFhirScopeResourcePermission.SEARCH));
+            && smartFhirPermissionChecker.hasPermission(
+                requestDetails.getResourceName(), Permission.SEARCH));
   }
 
   private AccessDecision processCreate(RequestDetailsReader requestDetails) {
@@ -164,8 +147,8 @@ public class PatientAccessChecker implements AccessChecker {
     Set<String> patientIds = patientFinder.findPatientsInResource(requestDetails);
     return new NoOpAccessDecision(
         patientIds.contains(authorizedPatientId)
-            && hasPermission(
-                requestDetails.getResourceName(), SmartFhirScopeResourcePermission.CREATE));
+            && smartFhirPermissionChecker.hasPermission(
+                requestDetails.getResourceName(), Permission.CREATE));
   }
 
   private AccessDecision processUpdate(RequestDetailsReader requestDetails) {
@@ -184,8 +167,8 @@ public class PatientAccessChecker implements AccessChecker {
     String patientId = patientFinder.findPatientFromParams(requestDetails);
     return new NoOpAccessDecision(
         authorizedPatientId.equals(patientId)
-            && hasPermission(
-                requestDetails.getResourceName(), SmartFhirScopeResourcePermission.DELETE));
+            && smartFhirPermissionChecker.hasPermission(
+                requestDetails.getResourceName(), Permission.DELETE));
   }
 
   private AccessDecision checkNonPatientAccessInUpdate(
@@ -209,8 +192,8 @@ public class PatientAccessChecker implements AccessChecker {
     }
     return new NoOpAccessDecision(
         patientIds.contains(authorizedPatientId)
-            && hasPermission(
-                requestDetails.getResourceName(), SmartFhirScopeResourcePermission.UPDATE));
+            && smartFhirPermissionChecker.hasPermission(
+                requestDetails.getResourceName(), Permission.UPDATE));
   }
 
   private AccessDecision checkPatientAccessInUpdate(RequestDetailsReader requestDetails) {
@@ -222,7 +205,8 @@ public class PatientAccessChecker implements AccessChecker {
     }
     return new NoOpAccessDecision(
         authorizedPatientId.equals(patientId)
-            && hasPermission(ResourceType.Patient.name(), SmartFhirScopeResourcePermission.UPDATE));
+            && smartFhirPermissionChecker.hasPermission(
+                ResourceType.Patient.name(), Permission.UPDATE));
   }
 
   private AccessDecision processBundle(RequestDetailsReader requestDetails) {
@@ -244,7 +228,9 @@ public class PatientAccessChecker implements AccessChecker {
         return NoOpAccessDecision.accessDenied();
       }
     }
-
+    // TODO: there is duplication in processing the request Bundle here. It is already processed in
+    // PatientFinder
+    // Will follow up with a PR to solve this :https://github.com/google/fhir-gateway/issues/104
     Bundle requestBundle = createBundleFromRequest(requestDetails);
     if (requestBundle == null) {
       return NoOpAccessDecision.accessDenied();
@@ -273,11 +259,12 @@ public class PatientAccessChecker implements AccessChecker {
   }
 
   private boolean doesReferenceElementHavePermission(
-      IIdType referenceElement, SmartFhirScopeResourcePermission permission) {
+      IIdType referenceElement, Permission permission) {
     if (referenceElement.getResourceType() != null && referenceElement.hasIdPart()) {
-      return hasPermission(referenceElement.getResourceType(), permission);
+      return smartFhirPermissionChecker.hasPermission(
+          referenceElement.getResourceType(), permission);
     } else {
-      return hasPermission(referenceElement.getValue(), permission);
+      return smartFhirPermissionChecker.hasPermission(referenceElement.getValue(), permission);
     }
   }
 
@@ -289,15 +276,13 @@ public class PatientAccessChecker implements AccessChecker {
           if (bundleEntryRequest.getUrl() != null) {
             URI resourceUri = new URI(bundleEntryRequest.getUrl());
             IIdType referenceElement = new Reference(resourceUri.getPath()).getReferenceElement();
-            return doesReferenceElementHavePermission(
-                referenceElement, SmartFhirScopeResourcePermission.READ);
+            return doesReferenceElementHavePermission(referenceElement, Permission.READ);
           }
           break;
         case POST:
           if (bundleEntry.getResource().getResourceType() != null) {
-            return hasPermission(
-                bundleEntry.getResource().getResourceType().name(),
-                SmartFhirScopeResourcePermission.CREATE);
+            return smartFhirPermissionChecker.hasPermission(
+                bundleEntry.getResource().getResourceType().name(), Permission.CREATE);
           }
           // TODO(https://github.com/google/fhir-gateway/issues/87): Add support for search in post
           break;
@@ -305,17 +290,22 @@ public class PatientAccessChecker implements AccessChecker {
           if (bundleEntryRequest.getUrl() != null) {
             URI resourceUri = new URI(bundleEntryRequest.getUrl());
             IIdType referenceElement = new Reference(resourceUri.getPath()).getReferenceElement();
-            return doesReferenceElementHavePermission(
-                referenceElement, SmartFhirScopeResourcePermission.UPDATE);
+            return doesReferenceElementHavePermission(referenceElement, Permission.UPDATE);
           }
           break;
         case PATCH:
           if (bundleEntryRequest.getUrl() != null) {
             URI resourceUri = new URI(bundleEntryRequest.getUrl());
             IIdType referenceElement = new Reference(resourceUri.getPath()).getReferenceElement();
-            return doesReferenceElementHavePermission(
-                referenceElement, SmartFhirScopeResourcePermission.UPDATE);
+            return doesReferenceElementHavePermission(referenceElement, Permission.UPDATE);
           }
+        case DELETE:
+          if (bundleEntryRequest.getUrl() != null) {
+            URI resourceUri = new URI(bundleEntryRequest.getUrl());
+            IIdType referenceElement = new Reference(resourceUri.getPath()).getReferenceElement();
+            return doesReferenceElementHavePermission(referenceElement, Permission.DELETE);
+          }
+          break;
         default:
           return false;
       }
@@ -337,14 +327,12 @@ public class PatientAccessChecker implements AccessChecker {
       return FhirUtil.checkIdOrFail(JwtUtil.getClaimOrDie(jwt, PATIENT_CLAIM));
     }
 
-    private List<SmartFhirScope> getPatientScopes(DecodedJWT jwt) {
+    private SmartFhirPermissionChecker getSmartFhirPermissionChecker(DecodedJWT jwt) {
       String scopesClaim = JwtUtil.getClaimOrDie(jwt, SCOPES_CLAIM);
       String[] scopes = scopesClaim.strip().split("\\s+");
-      return SmartFhirScope.extractSmartFhirScopesFromTokens(Arrays.asList(scopes)).stream()
-          .filter(
-              smartFhirScope ->
-                  smartFhirScope.principalContext == SmartFhirScopeResourcePrincipalContext.PATIENT)
-          .collect(Collectors.toList());
+      return new SmartFhirPermissionChecker(
+          SmartFhirScope.extractSmartFhirScopesFromTokens(Arrays.asList(scopes)),
+          PrincipalContext.PATIENT);
     }
 
     public AccessChecker create(
@@ -353,7 +341,7 @@ public class PatientAccessChecker implements AccessChecker {
         FhirContext fhirContext,
         PatientFinder patientFinder) {
       return new PatientAccessChecker(
-          fhirContext, getPatientId(jwt), patientFinder, getPatientScopes(jwt));
+          fhirContext, getPatientId(jwt), patientFinder, getSmartFhirPermissionChecker(jwt));
     }
   }
 }
