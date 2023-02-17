@@ -17,20 +17,28 @@ package com.google.fhir.proxy.plugin;
 
 import ca.uhn.fhir.rest.api.RequestTypeEnum;
 import ca.uhn.fhir.rest.server.servlet.ServletRequestDetails;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.fhir.proxy.ProxyConstants;
 import com.google.fhir.proxy.interfaces.AccessDecision;
+import com.google.gson.Gson;
+import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import lombok.Getter;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.http.HttpResponse;
 import org.apache.http.util.TextUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class OpenSRPSyncAccessDecision implements AccessDecision {
+  private static final Logger logger = LoggerFactory.getLogger(PermissionAccessChecker.class);
 
   private String applicationId;
 
@@ -43,6 +51,11 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
   private List<String> locationIds;
 
   private List<String> organizationIds;
+
+  private IgnoredResourcesConfig config;
+
+  public static final String SYNC_FILTER_IGNORE_RESOURCES_FILE_ENV =
+      "SYNC_FILTER_IGNORE_RESOURCES_FILE";
 
   public OpenSRPSyncAccessDecision(
       String applicationId,
@@ -57,6 +70,13 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
     this.locationIds = locationIds;
     this.organizationIds = organizationIds;
     this.syncStrategy = syncStrategy;
+
+    config = getSkippedResourcesConfigs();
+  }
+
+  @VisibleForTesting
+  protected IgnoredResourcesConfig getSkippedResourcesConfigs() {
+    return getIgnoredResourcesConfigFile(System.getenv(SYNC_FILTER_IGNORE_RESOURCES_FILE_ENV));
   }
 
   @Override
@@ -76,7 +96,13 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
         locationIds.add(
             "CR1bAeGgaYqIpsNkG0iidfE5WVb5BJV1yltmL4YFp3o6mxj3iJPhKh4k9ROhlyZveFC8298lYzft8SIy8yMNLl5GVWQXNRr1sSeBkP2McfFZjbMYyrxlNFOJgqvtccDKKYSwBiLHq2By5tRupHcmpIIghV7Hp39KgF4iBDNqIGMKhgOIieQwt5BRih5FgnwdHrdlK9ix");
       }
-      addSyncFilters(servletRequestDetails, getSyncTags(locationIds, careTeamIds, organizationIds));
+
+      // Skip app-wide global resource requests
+      if (config == null || !config.resources.contains(servletRequestDetails.getResourceName())) {
+
+        addSyncFilters(
+            servletRequestDetails, getSyncTags(locationIds, careTeamIds, organizationIds));
+      }
     }
   }
 
@@ -188,5 +214,33 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
     }
 
     return false;
+  }
+
+  @VisibleForTesting
+  protected IgnoredResourcesConfig getIgnoredResourcesConfigFile(String configFile) {
+    if (configFile != null && !configFile.isEmpty()) {
+      try {
+        Gson gson = new Gson();
+        config = gson.fromJson(new FileReader(configFile), IgnoredResourcesConfig.class);
+        if (config == null || config.resources == null) {
+          throw new IllegalArgumentException("An array expected!");
+        }
+
+      } catch (IOException e) {
+        logger.error("IO error while reading sync-filter skip-list config file {}", configFile);
+      }
+    }
+
+    return config;
+  }
+
+  class IgnoredResourcesConfig {
+
+    @Getter private List<String> resources;
+
+    @Override
+    public String toString() {
+      return "SkippedFilesConfig{" + "fhirResources=" + StringUtils.join(resources, ",") + '}';
+    }
   }
 }

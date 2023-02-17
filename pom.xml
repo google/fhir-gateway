@@ -21,7 +21,7 @@
 
   <groupId>com.google.fhir.proxy</groupId>
   <artifactId>fhir-proxy</artifactId>
-  <version>0.1.5-beta</version>
+  <version>0.1.6-beta</version>
   <packaging>pom</packaging>
 
   <name>FHIR Access Proxy</name>
