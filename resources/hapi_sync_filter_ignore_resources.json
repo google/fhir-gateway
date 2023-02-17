@@ -1,0 +1,7 @@
+{
+  "resources": [
+    "Questionnaire",
+    "StructureMap",
+    "List"
+  ]
+}

@@ -111,6 +111,18 @@ variables:
   export ALLOWED_QUERIES_FILE="resources/hapi_page_url_allowed_queries.json"
   ```
 
+- **Globally Accessible FHIR Resources**: There are resources that the server
+  should _Authenticate_ and _Authorize_ but NOT filter by _Sync strategy_. The
+  user defines their criteria in a config file and if the resource matches an
+  entry in that config file then resource is not subject to filtering by Sync
+  Strategy(_i.e. sync by Location, Sync by Team e.t.c_). An example of this is:
+  [`hapi_sync_filter_resources_ignore.json`](https://github.com/google/fhir-access-proxy/blob/main/resources/hapi_sync_filter_resources_ignore.json).
+  To use the file, set the `SYNC_FILTER_IGNORE_RESOURCES_FILE` variable:
+
+  ```shell
+  export SYNC_FILTER_IGNORE_RESOURCES_FILE="resources/hapi_sync_filter_resources_ignore.json"
+  ```
+
 - The proxy makes no assumptions about what the FHIR server is, but the proxy
   should be able to send any FHIR queries to the server. For example, if you use
   a [GCP FHIR store](https://cloud.google.com/healthcare-api/docs/concepts/fhir)

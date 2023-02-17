@@ -43,9 +43,13 @@ import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import java.io.FileReader;
+import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
 import javax.inject.Named;
+import lombok.Getter;
+import org.apache.commons.lang3.StringUtils;
 import org.hl7.fhir.r4.model.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -64,6 +68,11 @@ public class PermissionAccessChecker implements AccessChecker {
   private final List<String> organizationIds;
 
   private final List<String> syncStrategy;
+
+  private SkippedFilesConfig config;
+
+  public static final String SYNC_FILTER_IGNORE_RESOURCES_FILE_ENV =
+      "SYNC_FILTER_IGNORE_RESOURCES_FILE";
 
   private PermissionAccessChecker(
       List<String> userRoles,
@@ -87,12 +96,20 @@ public class PermissionAccessChecker implements AccessChecker {
     this.organizationIds = organizationIds;
     this.locationIds = locationIds;
     this.syncStrategy = syncStrategy;
+
+    config = getFile(System.getenv(SYNC_FILTER_IGNORE_RESOURCES_FILE_ENV));
   }
 
   @Override
   public AccessDecision checkAccess(RequestDetailsReader requestDetails) {
+    // Skip app-wide global resources
+    if (config != null && config.resources.contains(requestDetails.getResourceName())) {
+
+      return NoOpAccessDecision.accessGranted();
+
+    }
     // For a Bundle requestDetails.getResourceName() returns null
-    if (requestDetails.getRequestType() == RequestTypeEnum.POST
+    else if (requestDetails.getRequestType() == RequestTypeEnum.POST
         && requestDetails.getResourceName() == null) {
       return processBundle(requestDetails);
 
@@ -189,6 +206,33 @@ public class PermissionAccessChecker implements AccessChecker {
 
   private boolean checkIfRoleExists(String roleName, List<String> existingRoles) {
     return existingRoles.contains(roleName);
+  }
+
+  protected SkippedFilesConfig getFile(String configFile) {
+    if (configFile != null && !configFile.isEmpty()) {
+      try {
+        Gson gson = new Gson();
+        config = gson.fromJson(new FileReader(configFile), SkippedFilesConfig.class);
+        if (config == null || config.resources == null) {
+          throw new IllegalArgumentException("An array expected!");
+        }
+
+      } catch (IOException e) {
+        logger.error("IO error while reading sync-filter skip-list config file {}", configFile);
+      }
+    }
+
+    return config;
+  }
+
+  class SkippedFilesConfig {
+
+    @Getter private List<String> resources;
+
+    @Override
+    public String toString() {
+      return "SkippedFilesConfig{" + "fhirResources=" + StringUtils.join(resources, ",") + '}';
+    }
   }
 
   @Named(value = "permission")

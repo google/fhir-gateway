@@ -31,6 +31,7 @@ import com.google.fhir.proxy.interfaces.RequestDetailsReader;
 import java.io.IOException;
 import java.net.URL;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import org.hl7.fhir.r4.model.Enumerations;
@@ -451,6 +452,37 @@ public class PermissionAccessCheckerTest {
 
     when(requestMock.getResourceName()).thenReturn(null);
     when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.POST);
+
+    PermissionAccessChecker testInstance = Mockito.spy((PermissionAccessChecker) getInstance());
+    when(testInstance.isDevMode()).thenReturn(true);
+
+    boolean canAccess = testInstance.checkAccess(requestMock).canAccess();
+
+    assertThat(canAccess, equalTo(false));
+  }
+
+  @Test
+  public void testAccessGrantedWhenResourcePresentInSyncFilterIgnoreResourcesFile() {
+
+    when(claimMock.asMap()).thenReturn(Collections.emptyMap());
+
+    when(requestMock.getResourceName()).thenReturn("Questionnaire");
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.GET);
+
+    PermissionAccessChecker testInstance = Mockito.spy((PermissionAccessChecker) getInstance());
+    when(testInstance.isDevMode()).thenReturn(true);
+
+    boolean canAccess = testInstance.checkAccess(requestMock).canAccess();
+
+    assertThat(canAccess, equalTo(true));
+  }
+
+  @Test
+  public void testAccessDeniedWhenResourceMissingInSyncFilterIgnoreResourcesFile() {
+    when(claimMock.asMap()).thenReturn(Collections.emptyMap());
+
+    when(requestMock.getResourceName()).thenReturn("StructureMap");
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.GET);
 
     PermissionAccessChecker testInstance = Mockito.spy((PermissionAccessChecker) getInstance());
     when(testInstance.isDevMode()).thenReturn(true);
