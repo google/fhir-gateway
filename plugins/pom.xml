@@ -23,7 +23,7 @@
     implementations do not have to do this; they can redeclare those deps. -->
     <groupId>com.google.fhir.proxy</groupId>
     <artifactId>fhir-proxy</artifactId>
-    <version>0.1.6-beta</version>
+    <version>0.1.7-beta</version>
   </parent>
 
   <artifactId>plugins</artifactId>
