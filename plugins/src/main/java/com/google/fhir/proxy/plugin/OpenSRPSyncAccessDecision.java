@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2022 Google LLC
+ * Copyright 2021-2023 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,6 +33,7 @@ import java.util.Map;
 
 public class OpenSRPSyncAccessDecision implements AccessDecision {
 
+	private static final int LENGTH_OF_SEARCH_PARAM_AND_EQUALS = 5;
 	private String applicationId;
 
 	private final List<String> syncStrategy;
@@ -84,20 +85,10 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
 	 */
 	private void addSyncFilters(ServletRequestDetails servletRequestDetails, Pair<String, Map<String, String[]>> syncTags) {
 		List<String> paramValues = new ArrayList<>();
-
-		for (Map.Entry<String, String[]> codeUrlValuesMap : syncTags.getValue().entrySet()) {
-			String codeUrl = codeUrlValuesMap.getKey();
-			for (String codeValue : codeUrlValuesMap.getValue()) {
-				StringBuilder paramValueSb = new StringBuilder(codeUrl.length() + codeValue.length() + 2);
-				paramValueSb.append(codeUrl);
-				paramValueSb.append(ProxyConstants.CODE_URL_VALUE_SEPARATOR);
-				paramValueSb.append(codeValue);
-				paramValues.add(paramValueSb.toString());
-			}
-		}
+		Collections.addAll(paramValues,syncTags.getKey().substring(LENGTH_OF_SEARCH_PARAM_AND_EQUALS).split(ProxyConstants.PARAM_VALUES_SEPARATOR));
 
 		String[] prevTagFilters = servletRequestDetails.getParameters().get(ProxyConstants.SEARCH_PARAM_TAG);
-		if (prevTagFilters != null && prevTagFilters.length > 1) {
+		if (prevTagFilters != null && prevTagFilters.length > 0) {
 			Collections.addAll(paramValues, prevTagFilters);
 		}
 
