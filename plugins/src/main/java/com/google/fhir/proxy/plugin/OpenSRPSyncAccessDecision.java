@@ -39,7 +39,7 @@ import org.slf4j.LoggerFactory;
 
 public class OpenSRPSyncAccessDecision implements AccessDecision {
   private static final Logger logger = LoggerFactory.getLogger(PermissionAccessChecker.class);
-
+  private static final int LENGTH_OF_SEARCH_PARAM_AND_EQUALS = 5;
   private String applicationId;
 
   private final List<String> syncStrategy;
@@ -116,21 +116,16 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
   private void addSyncFilters(
       ServletRequestDetails servletRequestDetails, Pair<String, Map<String, String[]>> syncTags) {
     List<String> paramValues = new ArrayList<>();
-
-    for (Map.Entry<String, String[]> codeUrlValuesMap : syncTags.getValue().entrySet()) {
-      String codeUrl = codeUrlValuesMap.getKey();
-      for (String codeValue : codeUrlValuesMap.getValue()) {
-        StringBuilder paramValueSb = new StringBuilder(codeUrl.length() + codeValue.length() + 2);
-        // paramValueSb.append(codeUrl);
-        // paramValueSb.append(ProxyConstants.CODE_URL_VALUE_SEPARATOR);
-        paramValueSb.append(codeValue);
-        paramValues.add(paramValueSb.toString());
-      }
-    }
+    Collections.addAll(
+        paramValues,
+        syncTags
+            .getKey()
+            .substring(LENGTH_OF_SEARCH_PARAM_AND_EQUALS)
+            .split(ProxyConstants.PARAM_VALUES_SEPARATOR));
 
     String[] prevTagFilters =
         servletRequestDetails.getParameters().get(ProxyConstants.SEARCH_PARAM_TAG);
-    if (prevTagFilters != null && prevTagFilters.length > 1) {
+    if (prevTagFilters != null && prevTagFilters.length > 0) {
       Collections.addAll(paramValues, prevTagFilters);
     }
 
