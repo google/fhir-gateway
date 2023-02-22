@@ -16,21 +16,21 @@
 package com.google.fhir.gateway.plugin;
 
 import com.google.fhir.gateway.plugin.SmartFhirScope.Permission;
-import com.google.fhir.gateway.plugin.SmartFhirScope.PrincipalContext;
+import com.google.fhir.gateway.plugin.SmartFhirScope.Principal;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-public class SmartFhirPermissionChecker {
+public class SmartScopeChecker {
 
   private final Map<String, Set<SmartFhirScope.Permission>> permissionsByResourceType;
 
-  SmartFhirPermissionChecker(List<SmartFhirScope> scopes, PrincipalContext permissionContext) {
+  SmartScopeChecker(List<SmartFhirScope> scopes, Principal permissionContext) {
     this.permissionsByResourceType =
         scopes.stream()
-            .filter(smartFhirScope -> smartFhirScope.getPrincipalContext() == permissionContext)
+            .filter(smartFhirScope -> smartFhirScope.getPrincipal() == permissionContext)
             .collect(
                 Collectors.groupingBy(
                     SmartFhirScope::getResourceType,

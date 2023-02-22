@@ -15,6 +15,7 @@
  */
 package com.google.fhir.gateway.plugin;
 
+import com.google.common.base.Preconditions;
 import com.google.fhir.gateway.FhirUtil;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -28,6 +29,7 @@ import lombok.Getter;
  * clinical data. The constraints in this class are according to the official guidelines here:
  * https://build.fhir.org/ig/HL7/smart-app-launch/scopes-and-launch-context.html#scopes-for-requesting-clinical-data
  */
+@Getter
 public class SmartFhirScope {
   private static final Pattern VALID_SCOPE_PATTERN =
       Pattern.compile(
@@ -37,13 +39,13 @@ public class SmartFhirScope {
   private static final String SMART_V1_READ_RESOURCE_PERMISSIONS = "read";
   private static final String SMART_V1_WRITE_RESOURCE_PERMISSIONS = "write";
 
-  @Getter private final PrincipalContext principalContext;
-  @Getter private final String resourceType;
-  @Getter private final Set<Permission> permissions;
+  private final Principal principal;
+  private final String resourceType;
+  private final Set<Permission> permissions;
 
   private SmartFhirScope(
-      PrincipalContext principalContext, String resourceType, Set<Permission> resourcePermissions) {
-    this.principalContext = principalContext;
+      Principal principal, String resourceType, Set<Permission> resourcePermissions) {
+    this.principal = principal;
     this.permissions = resourcePermissions;
     this.resourceType = resourceType;
   }
@@ -60,15 +62,17 @@ public class SmartFhirScope {
 
   private static SmartFhirScope createSmartScope(String scope) {
     String[] split = scope.split("/");
-    PrincipalContext principalContext = PrincipalContext.getPrincipalContext(split[0]);
+    Preconditions.checkArgument(split.length == 2);
+    Principal principal = Principal.getPrincipal(split[0]);
     String[] permissionSplit = split[1].split("\\.");
+    Preconditions.checkArgument(permissionSplit.length == 2);
     if (!isValidResourceType(permissionSplit[0])) {
       throw new IllegalArgumentException(
           String.format("Invalid resource type %s", permissionSplit[0]));
     }
     String resourceType = permissionSplit[0];
     Set<Permission> permissions = extractPermissions(permissionSplit[1]);
-    return new SmartFhirScope(principalContext, resourceType, permissions);
+    return new SmartFhirScope(principal, resourceType, permissions);
   }
 
   private static boolean isValidResourceType(String resourceType) {
@@ -115,16 +119,22 @@ public class SmartFhirScope {
     return permissions;
   }
 
-  enum PrincipalContext {
+  enum Principal {
     USER,
     PATIENT,
     SYSTEM;
 
-    static PrincipalContext getPrincipalContext(String principal) {
-      return PrincipalContext.valueOf(principal.toUpperCase());
+    static Principal getPrincipal(String principal) {
+      return Principal.valueOf(principal.toUpperCase());
     }
   }
 
+  /**
+   * SMART Permission to specify the kind of permission that is allowed on a Resource.
+   * The order of the Permission is important to us in the way it has been listed here.
+   * Please see: https://build.fhir.org/ig/HL7/smart-app-launch/scopes-and-launch-context.html#scopes-for-requesting-clinical-data
+   * The given order of Permissions is how it is expected that permissions will be specified in the token claim
+   */
   enum Permission {
     CREATE,
     READ,
