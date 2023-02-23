@@ -130,10 +130,11 @@ public class SmartFhirScope {
   }
 
   /**
-   * SMART Permission to specify the kind of permission that is allowed on a Resource.
-   * The order of the Permission is important to us in the way it has been listed here.
-   * Please see: https://build.fhir.org/ig/HL7/smart-app-launch/scopes-and-launch-context.html#scopes-for-requesting-clinical-data
-   * The given order of Permissions is how it is expected that permissions will be specified in the token claim
+   * SMART Permission to specify the kind of permission that is allowed on a Resource. The order of
+   * the Permission is important to us in the way it has been listed here. Please see:
+   * https://build.fhir.org/ig/HL7/smart-app-launch/scopes-and-launch-context.html#scopes-for-requesting-clinical-data
+   * The given order of Permissions is how it is expected that permissions will be specified in the
+   * token claim
    */
   enum Permission {
     CREATE,

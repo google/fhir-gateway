@@ -127,8 +127,7 @@ public class PatientAccessChecker implements AccessChecker {
     String patientId = patientFinder.findPatientFromParams(requestDetails);
     return new NoOpAccessDecision(
         authorizedPatientId.equals(patientId)
-            && smartScopeChecker.hasPermission(
-                requestDetails.getResourceName(), Permission.READ));
+            && smartScopeChecker.hasPermission(requestDetails.getResourceName(), Permission.READ));
   }
 
   private AccessDecision processSearch(RequestDetailsReader requestDetails) {
@@ -205,8 +204,7 @@ public class PatientAccessChecker implements AccessChecker {
     }
     return new NoOpAccessDecision(
         authorizedPatientId.equals(patientId)
-            && smartScopeChecker.hasPermission(
-                ResourceType.Patient.name(), Permission.UPDATE));
+            && smartScopeChecker.hasPermission(ResourceType.Patient.name(), Permission.UPDATE));
   }
 
   private AccessDecision processBundle(RequestDetailsReader requestDetails) {
@@ -261,8 +259,7 @@ public class PatientAccessChecker implements AccessChecker {
   private boolean doesReferenceElementHavePermission(
       IIdType referenceElement, Permission permission) {
     if (referenceElement.getResourceType() != null && referenceElement.hasIdPart()) {
-      return smartScopeChecker.hasPermission(
-          referenceElement.getResourceType(), permission);
+      return smartScopeChecker.hasPermission(referenceElement.getResourceType(), permission);
     } else {
       return smartScopeChecker.hasPermission(referenceElement.getValue(), permission);
     }
