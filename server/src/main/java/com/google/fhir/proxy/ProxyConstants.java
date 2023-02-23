@@ -32,6 +32,8 @@ public class ProxyConstants {
 
   public static final String CODE_URL_VALUE_SEPARATOR = "|";
 
+  public static final String HTTP_URL_SEPARATOR = "/";
+
   // Note we should not set charset here; otherwise GCP FHIR store complains about Content-Type.
   static final ContentType JSON_PATCH_CONTENT = ContentType.create(Constants.CT_JSON_PATCH);
   public static final String SYNC_STRATEGY = "syncStrategy";

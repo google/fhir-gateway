@@ -9,8 +9,7 @@
       "allParamsRequired": true
     },
     {
-      "path": "/Composition/",
-      "pathVariables": "ANY_VALUE",
+      "path": "Composition/ANY_VALUE",
       "methodType": "GET",
       "queryParams": {
 
@@ -19,8 +18,7 @@
       "allParamsRequired": false
     },
     {
-      "path": "/Binary/",
-      "pathVariables": "ANY_VALUE",
+      "path": "Binary/ANY_VALUE",
       "methodType": "GET",
       "queryParams": {
 

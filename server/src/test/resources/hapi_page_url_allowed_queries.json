@@ -10,8 +10,7 @@
       "allParamsRequired": true
     },
     {
-      "path": "/Composition/",
-      "pathVariables": "ANY_VALUE",
+      "path": "/Composition",
       "methodType": "GET",
       "queryParams": {
 
@@ -20,14 +19,31 @@
       "allParamsRequired": false
     },
     {
-      "path": "/Binary/",
-      "pathVariables": "1234567",
+      "path": "/Binary/1234567",
       "methodType": "GET",
       "queryParams": {
 
       },
       "allowExtraParams": true,
       "allParamsRequired": false
+    },
+    {
+      "path": "/List/ANY_VALUE",
+      "methodType": "PUT",
+      "queryParams": {
+
+      },
+      "allowExtraParams": true,
+      "allParamsRequired": false
+    },
+    {
+      "path": "/Patient/ANY_VALUE",
+      "methodType": "GET",
+      "queryParams": {
+        "_sort": "name"
+      },
+      "allowExtraParams": false,
+      "allParamsRequired": true
     }
   ]
 }

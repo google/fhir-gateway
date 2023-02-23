@@ -21,7 +21,7 @@
   <parent>
     <groupId>com.google.fhir.proxy</groupId>
     <artifactId>fhir-proxy</artifactId>
-    <version>0.1.7-beta</version>
+    <version>0.1.8-beta</version>
   </parent>
 
   <artifactId>server</artifactId>
@@ -52,7 +52,7 @@
     <dependency>
       <groupId>org.smartregister</groupId>
       <artifactId>fhir-common-utils</artifactId>
-      <version>0.0.4-SNAPSHOT</version>
+      <version>0.0.5-SNAPSHOT</version>
     </dependency>
 
     <!-- This dependency includes the HAPI FHIR Server Framework -->

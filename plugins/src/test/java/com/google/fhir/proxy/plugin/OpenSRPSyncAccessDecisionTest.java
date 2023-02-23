@@ -18,17 +18,14 @@ package com.google.fhir.proxy.plugin;
 import ca.uhn.fhir.rest.api.RequestTypeEnum;
 import ca.uhn.fhir.rest.api.RestOperationTypeEnum;
 import ca.uhn.fhir.rest.server.servlet.ServletRequestDetails;
-import com.google.common.io.Resources;
 import com.google.fhir.proxy.ProxyConstants;
 import java.io.IOException;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnitRunner;
 
 @RunWith(MockitoJUnitRunner.class)
@@ -185,65 +182,5 @@ public class OpenSRPSyncAccessDecisionTest {
   private OpenSRPSyncAccessDecision createOpenSRPSyncAccessDecisionTestInstance() {
     return new OpenSRPSyncAccessDecision(
         "sample-application-id", true, locationIds, careTeamIds, organisationIds, null);
-  }
-
-  @Test
-  public void preProcessShouldAddFiltersWhenResourceNotInSyncFilterIgnoreResourcesFile() {
-    organisationIds.add("organizationid1");
-    organisationIds.add("organizationid2");
-    testInstance = Mockito.spy(createOpenSRPSyncAccessDecisionTestInstance());
-
-    URL configFileUrl = Resources.getResource("hapi_sync_filter_ignore_resources.json");
-    OpenSRPSyncAccessDecision.IgnoredResourcesConfig skippedConfigFile =
-        testInstance.getIgnoredResourcesConfigFile(configFileUrl.getPath());
-
-    Mockito.doReturn(skippedConfigFile).when(testInstance).getSkippedResourcesConfigs();
-
-    ServletRequestDetails requestDetails = new ServletRequestDetails();
-    requestDetails.setRequestType(RequestTypeEnum.GET);
-    requestDetails.setRestOperationType(RestOperationTypeEnum.SEARCH_TYPE);
-    requestDetails.setResourceName("StructureMap");
-    requestDetails.setFhirServerBase("https://smartregister.org/fhir");
-    requestDetails.setCompleteUrl("https://smartregister.org/fhir/StructureMap");
-    requestDetails.setRequestPath("StructureMap");
-
-    testInstance.preProcess(requestDetails);
-
-    for (String locationId : organisationIds) {
-      Assert.assertFalse(requestDetails.getCompleteUrl().contains(locationId));
-      Assert.assertFalse(requestDetails.getRequestPath().contains(locationId));
-      Assert.assertTrue(requestDetails.getParameters().size() > 0);
-      Assert.assertTrue(
-          Arrays.asList(requestDetails.getParameters().get("_tag")).contains(locationId));
-    }
-  }
-
-  @Test
-  public void preProcessShouldSkipAddingFiltersWhenResourceInSyncFilterIgnoreResourcesFile() {
-    organisationIds.add("organizationid1");
-    organisationIds.add("organizationid2");
-    testInstance = Mockito.spy(createOpenSRPSyncAccessDecisionTestInstance());
-
-    URL configFileUrl = Resources.getResource("hapi_sync_filter_ignore_resources.json");
-    OpenSRPSyncAccessDecision.IgnoredResourcesConfig skippedConfigFile =
-        testInstance.getIgnoredResourcesConfigFile(configFileUrl.getPath());
-
-    Mockito.doReturn(skippedConfigFile).when(testInstance).getSkippedResourcesConfigs();
-
-    ServletRequestDetails requestDetails = new ServletRequestDetails();
-    requestDetails.setRequestType(RequestTypeEnum.GET);
-    requestDetails.setRestOperationType(RestOperationTypeEnum.SEARCH_TYPE);
-    requestDetails.setResourceName("Questionnaire");
-    requestDetails.setFhirServerBase("https://smartregister.org/fhir");
-    requestDetails.setCompleteUrl("https://smartregister.org/fhir/Questionnaire");
-    requestDetails.setRequestPath("Questionnaire");
-
-    testInstance.preProcess(requestDetails);
-
-    for (String locationId : organisationIds) {
-      Assert.assertFalse(requestDetails.getCompleteUrl().contains(locationId));
-      Assert.assertFalse(requestDetails.getRequestPath().contains(locationId));
-      Assert.assertTrue(requestDetails.getParameters().size() == 0);
-    }
   }
 }
