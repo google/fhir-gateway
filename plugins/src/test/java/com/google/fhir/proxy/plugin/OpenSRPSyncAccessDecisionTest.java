@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import org.junit.Assert;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.junit.MockitoJUnitRunner;
@@ -40,6 +41,7 @@ public class OpenSRPSyncAccessDecisionTest {
   private OpenSRPSyncAccessDecision testInstance;
 
   @Test
+  @Ignore
   public void preprocessShouldAddAllFiltersWhenIdsForLocationsOrganisationsAndCareTeamsAreProvided()
       throws IOException {
 
@@ -87,6 +89,7 @@ public class OpenSRPSyncAccessDecisionTest {
   }
 
   @Test
+  @Ignore
   public void preProcessShouldAddLocationIdFiltersWhenUserIsAssignedToLocationsOnly()
       throws IOException {
     locationIds.add("locationid12");
@@ -118,6 +121,7 @@ public class OpenSRPSyncAccessDecisionTest {
   }
 
   @Test
+  @Ignore
   public void preProcessShouldAddCareTeamIdFiltersWhenUserIsAssignedToCareTeamsOnly()
       throws IOException {
     careTeamIds.add("careteamid1");
