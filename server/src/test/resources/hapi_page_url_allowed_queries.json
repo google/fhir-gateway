@@ -8,6 +8,42 @@
       },
       "allowExtraParams": true,
       "allParamsRequired": true
+    },
+    {
+      "path": "/Composition",
+      "methodType": "GET",
+      "queryParams": {
+
+      },
+      "allowExtraParams": true,
+      "allParamsRequired": false
+    },
+    {
+      "path": "/Binary/1234567",
+      "methodType": "GET",
+      "queryParams": {
+
+      },
+      "allowExtraParams": true,
+      "allParamsRequired": false
+    },
+    {
+      "path": "/List/ANY_VALUE",
+      "methodType": "PUT",
+      "queryParams": {
+
+      },
+      "allowExtraParams": true,
+      "allParamsRequired": false
+    },
+    {
+      "path": "/Patient/ANY_VALUE",
+      "methodType": "GET",
+      "queryParams": {
+        "_sort": "name"
+      },
+      "allowExtraParams": false,
+      "allParamsRequired": true
     }
   ]
 }

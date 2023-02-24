@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2022 Google LLC
+ * Copyright 2021-2023 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,6 +32,8 @@ public class ProxyConstants {
 
   public static final String CODE_URL_VALUE_SEPARATOR = "|";
 
+  public static final String HTTP_URL_SEPARATOR = "/";
+
   // Note we should not set charset here; otherwise GCP FHIR store complains about Content-Type.
   static final ContentType JSON_PATCH_CONTENT = ContentType.create(Constants.CT_JSON_PATCH);
   public static final String SYNC_STRATEGY = "syncStrategy";
@@ -40,5 +42,4 @@ public class ProxyConstants {
   public interface Literals {
     String EQUALS = "=";
   }
-
 }

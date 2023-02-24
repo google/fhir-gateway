@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2022 Google LLC
+ * Copyright 2021-2023 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,7 +32,6 @@ class AllowedQueriesConfig {
   @Getter
   public static class AllowedQueryEntry {
     private String path;
-    private String pathVariables;
 
     private String methodType;
     private Map<String, String> queryParams;
@@ -44,10 +43,9 @@ class AllowedQueriesConfig {
     @Override
     public String toString() {
       String builder =
-          "path="
+          methodType
+              + " path="
               + path
-              + pathVariables
-              + methodType
               + " queryParams="
               + Arrays.toString(queryParams.entrySet().toArray())
               + " allowExtraParams="

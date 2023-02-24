@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2022 Google LLC
+ * Copyright 2021-2023 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -81,7 +81,6 @@ public class AllowedQueriesCheckerTest {
   public void noMatchForObservationQuery() throws IOException {
     // Query: GET /Observation?_getpages=A_PAGE_ID
     when(requestMock.getRequestPath()).thenReturn("/Observation");
-    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.GET);
     URL configFileUrl = Resources.getResource("hapi_page_url_allowed_queries.json");
     AllowedQueriesChecker testInstance = new AllowedQueriesChecker(configFileUrl.getPath());
     assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
@@ -120,6 +119,67 @@ public class AllowedQueriesCheckerTest {
     when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.GET);
     Map<String, String[]> params = Maps.newHashMap();
     params.put("another_param", new String[] {"SOMETHING"});
+    URL configFileUrl = Resources.getResource("hapi_page_url_allowed_queries.json");
+    AllowedQueriesChecker testInstance = new AllowedQueriesChecker(configFileUrl.getPath());
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
+  }
+
+  @Test
+  public void validGetCompositionQuery() throws IOException {
+    // Query: GET /Composition
+    when(requestMock.getRequestPath()).thenReturn("/Composition");
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.GET);
+    URL configFileUrl = Resources.getResource("hapi_page_url_allowed_queries.json");
+    AllowedQueriesChecker testInstance = new AllowedQueriesChecker(configFileUrl.getPath());
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(true));
+  }
+
+  @Test
+  public void validGetListQueryWithSpecificPathVariableValue() throws IOException {
+    // Query: PUT /List/some-value-x-anything
+    when(requestMock.getRequestPath()).thenReturn("/List/some-value-x-anything");
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.PUT);
+    URL configFileUrl = Resources.getResource("hapi_page_url_allowed_queries.json");
+    AllowedQueriesChecker testInstance = new AllowedQueriesChecker(configFileUrl.getPath());
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(true));
+  }
+
+  @Test
+  public void validGetBinaryQueryWithExpectedPathVariable() throws IOException {
+    // Query: GET /Binary/1234567
+    when(requestMock.getRequestPath()).thenReturn("/Binary/1234567");
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.GET);
+    URL configFileUrl = Resources.getResource("hapi_page_url_allowed_queries.json");
+    AllowedQueriesChecker testInstance = new AllowedQueriesChecker(configFileUrl.getPath());
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(true));
+  }
+
+  @Test
+  public void denyGetBinaryQueryWithUnexpectedPathVariable() throws IOException {
+    // Query: GET /Binary/unauthorized-path-variable
+    when(requestMock.getRequestPath()).thenReturn("/Binary/unauthorized-path-variable");
+    URL configFileUrl = Resources.getResource("hapi_page_url_allowed_queries.json");
+    AllowedQueriesChecker testInstance = new AllowedQueriesChecker(configFileUrl.getPath());
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
+  }
+
+  @Test
+  public void validGetPatientQueryWithExpectedGetParamsAndPathVariable() throws IOException {
+    // Query: GET /Patient/8899900
+    when(requestMock.getRequestPath()).thenReturn("/Patient/8899900");
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.GET);
+    Map<String, String[]> params = Maps.newHashMap();
+    params.put("_sort", new String[] {"name"});
+    when(requestMock.getParameters()).thenReturn(params);
+    URL configFileUrl = Resources.getResource("hapi_page_url_allowed_queries.json");
+    AllowedQueriesChecker testInstance = new AllowedQueriesChecker(configFileUrl.getPath());
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(true));
+  }
+
+  @Test
+  public void denyGetPatientQueryWithEmptyPathVariable() throws IOException {
+    // Query: GET /Patient/
+    when(requestMock.getRequestPath()).thenReturn("/Patient/");
     URL configFileUrl = Resources.getResource("hapi_page_url_allowed_queries.json");
     AllowedQueriesChecker testInstance = new AllowedQueriesChecker(configFileUrl.getPath());
     assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));

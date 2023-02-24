@@ -1,5 +1,5 @@
 #
-# Copyright 2021-2022 Google LLC
+# Copyright 2021-2023 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 
 # Image for building and running tests against the source code of
 # the FHIR Access Proxy.
-FROM maven:3.8.5-openjdk-11 as build
+FROM maven:3.8.5-openjdk-17-slim as build
 
 WORKDIR /app
 
@@ -31,9 +31,9 @@ RUN mvn --batch-mode package -Dmaven.test.skip=true -Dspotless.apply.skip=true -
 
 
 # Image for FHIR Access Proxy binary with configuration knobs as environment vars.
-FROM eclipse-temurin:11-jdk-focal as main
+FROM eclipse-temurin:17-jdk-focal as main
 
-COPY --from=build /app/plugins/target/plugins-0.1.0-exec.jar /
+COPY --from=build /app/plugins/target/fhir-proxy-plugins-exec.jar /
 COPY resources/hapi_page_url_allowed_queries.json resources/hapi_page_url_allowed_queries.json
 
 ENV PROXY_PORT=8080
@@ -47,4 +47,4 @@ ENV BACKEND_TYPE="HAPI"
 ENV ACCESS_CHECKER="list"
 ENV RUN_MODE="PROD"
 
-ENTRYPOINT java -jar plugins-0.1.0-exec.jar --server.port=${PROXY_PORT}
+ENTRYPOINT java -jar fhir-proxy-plugins-exec.jar --server.port=${PROXY_PORT}

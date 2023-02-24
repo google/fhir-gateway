@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2022 Google LLC
+ * Copyright 2021-2023 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -75,78 +75,61 @@ class AllowedQueriesChecker implements AccessChecker {
   }
 
   private boolean requestMatches(RequestDetailsReader requestDetails, AllowedQueryEntry entry) {
-    if (entry.getMethodType() != null && entry.getMethodType().equals(requestDetails.getRequestType().name()) && requestContainsPathVariables(requestDetails.getRequestPath())) {
-      String requestPath = getResourceFromCompleteRequestPath(requestDetails.getRequestPath());
-      if (!entry.getPath().equals(requestPath)) {
+    if (!entry.getPath().equals(requestDetails.getRequestPath())) {
+
+      if (!requestDetails.getRequestPath().endsWith(ProxyConstants.HTTP_URL_SEPARATOR)
+          && requestDetails.getRequestPath().contains(ProxyConstants.HTTP_URL_SEPARATOR)
+          && entry.getPath().endsWith(AllowedQueriesConfig.MATCHES_ANY_VALUE)
+          && entry
+              .getPath()
+              .equals(
+                  requestDetails
+                          .getRequestPath()
+                          .substring(
+                              0,
+                              requestDetails
+                                  .getRequestPath()
+                                  .lastIndexOf(ProxyConstants.HTTP_URL_SEPARATOR))
+                      + ProxyConstants.HTTP_URL_SEPARATOR
+                      + AllowedQueriesConfig.MATCHES_ANY_VALUE)) {
+      } else {
         return false;
       }
-    } else if (!entry.getPath().equals(requestDetails.getRequestPath())) {
+    }
+
+    if (entry.getMethodType() != null
+        && !entry.getMethodType().equals(requestDetails.getRequestType().name())) {
       return false;
-    } else if (entry.getMethodType() != null && entry.getMethodType().equals(requestDetails.getRequestType().name())) {
-      Set<String> matchedQueryParams = Sets.newHashSet();
-      for (Entry<String, String> expectedParam : entry.getQueryParams()
-              .entrySet()) {
-        String[] actualQueryValue = requestDetails.getParameters()
-                .get(expectedParam.getKey());
-        if (actualQueryValue == null && entry.isAllParamsRequired()) {
-          // This allow-list entry does not match the query.
+    }
+
+    Set<String> matchedQueryParams = Sets.newHashSet();
+    for (Entry<String, String> expectedParam : entry.getQueryParams().entrySet()) {
+      String[] actualQueryValue = requestDetails.getParameters().get(expectedParam.getKey());
+      if (actualQueryValue == null && entry.isAllParamsRequired()) {
+        // This allow-list entry does not match the query.
+        return false;
+      }
+      if (actualQueryValue == null) {
+        // Nothing else to do for this configured param as it is not present in the query.
+        continue;
+      }
+      if (!AllowedQueriesConfig.MATCHES_ANY_VALUE.equals(expectedParam.getValue())) {
+        if (actualQueryValue.length != 1) {
+          // We currently do not support multivalued query params in allow-lists.
           return false;
         }
-        if (actualQueryValue == null) {
-          // Nothing else to do for this configured param as it is not present in the query.
-          continue;
+        if (!actualQueryValue[0].equals(expectedParam.getValue())) {
+          return false;
         }
-        if (!AllowedQueriesConfig.MATCHES_ANY_VALUE.equals(expectedParam.getValue())) {
-          if (actualQueryValue.length != 1) {
-            // We currently do not support multivalued query params in allow-lists.
-            return false;
-          }
-          if (!actualQueryValue[0].equals(expectedParam.getValue())) {
-            return false;
-          }
-        }
-        matchedQueryParams.add(expectedParam.getKey());
       }
-      if (!entry.isAllowExtraParams() && matchedQueryParams.size() != requestDetails.getParameters()
-              .size()) {
-        return false;
-      }
-    } else {
-      logger.info("Allowed-queries entry {} matched query {}", entry, requestDetails.getCompleteUrl());
-      return true;
+      matchedQueryParams.add(expectedParam.getKey());
     }
+    if (!entry.isAllowExtraParams()
+        && matchedQueryParams.size() != requestDetails.getParameters().size()) {
+      return false;
+    }
+    logger.info(
+        "Allowed-queries entry {} matched query {}", entry, requestDetails.getCompleteUrl());
     return true;
-  }
-
-  private boolean requestContainsPathVariables(String completeRequestPath) {
-    String requestResourcePath = trimForwardSlashFromRequestPath(completeRequestPath);
-    if(requestResourcePath != null && requestResourcePath.startsWith("/")) {
-      requestResourcePath = requestResourcePath.substring(1);
-    }
-    if(requestResourcePath.contains("/")) {
-      return true;
-    }
-    return false;
-  }
-
-  private String getResourceFromCompleteRequestPath(String completeRequestPath) {
-   String requestResourcePath = trimForwardSlashFromRequestPath(completeRequestPath);
-    if(requestResourcePath.contains("/")) {
-
-      int pathVarIndex = requestResourcePath.indexOf("/");
-      String pathVar = requestResourcePath.substring(pathVarIndex+1);
-      String requestPath = requestResourcePath.substring(0,pathVarIndex+1);
-      requestPath = "/" + requestPath;
-      return requestPath;
-    }
-    return requestResourcePath;
-  }
-
-  private String trimForwardSlashFromRequestPath(String completeRequestPath) {
-    String requestResourcePath = completeRequestPath;
-    if(completeRequestPath.startsWith("/")) {
-      requestResourcePath = completeRequestPath.substring(1);
-    }
-    return requestResourcePath;
   }
 }

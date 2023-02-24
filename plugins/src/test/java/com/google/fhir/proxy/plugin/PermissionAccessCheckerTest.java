@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2022 Google LLC
+ * Copyright 2021-2023 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,6 @@
  */
 package com.google.fhir.proxy.plugin;
 
-import static com.google.fhir.proxy.plugin.PermissionAccessChecker.Factory.PROXY_TO_ENV;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.mockito.Mockito.when;
@@ -34,7 +33,6 @@ import java.net.URL;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
-
 import org.hl7.fhir.r4.model.Enumerations;
 import org.junit.Assert;
 import org.junit.Before;
@@ -71,7 +69,8 @@ public class PermissionAccessCheckerTest {
   public void setUp() throws IOException {
     when(jwtMock.getClaim(PermissionAccessChecker.Factory.REALM_ACCESS_CLAIM))
         .thenReturn(claimMock);
-    when(jwtMock.getClaim(PermissionAccessChecker.Factory.FHIR_CORE_APPLICATION_ID_CLAIM)).thenReturn( claimMock);
+    when(jwtMock.getClaim(PermissionAccessChecker.Factory.FHIR_CORE_APPLICATION_ID_CLAIM))
+        .thenReturn(claimMock);
     when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.GET);
   }
 
