@@ -157,7 +157,7 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
 
       int i = 0;
       for (String tagValue : values) {
-        // Currently deployed HAPI FHIR Server does NOT support Code URls when searching against
+        // Currently deployed HAPI FHIR Server does NOT support Code URLs when searching against
         // meta tags.
         // Disabling these for now - to test again after deployment of latest or newer server
         // versions
