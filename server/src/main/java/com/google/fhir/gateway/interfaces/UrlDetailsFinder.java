@@ -15,18 +15,19 @@
  */
 package com.google.fhir.gateway.interfaces;
 
-import com.google.fhir.gateway.BundleEntryPatient;
-import org.hl7.fhir.r4.model.Bundle.BundleEntryComponent;
+import java.util.Map;
 
-public interface BundleEntryPatientFinder {
+/**
+ * A general purpose interface to provide abstraction to extract various resource specific details
+ * and other URL details from a request URL
+ */
+public interface UrlDetailsFinder {
 
-  BundleEntryPatient processGetBundleEntry(BundleEntryComponent bundleEntryComponent);
+  String getResourceName();
 
-  BundleEntryPatient processDeleteBundleEntry(BundleEntryComponent bundleEntryComponent);
+  String getResourceId();
 
-  BundleEntryPatient processPatchBundleEntry(BundleEntryComponent bundleEntryComponent);
+  Map<String, String[]> getQueryParameters();
 
-  BundleEntryPatient processPostBundleEntry(BundleEntryComponent bundleEntryComponent);
-
-  BundleEntryPatient processPutBundleEntry(BundleEntryComponent bundleEntryComponent);
+  String getRequestPath();
 }

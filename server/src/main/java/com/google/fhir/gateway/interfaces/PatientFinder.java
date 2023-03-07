@@ -16,49 +16,41 @@
 package com.google.fhir.gateway.interfaces;
 
 import ca.uhn.fhir.rest.server.exceptions.InvalidRequestException;
-import com.google.fhir.gateway.BundlePatients;
+import com.google.gson.JsonArray;
 import java.util.Set;
+import org.hl7.fhir.instance.model.api.IBaseResource;
 
 public interface PatientFinder {
   /**
    * Finds the patient ID from the query if it is a direct Patient fetch (i.e., /Patient/PID) or the
    * patient can be inferred from query parameters.
    *
-   * @param requestDetails the request
+   * @param urlDetailsFinder any instance of the interface {@link UrlDetailsFinder}
    * @return the id of the patient that this query belongs to or null if it cannot be inferred.
    * @throws InvalidRequestException for various reasons when unexpected parameters or content are
    *     encountered. Callers are expected to deny access when this happens.
    */
-  String findPatientFromParams(RequestDetailsReader requestDetails);
-
-  /**
-   * Find all patients referenced or updated in a Bundle.
-   *
-   * @param request that is expected to have a Bundle content.
-   * @return the {@link BundlePatients} that wraps all found patients.
-   * @throws InvalidRequestException for various reasons when unexpected content is encountered.
-   *     Callers are expected to deny access when this happens.
-   */
-  BundlePatients findPatientsInBundle(RequestDetailsReader request);
+  String findPatientFromUrl(UrlDetailsFinder urlDetailsFinder);
 
   /**
    * Finds all patients in the content of a request.
    *
-   * @param request that is expected to have a Bundle content.
-   * @return the {@link BundlePatients} that wraps all found patients.
+   * @param resource that is expected to be of {@link IBaseResource} type.
+   * @param resourceName name of the resource that is expected in the resource body .
+   * @return Set<String> the set of patient IDs found in the references of the resource
    * @throws InvalidRequestException for various reasons when unexpected content is encountered.
    *     Callers are expected to deny access when this happens.
    */
-  Set<String> findPatientsInResource(RequestDetailsReader request);
+  Set<String> findPatientsInResource(IBaseResource resource, String resourceName);
 
   /**
    * Finds all patients in the body of a patch request
    *
-   * @param request that is expected to have a body with a patch
+   * @param jsonArray array of JSONs which contain the body of the resource that needs to be patched
    * @param resourceName the FHIR resource being patched
    * @return the set of patient ids in the patch
    * @throws InvalidRequestException for various reasons when unexpected content is encountered.
    *     Callers are expected to deny access when this happens.
    */
-  Set<String> findPatientsInPatch(RequestDetailsReader request, String resourceName);
+  Set<String> findPatientsInPatchArray(JsonArray jsonArray, String resourceName);
 }

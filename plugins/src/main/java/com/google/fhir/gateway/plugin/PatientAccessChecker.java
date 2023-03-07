@@ -23,14 +23,16 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.fhir.gateway.BundleEntryPatient;
-import com.google.fhir.gateway.BundleProcessor;
+import com.google.fhir.gateway.BundlePatientFinder;
+import com.google.fhir.gateway.BundleProcessorUtils;
 import com.google.fhir.gateway.FhirUtil;
 import com.google.fhir.gateway.HttpFhirClient;
 import com.google.fhir.gateway.JwtUtil;
+import com.google.fhir.gateway.RequestUrlDetailsFinder;
 import com.google.fhir.gateway.interfaces.AccessChecker;
 import com.google.fhir.gateway.interfaces.AccessCheckerFactory;
 import com.google.fhir.gateway.interfaces.AccessDecision;
-import com.google.fhir.gateway.interfaces.BundleEntryPatientFinder;
+import com.google.fhir.gateway.interfaces.BundleProcessingWorker;
 import com.google.fhir.gateway.interfaces.NoOpAccessDecision;
 import com.google.fhir.gateway.interfaces.PatientFinder;
 import com.google.fhir.gateway.interfaces.RequestDetailsReader;
@@ -39,10 +41,7 @@ import com.google.fhir.gateway.plugin.SmartFhirScope.Principal;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Set;
-import java.util.function.Consumer;
 import javax.inject.Named;
 import org.hl7.fhir.instance.model.api.IIdType;
 import org.hl7.fhir.r4.model.Bundle.BundleEntryComponent;
@@ -63,20 +62,17 @@ public class PatientAccessChecker implements AccessChecker {
 
   private final String authorizedPatientId;
   private final PatientFinder patientFinder;
-
-  private final BundleEntryPatientFinder bundleEntryPatientFinder;
-
   private final FhirContext fhirContext;
 
   private final SmartScopeChecker smartScopeChecker;
-  private final BundleProcessor bundleProcessor;
+  private final BundleProcessorUtils bundleProcessorUtils;
 
   private PatientAccessChecker(
       FhirContext fhirContext,
       String authorizedPatientId,
       PatientFinder patientFinder,
       SmartScopeChecker smartScopeChecker,
-      BundleEntryPatientFinder bundleEntryPatientFinder) {
+      BundleProcessorUtils bundleProcessorUtils) {
     Preconditions.checkNotNull(authorizedPatientId);
     Preconditions.checkNotNull(patientFinder);
     Preconditions.checkNotNull(smartScopeChecker);
@@ -85,8 +81,7 @@ public class PatientAccessChecker implements AccessChecker {
     this.patientFinder = patientFinder;
     this.fhirContext = fhirContext;
     this.smartScopeChecker = smartScopeChecker;
-    this.bundleEntryPatientFinder = bundleEntryPatientFinder;
-    this.bundleProcessor = new BundleProcessor(fhirContext);
+    this.bundleProcessorUtils = bundleProcessorUtils;
   }
 
   @Override
@@ -97,24 +92,29 @@ public class PatientAccessChecker implements AccessChecker {
       return processBundle(requestDetails);
     }
 
-    switch (requestDetails.getRequestType()) {
-      case GET:
-        return processGet(requestDetails);
-      case POST:
-        return processPost(requestDetails);
-      case PUT:
-        // TODO(https://github.com/google/fhir-gateway/issues/88): Support update as create
-        // operation
-      case PATCH:
-        return processUpdate(requestDetails);
-      case DELETE:
-        return processDelete(requestDetails);
-      default:
-        return NoOpAccessDecision.accessDenied();
+    try {
+      switch (requestDetails.getRequestType()) {
+        case GET:
+          return processGet(requestDetails);
+        case POST:
+          return processPost(requestDetails);
+        case PUT:
+          // TODO(https://github.com/google/fhir-gateway/issues/88): Support update as create
+          // operation
+        case PATCH:
+          return processUpdate(requestDetails);
+        case DELETE:
+          return processDelete(requestDetails);
+        default:
+          return NoOpAccessDecision.accessDenied();
+      }
+    } catch (URISyntaxException e) {
+      logger.error("Exception while parsing URL; denying access! ", e);
+      return NoOpAccessDecision.accessDenied();
     }
   }
 
-  private AccessDecision processGet(RequestDetailsReader requestDetails) {
+  private AccessDecision processGet(RequestDetailsReader requestDetails) throws URISyntaxException {
     if (requestDetails.getResourceName() == null) {
       return NoOpAccessDecision.accessDenied();
     }
@@ -131,14 +131,16 @@ public class PatientAccessChecker implements AccessChecker {
   }
 
   private AccessDecision processRead(RequestDetailsReader requestDetails) {
-    String patientId = patientFinder.findPatientFromParams(requestDetails);
+    String patientId =
+        patientFinder.findPatientFromUrl(new RequestUrlDetailsFinder(requestDetails));
     return new NoOpAccessDecision(
         authorizedPatientId.equals(patientId)
             && smartScopeChecker.hasPermission(requestDetails.getResourceName(), Permission.READ));
   }
 
   private AccessDecision processSearch(RequestDetailsReader requestDetails) {
-    String patientId = patientFinder.findPatientFromParams(requestDetails);
+    String patientId =
+        patientFinder.findPatientFromUrl(new RequestUrlDetailsFinder(requestDetails));
     return new NoOpAccessDecision(
         authorizedPatientId.equals(patientId)
             && smartScopeChecker.hasPermission(
@@ -150,27 +152,33 @@ public class PatientAccessChecker implements AccessChecker {
     if (FhirUtil.isSameResourceType(requestDetails.getResourceName(), ResourceType.Patient)) {
       return NoOpAccessDecision.accessDenied();
     }
-    Set<String> patientIds = patientFinder.findPatientsInResource(requestDetails);
+    Set<String> patientIds =
+        patientFinder.findPatientsInResource(
+            FhirUtil.createResourceFromRequest(fhirContext, requestDetails),
+            requestDetails.getResourceName());
     return new NoOpAccessDecision(
         patientIds.contains(authorizedPatientId)
             && smartScopeChecker.hasPermission(
                 requestDetails.getResourceName(), Permission.CREATE));
   }
 
-  private AccessDecision processUpdate(RequestDetailsReader requestDetails) {
+  private AccessDecision processUpdate(RequestDetailsReader requestDetails)
+      throws URISyntaxException {
     if (FhirUtil.isSameResourceType(requestDetails.getResourceName(), ResourceType.Patient)) {
       return checkPatientAccessInUpdate(requestDetails);
     }
     return checkNonPatientAccessInUpdate(requestDetails, requestDetails.getRequestType());
   }
 
-  private AccessDecision processDelete(RequestDetailsReader requestDetails) {
+  private AccessDecision processDelete(RequestDetailsReader requestDetails)
+      throws URISyntaxException {
     // This AccessChecker does not allow deletion of Patient resource
     if (FhirUtil.isSameResourceType(requestDetails.getResourceName(), ResourceType.Patient)) {
       return NoOpAccessDecision.accessDenied();
     }
     // TODO(https://github.com/google/fhir-access-proxy/issues/63):Support direct resource deletion.
-    String patientId = patientFinder.findPatientFromParams(requestDetails);
+    String patientId =
+        patientFinder.findPatientFromUrl(new RequestUrlDetailsFinder(requestDetails));
     return new NoOpAccessDecision(
         authorizedPatientId.equals(patientId)
             && smartScopeChecker.hasPermission(
@@ -178,9 +186,10 @@ public class PatientAccessChecker implements AccessChecker {
   }
 
   private AccessDecision checkNonPatientAccessInUpdate(
-      RequestDetailsReader requestDetails, RequestTypeEnum updateMethod) {
+      RequestDetailsReader requestDetails, RequestTypeEnum updateMethod) throws URISyntaxException {
     // We do not allow direct resource PUT/PATCH, so Patient ID must be returned
-    String patientId = patientFinder.findPatientFromParams(requestDetails);
+    String patientId =
+        patientFinder.findPatientFromUrl(new RequestUrlDetailsFinder(requestDetails));
     if (!patientId.equals(authorizedPatientId)) {
       return NoOpAccessDecision.accessDenied();
     }
@@ -188,13 +197,18 @@ public class PatientAccessChecker implements AccessChecker {
     Set<String> patientIds = Sets.newHashSet();
     if (updateMethod == RequestTypeEnum.PATCH) {
       patientIds =
-          patientFinder.findPatientsInPatch(requestDetails, requestDetails.getResourceName());
+          patientFinder.findPatientsInPatchArray(
+              FhirUtil.createJsonArrayFromRequest(requestDetails),
+              requestDetails.getResourceName());
       if (patientIds.isEmpty()) {
         return NoOpAccessDecision.accessGranted();
       }
     }
     if (updateMethod == RequestTypeEnum.PUT) {
-      patientIds = patientFinder.findPatientsInResource(requestDetails);
+      patientIds =
+          patientFinder.findPatientsInResource(
+              FhirUtil.createResourceFromRequest(fhirContext, requestDetails),
+              requestDetails.getResourceName());
     }
     return new NoOpAccessDecision(
         patientIds.contains(authorizedPatientId)
@@ -215,133 +229,20 @@ public class PatientAccessChecker implements AccessChecker {
   }
 
   private AccessDecision processBundle(RequestDetailsReader requestDetails) {
-    Map<HTTPVerb, Consumer<BundleEntryComponent>> bundleEntryProcessors = new HashMap<>();
-    BundleAccessDecision bundleAccessDecision = new BundleAccessDecision();
-    bundleEntryProcessors.put(
-        HTTPVerb.GET,
-        bundleEntry -> {
-          BundleEntryPatient patientEntry =
-              bundleEntryPatientFinder.processGetBundleEntry(bundleEntry);
-          bundleAccessDecision.setBundleEntryDecision(
-              doesGetBundleEntryHaveAccess(bundleEntry, patientEntry));
-        });
-    bundleEntryProcessors.put(
-        HTTPVerb.DELETE,
-        bundleEntry -> {
-          BundleEntryPatient patientEntry =
-              bundleEntryPatientFinder.processDeleteBundleEntry(bundleEntry);
-          bundleAccessDecision.setBundleEntryDecision(
-              doesDeleteBundleEntryHaveAccess(bundleEntry, patientEntry));
-        });
-    bundleEntryProcessors.put(
-        HTTPVerb.POST,
-        bundleEntry -> {
-          BundleEntryPatient patientEntry =
-              bundleEntryPatientFinder.processPostBundleEntry(bundleEntry);
-          bundleAccessDecision.setBundleEntryDecision(
-              doesPostBundleEntryHaveAccess(bundleEntry, patientEntry));
-        });
-    bundleEntryProcessors.put(
-        HTTPVerb.PUT,
-        bundleEntry -> {
-          BundleEntryPatient patientEntry =
-              bundleEntryPatientFinder.processPutBundleEntry(bundleEntry);
-          bundleAccessDecision.setBundleEntryDecision(
-              doesPutBundleEntryHaveAccess(bundleEntry, patientEntry));
-        });
-    bundleEntryProcessors.put(
-        HTTPVerb.PATCH,
-        bundleEntry -> {
-          BundleEntryPatient patientEntry =
-              bundleEntryPatientFinder.processPatchBundleEntry(bundleEntry);
-          bundleAccessDecision.setBundleEntryDecision(
-              doesPatchBundleEntryHaveAccess(bundleEntry, patientEntry));
-        });
-    boolean accessGranted =
-        bundleProcessor.processBundleFromRequest(
+    BundlePatientFinder bundlePatientFinder =
+        new BundlePatientFinder(requestDetails, patientFinder, bundleProcessorUtils);
+    PatientAccessCheckerBundleWorker bundleWorker =
+        new PatientAccessCheckerBundleWorker(
+            smartScopeChecker,
+            bundlePatientFinder,
+            bundleProcessorUtils,
             requestDetails,
-            bundleEntryProcessors,
-            bundleAccessDecision::areAllBundleOperationsAllowed);
-
+            authorizedPatientId);
+    boolean accessGranted = bundleWorker.areAllBundleOperationsAllowed();
     if (accessGranted) {
       return NoOpAccessDecision.accessGranted();
     }
     return NoOpAccessDecision.accessDenied();
-  }
-
-  private boolean doesGetBundleEntryHaveAccess(
-      BundleEntryComponent bundleEntryComponent, BundleEntryPatient patientEntry) {
-    return patientEntry.getReferencedPatients().contains(authorizedPatientId)
-        && doesBundleReferenceElementHavePermission(bundleEntryComponent, Permission.READ);
-  }
-
-  private boolean doesDeleteBundleEntryHaveAccess(
-      BundleEntryComponent bundleEntryComponent, BundleEntryPatient patientEntry) {
-    if (patientEntry.getPatientModification() != null) {
-      return false;
-    }
-    return patientEntry.getReferencedPatients().contains(authorizedPatientId)
-        && doesBundleReferenceElementHavePermission(bundleEntryComponent, Permission.DELETE);
-  }
-
-  private boolean doesPostBundleEntryHaveAccess(
-      BundleEntryComponent bundleEntryComponent, BundleEntryPatient patientEntry) {
-    if (patientEntry.getPatientModification() != null) {
-      return false;
-    }
-    if (bundleEntryComponent.getResource().getResourceType() != null) {
-      return patientEntry.getReferencedPatients().contains(authorizedPatientId)
-          && smartScopeChecker.hasPermission(
-              bundleEntryComponent.getResource().getResourceType().name(), Permission.CREATE);
-    }
-    // TODO(https://github.com/google/fhir-gateway/issues/87): Add support for search in post
-    return false;
-  }
-
-  private boolean doesPutBundleEntryHaveAccess(
-      BundleEntryComponent bundleEntryComponent, BundleEntryPatient patientEntry) {
-    if (patientEntry.getPatientModification() != null) {
-      return patientEntry
-              .getPatientModification()
-              .getModifiedPatientIds()
-              .equals(ImmutableSet.of(authorizedPatientId))
-          && smartScopeChecker.hasPermission(ResourceType.Patient.name(), Permission.UPDATE);
-    }
-    return patientEntry.getReferencedPatients().contains(authorizedPatientId)
-        && doesBundleReferenceElementHavePermission(bundleEntryComponent, Permission.UPDATE);
-  }
-
-  private boolean doesPatchBundleEntryHaveAccess(
-      BundleEntryComponent bundleEntryComponent, BundleEntryPatient patientEntry) {
-    if (patientEntry.getPatientModification() != null) {
-      return patientEntry
-              .getPatientModification()
-              .getModifiedPatientIds()
-              .equals(ImmutableSet.of(authorizedPatientId))
-          && smartScopeChecker.hasPermission(ResourceType.Patient.name(), Permission.UPDATE);
-    }
-    return patientEntry.getReferencedPatients().contains(authorizedPatientId)
-        && doesBundleReferenceElementHavePermission(bundleEntryComponent, Permission.UPDATE);
-  }
-
-  private boolean doesBundleReferenceElementHavePermission(
-      BundleEntryComponent bundleEntryComponent, Permission permission) {
-    BundleEntryRequestComponent bundleEntryRequest = bundleEntryComponent.getRequest();
-    try {
-      if (bundleEntryRequest.getUrl() != null) {
-        URI resourceUri = new URI(bundleEntryRequest.getUrl());
-        IIdType referenceElement = new Reference(resourceUri.getPath()).getReferenceElement();
-        if (referenceElement.getResourceType() != null && referenceElement.hasIdPart()) {
-          return smartScopeChecker.hasPermission(referenceElement.getResourceType(), permission);
-        } else {
-          return smartScopeChecker.hasPermission(referenceElement.getValue(), permission);
-        }
-      }
-    } catch (URISyntaxException e) {
-      logger.error(
-          String.format("Error in parsing bundle request url %s", bundleEntryRequest.getUrl()));
-    }
-    return false;
   }
 
   @Named(value = "patient")
@@ -368,25 +269,156 @@ public class PatientAccessChecker implements AccessChecker {
         HttpFhirClient httpFhirClient,
         FhirContext fhirContext,
         PatientFinder patientFinder,
-        BundleEntryPatientFinder bundleEntryPatientFinder) {
+        BundleProcessorUtils bundleProcessorUtils) {
       return new PatientAccessChecker(
           fhirContext,
           getPatientId(jwt),
           patientFinder,
           getSmartFhirPermissionChecker(jwt),
-          bundleEntryPatientFinder);
+          bundleProcessorUtils);
     }
   }
 
-  private class BundleAccessDecision {
+  public static class PatientAccessCheckerBundleWorker implements BundleProcessingWorker {
     private boolean allBundleOperationsAllowed = true;
+    private final SmartScopeChecker smartScopeChecker;
+    private final String authorizedPatientId;
+    private final BundlePatientFinder bundlePatientFinder;
+    private final BundleProcessorUtils bundleProcessorUtils;
+    private final RequestDetailsReader requestDetailsReader;
 
-    void setBundleEntryDecision(boolean isAccessGranted) {
+    PatientAccessCheckerBundleWorker(
+        SmartScopeChecker smartScopeChecker,
+        BundlePatientFinder bundlePatientFinder,
+        BundleProcessorUtils bundleProcessorUtils,
+        RequestDetailsReader requestDetailsReader,
+        String authorizedPatientId) {
+      this.smartScopeChecker = smartScopeChecker;
+      this.bundlePatientFinder = bundlePatientFinder;
+      this.authorizedPatientId = authorizedPatientId;
+      this.bundleProcessorUtils = bundleProcessorUtils;
+      this.requestDetailsReader = requestDetailsReader;
+    }
+
+    private void setBundleEntryDecision(boolean isAccessGranted) {
       allBundleOperationsAllowed = allBundleOperationsAllowed && isAccessGranted;
     }
 
     boolean areAllBundleOperationsAllowed() {
+      this.bundleProcessorUtils.processBundleFromRequest(this.requestDetailsReader, this);
       return allBundleOperationsAllowed;
+    }
+
+    @Override
+    public void processBundleEntryComponent(BundleEntryComponent bundleEntryComponent) {
+      HTTPVerb httpMethod = bundleEntryComponent.getRequest().getMethod();
+      boolean canAccess = false;
+      switch (httpMethod) {
+        case GET:
+          canAccess = doesGetBundleEntryHaveAccess(bundleEntryComponent);
+          break;
+        case DELETE:
+          canAccess = doesDeleteBundleEntryHaveAccess(bundleEntryComponent);
+          break;
+        case POST:
+          canAccess = doesPostBundleEntryHaveAccess(bundleEntryComponent);
+          break;
+        case PATCH:
+          canAccess = doesPatchBundleEntryHaveAccess(bundleEntryComponent);
+          break;
+        case PUT:
+          canAccess = doesPutBundleEntryHaveAccess(bundleEntryComponent);
+          break;
+        default:
+          break;
+      }
+      setBundleEntryDecision(canAccess);
+    }
+
+    @Override
+    public boolean processNextBundleEntry() {
+      return allBundleOperationsAllowed;
+    }
+
+    private boolean doesGetBundleEntryHaveAccess(BundleEntryComponent bundleEntryComponent) {
+      return bundlePatientFinder
+              .processBundleEntryComponentForPatients(bundleEntryComponent)
+              .getReferencedPatients()
+              .contains(authorizedPatientId)
+          && doesBundleReferenceElementHavePermission(bundleEntryComponent, Permission.READ);
+    }
+
+    private boolean doesDeleteBundleEntryHaveAccess(BundleEntryComponent bundleEntryComponent) {
+      BundleEntryPatient patientEntry =
+          bundlePatientFinder.processBundleEntryComponentForPatients(bundleEntryComponent);
+      if (patientEntry.getPatientModification() != null) {
+        return false;
+      }
+      return patientEntry.getReferencedPatients().contains(authorizedPatientId)
+          && doesBundleReferenceElementHavePermission(bundleEntryComponent, Permission.DELETE);
+    }
+
+    private boolean doesPostBundleEntryHaveAccess(BundleEntryComponent bundleEntryComponent) {
+      BundleEntryPatient patientEntry =
+          bundlePatientFinder.processBundleEntryComponentForPatients(bundleEntryComponent);
+      if (patientEntry.getPatientModification() != null) {
+        return false;
+      }
+      if (bundleEntryComponent.getResource().getResourceType() != null) {
+        return patientEntry.getReferencedPatients().contains(authorizedPatientId)
+            && smartScopeChecker.hasPermission(
+                bundleEntryComponent.getResource().getResourceType().name(), Permission.CREATE);
+      }
+      // TODO(https://github.com/google/fhir-gateway/issues/87): Add support for search in post
+      return false;
+    }
+
+    private boolean doesPutBundleEntryHaveAccess(BundleEntryComponent bundleEntryComponent) {
+      BundleEntryPatient patientEntry =
+          bundlePatientFinder.processBundleEntryComponentForPatients(bundleEntryComponent);
+      if (patientEntry.getPatientModification() != null) {
+        return patientEntry
+                .getPatientModification()
+                .getModifiedPatientIds()
+                .equals(ImmutableSet.of(authorizedPatientId))
+            && smartScopeChecker.hasPermission(ResourceType.Patient.name(), Permission.UPDATE);
+      }
+      return patientEntry.getReferencedPatients().contains(authorizedPatientId)
+          && doesBundleReferenceElementHavePermission(bundleEntryComponent, Permission.UPDATE);
+    }
+
+    private boolean doesPatchBundleEntryHaveAccess(BundleEntryComponent bundleEntryComponent) {
+      BundleEntryPatient patientEntry =
+          bundlePatientFinder.processBundleEntryComponentForPatients(bundleEntryComponent);
+      if (patientEntry.getPatientModification() != null) {
+        return patientEntry
+                .getPatientModification()
+                .getModifiedPatientIds()
+                .equals(ImmutableSet.of(authorizedPatientId))
+            && smartScopeChecker.hasPermission(ResourceType.Patient.name(), Permission.UPDATE);
+      }
+      return patientEntry.getReferencedPatients().contains(authorizedPatientId)
+          && doesBundleReferenceElementHavePermission(bundleEntryComponent, Permission.UPDATE);
+    }
+
+    private boolean doesBundleReferenceElementHavePermission(
+        BundleEntryComponent bundleEntryComponent, Permission permission) {
+      BundleEntryRequestComponent bundleEntryRequest = bundleEntryComponent.getRequest();
+      try {
+        if (bundleEntryRequest.getUrl() != null) {
+          URI resourceUri = new URI(bundleEntryRequest.getUrl());
+          IIdType referenceElement = new Reference(resourceUri.getPath()).getReferenceElement();
+          if (referenceElement.getResourceType() != null && referenceElement.hasIdPart()) {
+            return smartScopeChecker.hasPermission(referenceElement.getResourceType(), permission);
+          } else {
+            return smartScopeChecker.hasPermission(referenceElement.getValue(), permission);
+          }
+        }
+      } catch (URISyntaxException e) {
+        logger.error(
+            String.format("Error in parsing bundle request url %s", bundleEntryRequest.getUrl()));
+      }
+      return false;
     }
   }
 }

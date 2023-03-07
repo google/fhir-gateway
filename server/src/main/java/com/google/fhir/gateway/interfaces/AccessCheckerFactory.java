@@ -18,6 +18,7 @@ package com.google.fhir.gateway.interfaces;
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.rest.server.exceptions.AuthenticationException;
 import com.auth0.jwt.interfaces.DecodedJWT;
+import com.google.fhir.gateway.BundleProcessorUtils;
 import com.google.fhir.gateway.HttpFhirClient;
 
 /**
@@ -35,8 +36,7 @@ public interface AccessCheckerFactory {
    * @param fhirContext the FhirContext object that can be used for creating other HAPI FHIR
    *     objects. This is an expensive object and should not be recreated for each access check.
    * @param patientFinder the utility class for finding patient IDs in query parameters/resources.
-   * @param bundleEntryPatientFinder the utility class for finding patient IDs in bundle resource
-   *     entries.
+   * @param bundleProcessorUtils the utility class for processing a bundle entry by entry
    * @return an AccessChecker; should never be {@code null}.
    * @throws AuthenticationException if an AccessChecker cannot be created for the given token; this
    *     is where AccessChecker specific errors can be communicated to the user.
@@ -46,6 +46,6 @@ public interface AccessCheckerFactory {
       HttpFhirClient httpFhirClient,
       FhirContext fhirContext,
       PatientFinder patientFinder,
-      BundleEntryPatientFinder bundleEntryPatientFinder)
+      BundleProcessorUtils bundleProcessorUtils)
       throws AuthenticationException;
 }

@@ -232,8 +232,10 @@ public class BearerAuthorizationInterceptor {
       return allowedQueriesDecision;
     }
     PatientFinderImp patientFinder = PatientFinderImp.getInstance(fhirContext);
+    BundleProcessorUtils bundleProcessorUtils = BundleProcessorUtils.getInstance(fhirContext);
     AccessChecker accessChecker =
-        accessFactory.create(decodedJwt, fhirClient, fhirContext, patientFinder, patientFinder);
+        accessFactory.create(
+            decodedJwt, fhirClient, fhirContext, patientFinder, bundleProcessorUtils);
     if (accessChecker == null) {
       ExceptionUtil.throwRuntimeExceptionAndLog(
           logger, "Cannot create an AccessChecker!", AuthenticationException.class);

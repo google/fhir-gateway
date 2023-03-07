@@ -20,7 +20,6 @@ import com.auth0.jwt.interfaces.DecodedJWT;
 import com.google.fhir.gateway.interfaces.AccessChecker;
 import com.google.fhir.gateway.interfaces.AccessCheckerFactory;
 import com.google.fhir.gateway.interfaces.AccessDecision;
-import com.google.fhir.gateway.interfaces.BundleEntryPatientFinder;
 import com.google.fhir.gateway.interfaces.NoOpAccessDecision;
 import com.google.fhir.gateway.interfaces.PatientFinder;
 import com.google.fhir.gateway.interfaces.RequestDetailsReader;
@@ -40,7 +39,7 @@ public class PermissiveAccessChecker implements AccessChecker {
         HttpFhirClient httpFhirClient,
         FhirContext fhirContext,
         PatientFinder patientFinder,
-        BundleEntryPatientFinder bundleEntryPatientFinder) {
+        BundleProcessorUtils bundleProcessorUtils) {
       return new PermissiveAccessChecker();
     }
   }

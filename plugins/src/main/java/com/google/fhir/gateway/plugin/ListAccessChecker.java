@@ -23,20 +23,23 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Sets;
 import com.google.common.escape.Escaper;
 import com.google.common.net.UrlEscapers;
+import com.google.fhir.gateway.BundlePatientFinder;
 import com.google.fhir.gateway.BundlePatients;
 import com.google.fhir.gateway.BundlePatients.BundlePatientsBuilder;
+import com.google.fhir.gateway.BundleProcessorUtils;
 import com.google.fhir.gateway.FhirUtil;
 import com.google.fhir.gateway.HttpFhirClient;
 import com.google.fhir.gateway.HttpUtil;
 import com.google.fhir.gateway.JwtUtil;
+import com.google.fhir.gateway.RequestUrlDetailsFinder;
 import com.google.fhir.gateway.interfaces.AccessChecker;
 import com.google.fhir.gateway.interfaces.AccessCheckerFactory;
 import com.google.fhir.gateway.interfaces.AccessDecision;
-import com.google.fhir.gateway.interfaces.BundleEntryPatientFinder;
 import com.google.fhir.gateway.interfaces.NoOpAccessDecision;
 import com.google.fhir.gateway.interfaces.PatientFinder;
 import com.google.fhir.gateway.interfaces.RequestDetailsReader;
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.Objects;
 import java.util.Set;
@@ -61,17 +64,20 @@ public class ListAccessChecker implements AccessChecker {
   private final HttpFhirClient httpFhirClient;
   private final String patientListId;
   private final PatientFinder patientFinder;
+  private final BundleProcessorUtils bundleProcessorUtils;
   private final Escaper PARAM_ESCAPER = UrlEscapers.urlFormParameterEscaper();
 
   private ListAccessChecker(
       HttpFhirClient httpFhirClient,
       String patientListId,
       FhirContext fhirContext,
-      PatientFinder patientFinder) {
+      PatientFinder patientFinder,
+      BundleProcessorUtils bundleProcessorUtils) {
     this.fhirContext = fhirContext;
     this.httpFhirClient = httpFhirClient;
     this.patientListId = patientListId;
     this.patientFinder = patientFinder;
+    this.bundleProcessorUtils = bundleProcessorUtils;
   }
 
   /**
@@ -180,10 +186,13 @@ public class ListAccessChecker implements AccessChecker {
     } catch (IOException e) {
       logger.error("Exception while checking patient existence; denying access! ", e);
       return NoOpAccessDecision.accessDenied();
+    } catch (URISyntaxException e) {
+      logger.error("Exception while parsing URL; denying access! ", e);
+      return NoOpAccessDecision.accessDenied();
     }
   }
 
-  private AccessDecision processGet(RequestDetailsReader requestDetails) {
+  private AccessDecision processGet(RequestDetailsReader requestDetails) throws URISyntaxException {
     // There should be a patient id in search params; the param name is based on the resource.
     if (FhirUtil.isSameResourceType(requestDetails.getResourceName(), ResourceType.List)) {
       if (patientListId.equals(FhirUtil.getIdOrNull(requestDetails))) {
@@ -191,7 +200,8 @@ public class ListAccessChecker implements AccessChecker {
       }
       return NoOpAccessDecision.accessDenied();
     }
-    String patientId = patientFinder.findPatientFromParams(requestDetails);
+    String patientId =
+        patientFinder.findPatientFromUrl(new RequestUrlDetailsFinder(requestDetails));
     return new NoOpAccessDecision(serverListIncludesAnyPatient(Sets.newHashSet(patientId)));
   }
 
@@ -201,11 +211,15 @@ public class ListAccessChecker implements AccessChecker {
       return AccessGrantedAndUpdateList.forPatientResource(
           patientListId, httpFhirClient, fhirContext);
     }
-    Set<String> patientIds = patientFinder.findPatientsInResource(requestDetails);
+    Set<String> patientIds =
+        patientFinder.findPatientsInResource(
+            FhirUtil.createResourceFromRequest(fhirContext, requestDetails),
+            requestDetails.getResourceName());
     return new NoOpAccessDecision(serverListIncludesAnyPatient(patientIds));
   }
 
-  private AccessDecision processPut(RequestDetailsReader requestDetails) throws IOException {
+  private AccessDecision processPut(RequestDetailsReader requestDetails)
+      throws IOException, URISyntaxException {
     if (FhirUtil.isSameResourceType(requestDetails.getResourceName(), ResourceType.Patient)) {
       AccessDecision accessDecision = checkPatientAccessInUpdate(requestDetails);
       if (accessDecision == null) {
@@ -217,7 +231,8 @@ public class ListAccessChecker implements AccessChecker {
     return checkNonPatientAccessInUpdate(requestDetails, RequestTypeEnum.PUT);
   }
 
-  private AccessDecision processPatch(RequestDetailsReader requestDetails) throws IOException {
+  private AccessDecision processPatch(RequestDetailsReader requestDetails)
+      throws IOException, URISyntaxException {
     if (FhirUtil.isSameResourceType(requestDetails.getResourceName(), ResourceType.Patient)) {
       AccessDecision accessDecision = checkPatientAccessInUpdate(requestDetails);
       if (accessDecision == null) {
@@ -229,7 +244,8 @@ public class ListAccessChecker implements AccessChecker {
     return checkNonPatientAccessInUpdate(requestDetails, RequestTypeEnum.PATCH);
   }
 
-  private AccessDecision processDelete(RequestDetailsReader requestDetails) {
+  private AccessDecision processDelete(RequestDetailsReader requestDetails)
+      throws URISyntaxException {
     // We don't support deletion of List resource used as an access list for a user.
     if (FhirUtil.isSameResourceType(requestDetails.getResourceName(), ResourceType.List)
         && patientListId.equals(FhirUtil.getIdOrNull(requestDetails))) {
@@ -239,18 +255,20 @@ public class ListAccessChecker implements AccessChecker {
     // TODO(https://github.com/google/fhir-access-proxy/issues/63):Support direct resource deletion.
 
     // There should be a patient id in search params; the param name is based on the resource.
-    String patientId = patientFinder.findPatientFromParams(requestDetails);
+    String patientId =
+        patientFinder.findPatientFromUrl(new RequestUrlDetailsFinder(requestDetails));
     return new NoOpAccessDecision(serverListIncludesAnyPatient(Sets.newHashSet(patientId)));
   }
 
   private AccessDecision checkNonPatientAccessInUpdate(
-      RequestDetailsReader requestDetails, RequestTypeEnum updateMethod) {
+      RequestDetailsReader requestDetails, RequestTypeEnum updateMethod) throws URISyntaxException {
     Preconditions.checkArgument(
         (updateMethod == RequestTypeEnum.PATCH) || (updateMethod == RequestTypeEnum.PUT),
         "Expected either PATCH or PUT!");
 
     // We do not allow direct resource PUT/PATCH, so Patient ID must be returned
-    String patientId = patientFinder.findPatientFromParams(requestDetails);
+    String patientId =
+        patientFinder.findPatientFromUrl(new RequestUrlDetailsFinder(requestDetails));
     Set<String> patientQueries = Sets.newHashSet();
     // Escaping is not needed here as the set elements will be escaped later.
     patientQueries.add(String.format("Patient/%s", patientId));
@@ -258,10 +276,15 @@ public class ListAccessChecker implements AccessChecker {
     Set<String> patientSet = Sets.newHashSet();
     if (updateMethod == RequestTypeEnum.PATCH) {
       patientSet =
-          patientFinder.findPatientsInPatch(requestDetails, requestDetails.getResourceName());
+          patientFinder.findPatientsInPatchArray(
+              FhirUtil.createJsonArrayFromRequest(requestDetails),
+              requestDetails.getResourceName());
     }
     if (updateMethod == RequestTypeEnum.PUT) {
-      patientSet = patientFinder.findPatientsInResource(requestDetails);
+      patientSet =
+          patientFinder.findPatientsInResource(
+              FhirUtil.createResourceFromRequest(fhirContext, requestDetails),
+              requestDetails.getResourceName());
       // One patient referenced in PUT needs to be accessible by client.
       if (patientSet.isEmpty()) {
         logger.error("No Patient ID referenced in PUT body; denying access!");
@@ -316,7 +339,9 @@ public class ListAccessChecker implements AccessChecker {
   @Nullable
   private BundlePatients createBundlePatients(RequestDetailsReader requestDetails)
       throws IOException {
-    BundlePatients patientsInBundleUnfiltered = patientFinder.findPatientsInBundle(requestDetails);
+    BundlePatientFinder bundlePatientFinder =
+        new BundlePatientFinder(requestDetails, patientFinder, bundleProcessorUtils);
+    BundlePatients patientsInBundleUnfiltered = bundlePatientFinder.findPatientsInBundle();
 
     if (patientsInBundleUnfiltered == null) {
       return null;
@@ -386,9 +411,10 @@ public class ListAccessChecker implements AccessChecker {
         HttpFhirClient httpFhirClient,
         FhirContext fhirContext,
         PatientFinder patientFinder,
-        BundleEntryPatientFinder bundleEntryPatientFinder) {
+        BundleProcessorUtils bundleProcessorUtils) {
       String patientListId = getListId(jwt);
-      return new ListAccessChecker(httpFhirClient, patientListId, fhirContext, patientFinder);
+      return new ListAccessChecker(
+          httpFhirClient, patientListId, fhirContext, patientFinder, bundleProcessorUtils);
     }
   }
 }

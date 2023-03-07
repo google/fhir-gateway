@@ -24,6 +24,7 @@ import ca.uhn.fhir.model.primitive.IdDt;
 import ca.uhn.fhir.rest.api.RequestTypeEnum;
 import ca.uhn.fhir.rest.server.exceptions.InvalidRequestException;
 import com.google.common.io.Resources;
+import com.google.fhir.gateway.BundleProcessorUtils;
 import com.google.fhir.gateway.HttpFhirClient;
 import com.google.fhir.gateway.PatientFinderImp;
 import com.google.fhir.gateway.interfaces.AccessChecker;
@@ -84,8 +85,9 @@ public class ListAccessCheckerTest extends AccessCheckerTestBase {
   @Override
   protected AccessChecker getInstance() {
     PatientFinderImp patientFinderImp = PatientFinderImp.getInstance(fhirContext);
+    BundleProcessorUtils bundleProcessorUtils = BundleProcessorUtils.getInstance(fhirContext);
     return new ListAccessChecker.Factory()
-        .create(jwtMock, httpFhirClientMock, fhirContext, patientFinderImp, patientFinderImp);
+        .create(jwtMock, httpFhirClientMock, fhirContext, patientFinderImp, bundleProcessorUtils);
   }
 
   @Test
@@ -274,7 +276,7 @@ public class ListAccessCheckerTest extends AccessCheckerTestBase {
   }
 
   @Test
-  public void canAccessDeletePatient() throws IOException {
+  public void canAccessDeletePatient() {
     when(requestMock.getResourceName()).thenReturn("Patient");
     when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.DELETE);
     when(requestMock.getId()).thenReturn(PATIENT_AUTHORIZED_ID);
@@ -284,7 +286,7 @@ public class ListAccessCheckerTest extends AccessCheckerTestBase {
   }
 
   @Test
-  public void canAccessDeletePatientUnauthorized() throws IOException {
+  public void canAccessDeletePatientUnauthorized() {
     when(requestMock.getResourceName()).thenReturn("Patient");
     when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.DELETE);
     when(requestMock.getId()).thenReturn(PATIENT_NON_AUTHORIZED_ID);
@@ -294,7 +296,7 @@ public class ListAccessCheckerTest extends AccessCheckerTestBase {
   }
 
   @Test
-  public void canAccessDeleteAccessListUnauthorized() throws IOException {
+  public void canAccessDeleteAccessListUnauthorized() {
     when(requestMock.getResourceName()).thenReturn("List");
     when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.DELETE);
     when(requestMock.getId()).thenReturn(new IdDt("List", TEST_LIST_ID));
@@ -304,7 +306,7 @@ public class ListAccessCheckerTest extends AccessCheckerTestBase {
   }
 
   @Test
-  public void canAccessDeleteObservation() throws IOException {
+  public void canAccessDeleteObservation() {
     when(requestMock.getResourceName()).thenReturn("Observation");
     when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.DELETE);
     when(requestMock.getParameters())
@@ -315,7 +317,7 @@ public class ListAccessCheckerTest extends AccessCheckerTestBase {
   }
 
   @Test
-  public void canAccessDeleteObservationUnauthorized() throws IOException {
+  public void canAccessDeleteObservationUnauthorized() {
     when(requestMock.getResourceName()).thenReturn("Observation");
     when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.DELETE);
     when(requestMock.getParameters())

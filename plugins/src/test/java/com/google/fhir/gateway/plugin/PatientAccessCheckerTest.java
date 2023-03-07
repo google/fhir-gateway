@@ -23,6 +23,7 @@ import ca.uhn.fhir.rest.api.RequestTypeEnum;
 import ca.uhn.fhir.rest.server.exceptions.InvalidRequestException;
 import com.auth0.jwt.interfaces.Claim;
 import com.google.common.io.Resources;
+import com.google.fhir.gateway.BundleProcessorUtils;
 import com.google.fhir.gateway.PatientFinderImp;
 import com.google.fhir.gateway.interfaces.AccessChecker;
 import java.io.IOException;
@@ -42,7 +43,7 @@ public class PatientAccessCheckerTest extends AccessCheckerTestBase {
   static final String DEFAULT_TEST_SCOPES_CLAIM = "patient/*.*";
 
   @Before
-  public void setUp() throws IOException {
+  public void setUp() {
     when(jwtMock.getClaim(PatientAccessChecker.Factory.PATIENT_CLAIM)).thenReturn(claimMock);
     when(jwtMock.getClaim(PatientAccessChecker.Factory.SCOPES_CLAIM)).thenReturn(scopeClaimMock);
     when(claimMock.asString()).thenReturn(PATIENT_AUTHORIZED);
@@ -52,8 +53,9 @@ public class PatientAccessCheckerTest extends AccessCheckerTestBase {
   @Override
   protected AccessChecker getInstance() {
     PatientFinderImp patientFinderImp = PatientFinderImp.getInstance(fhirContext);
+    BundleProcessorUtils bundleProcessorUtils = BundleProcessorUtils.getInstance(fhirContext);
     return new PatientAccessChecker.Factory()
-        .create(jwtMock, null, fhirContext, patientFinderImp, patientFinderImp);
+        .create(jwtMock, null, fhirContext, patientFinderImp, bundleProcessorUtils);
   }
 
   @Test

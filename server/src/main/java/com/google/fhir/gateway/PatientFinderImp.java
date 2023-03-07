@@ -19,57 +19,38 @@ import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.fhirpath.IFhirPath;
 import ca.uhn.fhir.model.primitive.IdDt;
 import ca.uhn.fhir.parser.IParser;
-import ca.uhn.fhir.rest.api.Constants;
 import ca.uhn.fhir.rest.server.exceptions.ForbiddenOperationException;
 import ca.uhn.fhir.rest.server.exceptions.InvalidRequestException;
-import ca.uhn.fhir.util.UrlUtil;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.io.Resources;
-import com.google.fhir.gateway.BundleEntryPatient.ModificationOperation;
-import com.google.fhir.gateway.BundleEntryPatient.PatientModification;
-import com.google.fhir.gateway.BundlePatients.BundlePatientsBuilder;
-import com.google.fhir.gateway.interfaces.BundleEntryPatientFinder;
 import com.google.fhir.gateway.interfaces.PatientFinder;
-import com.google.fhir.gateway.interfaces.RequestDetailsReader;
+import com.google.fhir.gateway.interfaces.UrlDetailsFinder;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import java.io.IOException;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.net.URL;
-import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.instance.model.api.IIdType;
-import org.hl7.fhir.r4.model.Binary;
-import org.hl7.fhir.r4.model.Bundle.BundleEntryComponent;
-import org.hl7.fhir.r4.model.Bundle.BundleEntryRequestComponent;
-import org.hl7.fhir.r4.model.Bundle.HTTPVerb;
 import org.hl7.fhir.r4.model.CompartmentDefinition;
 import org.hl7.fhir.r4.model.CompartmentDefinition.CompartmentDefinitionResourceComponent;
 import org.hl7.fhir.r4.model.Reference;
-import org.hl7.fhir.r4.model.Resource;
 import org.hl7.fhir.r4.model.ResourceType;
 import org.hl7.fhir.r4.model.StringType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public final class PatientFinderImp implements PatientFinder, BundleEntryPatientFinder {
+public final class PatientFinderImp implements PatientFinder {
   private static final Logger logger = LoggerFactory.getLogger(PatientFinderImp.class);
   private static PatientFinderImp instance = null;
   private static final String PATCH_OPERATION = "op";
@@ -81,8 +62,6 @@ public final class PatientFinderImp implements PatientFinder, BundleEntryPatient
   private final IFhirPath fhirPath;
   private final Map<String, List<String>> patientSearchParams;
   private final Map<String, List<String>> patientFhirPaths;
-  private final FhirContext fhirContext;
-  private final BundleProcessor bundleProcessor;
   private final boolean blockJoins;
 
   // This is supposed to be instantiated with getInstance method only.
@@ -91,12 +70,10 @@ public final class PatientFinderImp implements PatientFinder, BundleEntryPatient
       Map<String, List<String>> patientFhirPaths,
       Map<String, List<String>> patientSearchParams,
       boolean blockJoins) {
-    this.fhirContext = fhirContext;
     this.fhirPath = fhirContext.newFhirPath();
     this.patientFhirPaths = patientFhirPaths;
     this.patientSearchParams = patientSearchParams;
     this.blockJoins = blockJoins;
-    this.bundleProcessor = new BundleProcessor(fhirContext);
   }
 
   @Nullable
@@ -147,94 +124,38 @@ public final class PatientFinderImp implements PatientFinder, BundleEntryPatient
     }
   }
 
-  private String findPatientId(BundleEntryRequestComponent requestComponent)
-      throws URISyntaxException {
-    String patientId = null;
-    if (requestComponent.getUrl() != null) {
-      URI resourceUri = new URI(requestComponent.getUrl());
-      IIdType referenceElement = new Reference(resourceUri.getPath()).getReferenceElement();
-      if (FhirUtil.isSameResourceType(referenceElement.getResourceType(), ResourceType.Patient)) {
-        return FhirUtil.checkIdOrFail(referenceElement.getIdPart());
-      }
-      if (referenceElement.getResourceType() == null) {
-        Map<String, String[]> queryParams = UrlUtil.parseQueryString(resourceUri.getQuery());
-        patientId = checkParamsAndFindPatientId(resourceUri.getPath(), queryParams);
-      }
-    }
-    if (patientId == null) {
-      ExceptionUtil.throwRuntimeExceptionAndLog(
-          logger,
-          "Patient ID cannot be found in " + requestComponent.getUrl(),
-          InvalidRequestException.class);
-    }
-    return patientId;
-  }
-
-  /** Checks if the request is for a Patient resource. */
-  private Boolean isPatientResourceType(BundleEntryRequestComponent requestComponent)
-      throws URISyntaxException {
-    if (requestComponent.getUrl() != null) {
-      URI resourceUri = new URI(requestComponent.getUrl());
-      IIdType referenceElement = new Reference(resourceUri.getPath()).getReferenceElement();
-      return FhirUtil.isSameResourceType(referenceElement.getResourceType(), ResourceType.Patient);
-    }
-    return false;
-  }
-
   @Override
-  public String findPatientFromParams(RequestDetailsReader requestDetails) {
-    String resourceName = requestDetails.getResourceName();
-    if (resourceName == null) {
+  public String findPatientFromUrl(UrlDetailsFinder urlDetailsFinder) {
+    if (urlDetailsFinder.getResourceName() == null) {
       ExceptionUtil.throwRuntimeExceptionAndLog(
           logger,
-          "No resource specified for request " + requestDetails.getRequestPath(),
+          "No resource specified for request " + urlDetailsFinder.getRequestPath(),
           InvalidRequestException.class);
     }
-    // Note we only let fetching data for one patient in each query; we may want to revisit this
-    // if we need to batch multiple patients together in one query.
-    if (FhirUtil.isSameResourceType(resourceName, ResourceType.Patient)) {
-      return FhirUtil.getIdOrNull(requestDetails);
+    // Note we only let fetching data for one patient in each query; we may want to revisit
+    //  this if we need to batch multiple patients together in one query.
+    if (FhirUtil.isSameResourceType(urlDetailsFinder.getResourceName(), ResourceType.Patient)) {
+      return urlDetailsFinder.getResourceId();
     }
-    if (FhirUtil.getIdOrNull(requestDetails) != null) {
+    if (urlDetailsFinder.getResourceId() != null) {
       // Block any direct, non-patient resource fetches (e.g. Encounter/EID).
       // Since it is specifying a resource directly, we cannot know if this belongs to an
       // authorized patient.
       ExceptionUtil.throwRuntimeExceptionAndLog(
           logger,
-          "Direct resource fetch is only supported for Patient; use search for " + resourceName,
+          "Direct resource fetch is only supported for Patient; use search for "
+              + urlDetailsFinder.getResourceName(),
           InvalidRequestException.class);
       return null;
     }
-    Map<String, String[]> queryParams = requestDetails.getParameters();
-    String patientId = checkParamsAndFindPatientId(resourceName, queryParams);
+    String patientId =
+        checkParamsAndFindPatientId(
+            urlDetailsFinder.getResourceName(), urlDetailsFinder.getQueryParameters());
     if (patientId == null) {
       ExceptionUtil.throwRuntimeExceptionAndLog(
-          logger,
-          "Patient ID cannot be found in " + requestDetails.getCompleteUrl(),
-          InvalidRequestException.class);
+          logger, "Patient ID cannot be found in ", InvalidRequestException.class);
     }
     return patientId;
-  }
-
-  private IBaseResource createResourceFromRequest(RequestDetailsReader request) {
-    byte[] requestContentBytes = request.loadRequestContents();
-    Charset charset = request.getCharset();
-    if (charset == null) {
-      charset = StandardCharsets.UTF_8;
-    }
-    String requestContent = new String(requestContentBytes, charset);
-    IParser jsonParser = fhirContext.newJsonParser();
-    return jsonParser.parseResource(requestContent);
-  }
-
-  private JsonArray createJsonArrayFromRequest(RequestDetailsReader request) {
-    byte[] requestContentBytes = request.loadRequestContents();
-    Charset charset = request.getCharset();
-    if (charset == null) {
-      charset = StandardCharsets.UTF_8;
-    }
-    String requestContent = new String(requestContentBytes, charset);
-    return JsonParser.parseString(requestContent).getAsJsonArray();
   }
 
   private Set<String> parseReferencesForPatientIds(IBaseResource resource) {
@@ -255,62 +176,6 @@ public final class PatientFinderImp implements PatientFinder, BundleEntryPatient
               .collect(Collectors.toList()));
     }
     return patientIds;
-  }
-
-  @Override
-  public BundlePatients findPatientsInBundle(RequestDetailsReader request) {
-    Map<HTTPVerb, Consumer<BundleEntryComponent>> bundleEntryProcessors = new HashMap<>();
-    BundlePatientsBuilder builder = new BundlePatientsBuilder();
-    bundleEntryProcessors.put(
-        HTTPVerb.GET,
-        bundleEntry -> {
-          processPatientBundleEntryInBundle(processGetBundleEntry(bundleEntry), builder);
-        });
-    bundleEntryProcessors.put(
-        HTTPVerb.DELETE,
-        bundleEntry -> {
-          processPatientBundleEntryInBundle(processDeleteBundleEntry(bundleEntry), builder);
-        });
-    bundleEntryProcessors.put(
-        HTTPVerb.POST,
-        bundleEntry -> {
-          processPatientBundleEntryInBundle(processPostBundleEntry(bundleEntry), builder);
-        });
-    bundleEntryProcessors.put(
-        HTTPVerb.PUT,
-        bundleEntry -> {
-          processPatientBundleEntryInBundle(processPutBundleEntry(bundleEntry), builder);
-        });
-    bundleEntryProcessors.put(
-        HTTPVerb.PATCH,
-        bundleEntry -> {
-          processPatientBundleEntryInBundle(processPatchBundleEntry(bundleEntry), builder);
-        });
-    return bundleProcessor.processBundleFromRequest(request, bundleEntryProcessors, builder::build);
-  }
-
-  private void processPatientBundleEntryInBundle(
-      BundleEntryPatient patientEntry, BundlePatientsBuilder builder) {
-    if (patientEntry == null) {
-      ExceptionUtil.throwRuntimeExceptionAndLog(
-          logger, "Unsupported request", InvalidRequestException.class);
-    }
-    if (!patientEntry.getReferencedPatients().isEmpty()) {
-      builder.addReferencedPatients(patientEntry.getReferencedPatients());
-    }
-    if (patientEntry.getPatientModification() != null) {
-      switch (patientEntry.getPatientModification().getOperation()) {
-        case CREATE:
-          builder.setPatientCreationFlag(true);
-          break;
-        case DELETE:
-          builder.addDeletedPatients(patientEntry.getPatientModification().getModifiedPatientIds());
-          break;
-        case UPDATE:
-          builder.addUpdatePatients(patientEntry.getPatientModification().getModifiedPatientIds());
-          break;
-      }
-    }
   }
 
   @Nullable
@@ -374,144 +239,21 @@ public final class PatientFinderImp implements PatientFinder, BundleEntryPatient
     return null;
   }
 
-  public BundleEntryPatient processGetBundleEntry(BundleEntryComponent entryComponent) {
-    // Ignore body content and just look at request.
-    try {
-      String patientId = findPatientId(entryComponent.getRequest());
-      return new BundleEntryPatient(ImmutableSet.of(patientId));
-    } catch (URISyntaxException e) {
-      ExceptionUtil.throwRuntimeExceptionAndLog(
-          logger, "Error parsing URI in Bundle!", e, InvalidRequestException.class);
-    }
-    return null;
-  }
-
-  public BundleEntryPatient processPatchBundleEntry(BundleEntryComponent entryComponent) {
-
-    // Find patient id in request.url
-    Set<String> referencedPatients = new HashSet<>();
-    PatientModification modification = null;
-    try {
-      String patientId = findPatientId(entryComponent.getRequest());
-      String resourceType =
-          new Reference(entryComponent.getResource().getId())
-              .getReferenceElement()
-              .getResourceType();
-      if (FhirUtil.isSameResourceType(resourceType, ResourceType.Patient)) {
-        modification =
-            new PatientModification(ImmutableSet.of(patientId), ModificationOperation.UPDATE);
-      } else {
-        referencedPatients.add(patientId);
-      }
-      // Find patient ids in body
-      if (!FhirUtil.isSameResourceType(
-          entryComponent.getResource().fhirType(), ResourceType.Binary)) {
-        ExceptionUtil.throwRuntimeExceptionAndLog(
-            logger, "PATCH resource type must be Binary", InvalidRequestException.class);
-      }
-
-      Binary binaryResource = (Binary) entryComponent.getResource();
-      if (!binaryResource.getContentType().equals(Constants.CT_JSON_PATCH)) {
-        ExceptionUtil.throwRuntimeExceptionAndLog(
-            logger,
-            String.format("PATCH content type must be %s", Constants.CT_JSON_PATCH),
-            InvalidRequestException.class);
-      }
-
-      JsonArray jsonArray =
-          JsonParser.parseString(new String(binaryResource.getData())).getAsJsonArray();
-      Set<String> patientsInPatch = parseJsonArrayForPatch(jsonArray, resourceType);
-      if (!patientsInPatch.isEmpty()) {
-        referencedPatients.addAll(patientsInPatch);
-      }
-      if (modification != null) {
-        return new BundleEntryPatient(ImmutableSet.copyOf(referencedPatients), modification);
-      } else {
-        return new BundleEntryPatient(ImmutableSet.copyOf(referencedPatients));
-      }
-    } catch (URISyntaxException e) {
-      ExceptionUtil.throwRuntimeExceptionAndLog(
-          logger, "Error parsing URI in Bundle!", e, InvalidRequestException.class);
-    }
-    return null;
-  }
-
-  public BundleEntryPatient processPutBundleEntry(BundleEntryComponent entryComponent) {
-    Resource resource = entryComponent.getResource();
-    try {
-      String patientId = findPatientId(entryComponent.getRequest());
-      if (FhirUtil.isSameResourceType(resource.fhirType(), ResourceType.Patient)) {
-        return new BundleEntryPatient(
-            ImmutableSet.of(),
-            new PatientModification(ImmutableSet.of(patientId), ModificationOperation.UPDATE));
-      } else {
-        Set<String> referencedPatients = new HashSet<>();
-        referencedPatients.add(patientId);
-        referencedPatients.addAll(getPatientReference(resource));
-        return new BundleEntryPatient(ImmutableSet.copyOf(referencedPatients));
-      }
-    } catch (URISyntaxException e) {
-      ExceptionUtil.throwRuntimeExceptionAndLog(
-          logger, "Error parsing URI in Bundle!", e, InvalidRequestException.class);
-    }
-    return null;
-  }
-
-  public BundleEntryPatient processPostBundleEntry(BundleEntryComponent entryComponent) {
-    Resource resource = entryComponent.getResource();
-    if (FhirUtil.isSameResourceType(resource.fhirType(), ResourceType.Patient)) {
-      return new BundleEntryPatient(
-          ImmutableSet.of(),
-          new PatientModification(ImmutableSet.of(), ModificationOperation.CREATE));
-    } else {
-      return new BundleEntryPatient(ImmutableSet.copyOf(getPatientReference(resource)));
-    }
-  }
-
-  public BundleEntryPatient processDeleteBundleEntry(BundleEntryComponent entryComponent) {
-    // Ignore body content and just look at request.
-    try {
-      String patientId = findPatientId(entryComponent.getRequest());
-      if (isPatientResourceType(entryComponent.getRequest())) {
-        return new BundleEntryPatient(
-            ImmutableSet.of(patientId),
-            new PatientModification(ImmutableSet.of(patientId), ModificationOperation.DELETE));
-      } else {
-        return new BundleEntryPatient(ImmutableSet.of(patientId));
-      }
-    } catch (URISyntaxException e) {
-      ExceptionUtil.throwRuntimeExceptionAndLog(
-          logger, "Error parsing URI in Bundle!", e, InvalidRequestException.class);
-    }
-    return null;
-  }
-
-  private Set<String> getPatientReference(Resource resource) {
-    Set<String> referencePatientIds = parseReferencesForPatientIds(resource);
-    if (referencePatientIds.isEmpty()) {
-      ExceptionUtil.throwRuntimeExceptionAndLog(
-          logger, "Patient reference must exist in resource", InvalidRequestException.class);
-    }
-    return referencePatientIds;
-  }
-
   @Override
-  public Set<String> findPatientsInResource(RequestDetailsReader request) {
-    IBaseResource resource = createResourceFromRequest(request);
-    if (!resource.fhirType().equals(request.getResourceName())) {
+  public Set<String> findPatientsInResource(IBaseResource resource, String resourceName) {
+    if (!resource.fhirType().equals(resourceName)) {
       ExceptionUtil.throwRuntimeExceptionAndLog(
           logger,
           String.format(
               "The provided resource %s is different from what is on the path: %s ",
-              resource.fhirType(), request.getResourceName()),
+              resource.fhirType(), resourceName),
           InvalidRequestException.class);
     }
     return parseReferencesForPatientIds(resource);
   }
 
   @Override
-  public Set<String> findPatientsInPatch(RequestDetailsReader request, String resourceName) {
-    JsonArray jsonArray = createJsonArrayFromRequest(request);
+  public Set<String> findPatientsInPatchArray(JsonArray jsonArray, String resourceName) {
     return parseJsonArrayForPatch(jsonArray, resourceName);
   }
 

@@ -20,7 +20,11 @@ import ca.uhn.fhir.parser.IParser;
 import ca.uhn.fhir.rest.server.exceptions.InvalidRequestException;
 import com.google.common.base.Preconditions;
 import com.google.fhir.gateway.interfaces.RequestDetailsReader;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonParser;
 import java.io.IOException;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 import org.apache.http.HttpResponse;
@@ -57,6 +61,28 @@ public class FhirUtil {
     Preconditions.checkArgument(
         FhirUtil.isSameResourceType(resource.fhirType(), ResourceType.Bundle));
     return (Bundle) resource;
+  }
+
+  public static IBaseResource createResourceFromRequest(
+      FhirContext fhirContext, RequestDetailsReader request) {
+    byte[] requestContentBytes = request.loadRequestContents();
+    Charset charset = request.getCharset();
+    if (charset == null) {
+      charset = StandardCharsets.UTF_8;
+    }
+    String requestContent = new String(requestContentBytes, charset);
+    IParser jsonParser = fhirContext.newJsonParser();
+    return jsonParser.parseResource(requestContent);
+  }
+
+  public static JsonArray createJsonArrayFromRequest(RequestDetailsReader request) {
+    byte[] requestContentBytes = request.loadRequestContents();
+    Charset charset = request.getCharset();
+    if (charset == null) {
+      charset = StandardCharsets.UTF_8;
+    }
+    String requestContent = new String(requestContentBytes, charset);
+    return JsonParser.parseString(requestContent).getAsJsonArray();
   }
 
   public static boolean isValidId(String id) {
