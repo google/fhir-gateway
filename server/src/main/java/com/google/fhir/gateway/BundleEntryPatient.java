@@ -18,13 +18,14 @@ package com.google.fhir.gateway;
 import com.google.common.collect.ImmutableSet;
 import lombok.Getter;
 
+/** Object to store all patient related information contained in a single Bundle entry */
 @Getter
 public class BundleEntryPatient {
 
-  /** Set of patient IDs whose resources are referenced. */
+  /** Set of patient IDs whose resources are referenced in the bundle entry */
   private final ImmutableSet<String> referencedPatients;
 
-  /** Details of any modification operation on Patient resource */
+  /** Details of any modification operation done on Patient resource in the bundle entry */
   private final PatientModification patientModification;
 
   public BundleEntryPatient(
@@ -38,6 +39,10 @@ public class BundleEntryPatient {
     this.patientModification = null;
   }
 
+  /**
+   * Details of any {@link org.hl7.fhir.r4.model.Patient} resource related modification performed in
+   * the Bundle entry request
+   */
   @Getter
   public static class PatientModification {
     /** Set of patient IDs whose Patient resources are modified if any. */
@@ -52,6 +57,10 @@ public class BundleEntryPatient {
     }
   }
 
+  /**
+   * All possible values of the type of modification operation that can be performed on {@link
+   * org.hl7.fhir.r4.model.Patient} resource
+   */
   public enum ModificationOperation {
     UPDATE,
     CREATE,
