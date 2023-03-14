@@ -24,7 +24,6 @@ import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.model.api.IQueryParameterType;
 import ca.uhn.fhir.rest.api.RequestTypeEnum;
 import ca.uhn.fhir.rest.client.api.IGenericClient;
-import ca.uhn.fhir.rest.param.SpecialParam;
 import ca.uhn.fhir.rest.param.TokenParam;
 import ca.uhn.fhir.rest.server.exceptions.AuthenticationException;
 import com.auth0.jwt.interfaces.Claim;
@@ -313,13 +312,6 @@ public class PermissionAccessChecker implements AccessChecker {
       List<IQueryParameterType> lst = new ArrayList<IQueryParameterType>();
       lst.add(tokenParam);
       hmOut.put(PractitionerDetails.SP_KEYCLOAK_UUID, lst);
-
-      // Adding isAuthProvided
-      SpecialParam isAuthProvided = new SpecialParam();
-      isAuthProvided.setValue("false");
-      List<IQueryParameterType> l = new ArrayList<IQueryParameterType>();
-      l.add(isAuthProvided);
-      hmOut.put(PractitionerDetails.SP_IS_AUTH_PROVIDED, l);
 
       return hmOut;
     }

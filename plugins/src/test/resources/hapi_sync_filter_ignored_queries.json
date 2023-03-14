@@ -1,0 +1,29 @@
+{
+  "entries": [
+    {
+      "path": "Questionnaire",
+      "methodType": "GET",
+      "queryParams": {
+        "_id": "ANY_VALUE"
+      }
+    },
+    {
+      "path": "List",
+      "methodType": "GET",
+      "queryParams": {
+        "_id": "ANY_VALUE"
+      }
+    },
+    {
+      "path": "StructureMap",
+      "methodType": "GET",
+      "queryParams": {
+        "_id": [
+          "1000",
+          "2000",
+          "3000"
+        ]
+      }
+    }
+  ]
+}

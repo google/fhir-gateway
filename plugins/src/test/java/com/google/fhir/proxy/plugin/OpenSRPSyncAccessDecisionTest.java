@@ -18,11 +18,16 @@ package com.google.fhir.proxy.plugin;
 import ca.uhn.fhir.rest.api.RequestTypeEnum;
 import ca.uhn.fhir.rest.api.RestOperationTypeEnum;
 import ca.uhn.fhir.rest.server.servlet.ServletRequestDetails;
+import com.google.common.collect.Maps;
+import com.google.common.io.Resources;
 import com.google.fhir.proxy.ProxyConstants;
 import java.io.IOException;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
+import org.apache.commons.lang3.StringUtils;
 import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -183,8 +188,128 @@ public class OpenSRPSyncAccessDecisionTest {
     }
   }
 
+  @Test
+  public void preProcessShouldAddFiltersWhenResourceNotInSyncFilterIgnoredResourcesFile() {
+    organisationIds.add("organizationid1");
+    organisationIds.add("organizationid2");
+    testInstance = createOpenSRPSyncAccessDecisionTestInstance();
+
+    ServletRequestDetails requestDetails = new ServletRequestDetails();
+    requestDetails.setRequestType(RequestTypeEnum.GET);
+    requestDetails.setRestOperationType(RestOperationTypeEnum.SEARCH_TYPE);
+    requestDetails.setResourceName("Patient");
+    requestDetails.setFhirServerBase("https://smartregister.org/fhir");
+    requestDetails.setCompleteUrl("https://smartregister.org/fhir/Patient");
+    requestDetails.setRequestPath("Patient");
+
+    testInstance.preProcess(requestDetails);
+
+    for (String locationId : organisationIds) {
+      Assert.assertFalse(requestDetails.getCompleteUrl().contains(locationId));
+      Assert.assertFalse(requestDetails.getRequestPath().contains(locationId));
+      Assert.assertTrue(requestDetails.getParameters().size() > 0);
+      Assert.assertTrue(
+          Arrays.asList(requestDetails.getParameters().get("_tag")).contains(locationId));
+    }
+  }
+
+  @Test
+  public void preProcessShouldSkipAddingFiltersWhenResourceInSyncFilterIgnoredResourcesFile() {
+    organisationIds.add("organizationid1");
+    organisationIds.add("organizationid2");
+    testInstance = createOpenSRPSyncAccessDecisionTestInstance();
+
+    ServletRequestDetails requestDetails = new ServletRequestDetails();
+    requestDetails.setRequestType(RequestTypeEnum.GET);
+    requestDetails.setRestOperationType(RestOperationTypeEnum.SEARCH_TYPE);
+    requestDetails.setResourceName("Questionnaire");
+    requestDetails.setFhirServerBase("https://smartregister.org/fhir");
+    requestDetails.setCompleteUrl("https://smartregister.org/fhir/Questionnaire");
+    requestDetails.setRequestPath("Questionnaire");
+
+    testInstance.preProcess(requestDetails);
+
+    for (String locationId : organisationIds) {
+      Assert.assertFalse(requestDetails.getCompleteUrl().contains(locationId));
+      Assert.assertFalse(requestDetails.getRequestPath().contains(locationId));
+      Assert.assertTrue(requestDetails.getParameters().size() == 0);
+    }
+  }
+
+  @Test
+  public void
+      preProcessShouldSkipAddingFiltersWhenSearchResourceByIdsInSyncFilterIgnoredResourcesFile() {
+    organisationIds.add("organizationid1");
+    organisationIds.add("organizationid2");
+    testInstance = createOpenSRPSyncAccessDecisionTestInstance();
+
+    ServletRequestDetails requestDetails = new ServletRequestDetails();
+    requestDetails.setRequestType(RequestTypeEnum.GET);
+    requestDetails.setRestOperationType(RestOperationTypeEnum.SEARCH_TYPE);
+    requestDetails.setResourceName("StructureMap");
+    requestDetails.setFhirServerBase("https://smartregister.org/fhir");
+    List<String> queryStringParamValues = Arrays.asList("1000", "2000", "3000");
+    requestDetails.setCompleteUrl(
+        "https://smartregister.org/fhir/StructureMap?_id="
+            + StringUtils.join(queryStringParamValues, ","));
+    Assert.assertEquals(
+        "https://smartregister.org/fhir/StructureMap?_id=1000,2000,3000",
+        requestDetails.getCompleteUrl());
+    requestDetails.setRequestPath("StructureMap");
+
+    Map<String, String[]> params = Maps.newHashMap();
+    params.put("_id", new String[] {StringUtils.join(queryStringParamValues, ",")});
+    requestDetails.setParameters(params);
+
+    testInstance.preProcess(requestDetails);
+
+    Assert.assertNull(requestDetails.getParameters().get(ProxyConstants.SEARCH_PARAM_TAG));
+  }
+
+  @Test
+  public void
+      preProcessShouldAddingFiltersWhenSearchResourceByIdsDoNotMatchSyncFilterIgnoredResources() {
+    organisationIds.add("organizationid1");
+    organisationIds.add("organizationid2");
+    testInstance = createOpenSRPSyncAccessDecisionTestInstance();
+
+    ServletRequestDetails requestDetails = new ServletRequestDetails();
+    requestDetails.setRequestType(RequestTypeEnum.GET);
+    requestDetails.setRestOperationType(RestOperationTypeEnum.SEARCH_TYPE);
+    requestDetails.setResourceName("StructureMap");
+    requestDetails.setFhirServerBase("https://smartregister.org/fhir");
+    List<String> queryStringParamValues = Arrays.asList("1000", "2000");
+    requestDetails.setCompleteUrl(
+        "https://smartregister.org/fhir/StructureMap?_id="
+            + StringUtils.join(queryStringParamValues, ","));
+    Assert.assertEquals(
+        "https://smartregister.org/fhir/StructureMap?_id=1000,2000",
+        requestDetails.getCompleteUrl());
+    requestDetails.setRequestPath("StructureMap");
+
+    Map<String, String[]> params = Maps.newHashMap();
+    params.put("_id", new String[] {StringUtils.join(queryStringParamValues, ",")});
+    requestDetails.setParameters(params);
+
+    testInstance.preProcess(requestDetails);
+
+    String[] searchParamArrays =
+        requestDetails.getParameters().get(ProxyConstants.SEARCH_PARAM_TAG);
+    Assert.assertNotNull(searchParamArrays);
+    for (int i = 0; i < searchParamArrays.length; i++) {
+      Assert.assertTrue(organisationIds.contains(searchParamArrays[i]));
+    }
+  }
+
   private OpenSRPSyncAccessDecision createOpenSRPSyncAccessDecisionTestInstance() {
-    return new OpenSRPSyncAccessDecision(
-        "sample-application-id", true, locationIds, careTeamIds, organisationIds, null);
+    OpenSRPSyncAccessDecision accessDecision =
+        new OpenSRPSyncAccessDecision(
+            "sample-application-id", true, locationIds, careTeamIds, organisationIds, null);
+
+    URL configFileUrl = Resources.getResource("hapi_sync_filter_ignored_queries.json");
+    OpenSRPSyncAccessDecision.IgnoredResourcesConfig skippedDataFilterConfig =
+        accessDecision.getIgnoredResourcesConfigFileConfiguration(configFileUrl.getPath());
+    accessDecision.setSkippedResourcesConfig(skippedDataFilterConfig);
+    return accessDecision;
   }
 }

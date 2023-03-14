@@ -17,14 +17,20 @@ package com.google.fhir.proxy.plugin;
 
 import ca.uhn.fhir.rest.api.RequestTypeEnum;
 import ca.uhn.fhir.rest.server.servlet.ServletRequestDetails;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.fhir.proxy.ProxyConstants;
 import com.google.fhir.proxy.interfaces.AccessDecision;
+import com.google.gson.Gson;
+import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import lombok.Getter;
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.http.HttpResponse;
@@ -33,19 +39,21 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class OpenSRPSyncAccessDecision implements AccessDecision {
-  private static final Logger logger = LoggerFactory.getLogger(PermissionAccessChecker.class);
+  public static final String SYNC_FILTER_IGNORE_RESOURCES_FILE_ENV =
+      "SYNC_FILTER_IGNORE_RESOURCES_FILE";
+  public static final String MATCHES_ANY_VALUE = "ANY_VALUE";
+  private static final Logger logger = LoggerFactory.getLogger(OpenSRPSyncAccessDecision.class);
   private static final int LENGTH_OF_SEARCH_PARAM_AND_EQUALS = 5;
-  private String applicationId;
-
   private final List<String> syncStrategy;
+  private final String applicationId;
+  private final boolean accessGranted;
 
-  private boolean accessGranted;
+  private final List<String> careTeamIds;
 
-  private List<String> careTeamIds;
+  private final List<String> locationIds;
 
-  private List<String> locationIds;
-
-  private List<String> organizationIds;
+  private final List<String> organizationIds;
+  private IgnoredResourcesConfig config;
 
   public OpenSRPSyncAccessDecision(
       String applicationId,
@@ -60,6 +68,7 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
     this.locationIds = locationIds;
     this.organizationIds = organizationIds;
     this.syncStrategy = syncStrategy;
+    config = getSkippedResourcesConfigs();
   }
 
   @Override
@@ -80,8 +89,12 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
             "CR1bAeGgaYqIpsNkG0iidfE5WVb5BJV1yltmL4YFp3o6mxj3iJPhKh4k9ROhlyZveFC8298lYzft8SIy8yMNLl5GVWQXNRr1sSeBkP2McfFZjbMYyrxlNFOJgqvtccDKKYSwBiLHq2By5tRupHcmpIIghV7Hp39KgF4iBDNqIGMKhgOIieQwt5BRih5FgnwdHrdlK9ix");
       }
 
-      logger.error("##### getRequestPath()", servletRequestDetails.getRequestPath());
-      addSyncFilters(servletRequestDetails, getSyncTags(locationIds, careTeamIds, organizationIds));
+      // Skip app-wide global resource requests
+      if (!shouldSkipDataFiltering(servletRequestDetails)) {
+
+        addSyncFilters(
+            servletRequestDetails, getSyncTags(locationIds, careTeamIds, organizationIds));
+      }
     }
   }
 
@@ -192,5 +205,104 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
     }
 
     return false;
+  }
+
+  @VisibleForTesting
+  protected IgnoredResourcesConfig getIgnoredResourcesConfigFileConfiguration(String configFile) {
+    if (configFile != null && !configFile.isEmpty()) {
+      try {
+        Gson gson = new Gson();
+        config = gson.fromJson(new FileReader(configFile), IgnoredResourcesConfig.class);
+        if (config == null || config.entries == null) {
+          throw new IllegalArgumentException("A map with a single `entries` array expected!");
+        }
+        for (IgnoredResourcesConfig entry : config.entries) {
+          if (entry.getPath() == null) {
+            throw new IllegalArgumentException("Allow-list entries should have a path.");
+          }
+        }
+
+      } catch (IOException e) {
+        logger.error("IO error while reading sync-filter skip-list config file {}", configFile);
+      }
+    }
+
+    return config;
+  }
+
+  @VisibleForTesting
+  protected IgnoredResourcesConfig getSkippedResourcesConfigs() {
+    return getIgnoredResourcesConfigFileConfiguration(
+        System.getenv(SYNC_FILTER_IGNORE_RESOURCES_FILE_ENV));
+  }
+
+  /**
+   * This method checks the request to ensure the path, request type and parameters match values in
+   * the hapi_sync_filter_ignored_queries configuration
+   */
+  private boolean shouldSkipDataFiltering(ServletRequestDetails servletRequestDetails) {
+    if (config == null) return false;
+
+    for (IgnoredResourcesConfig entry : config.entries) {
+
+      if (!entry.getPath().equals(servletRequestDetails.getRequestPath())) {
+        continue;
+      }
+
+      if (entry.getMethodType() != null
+          && !entry.getMethodType().equals(servletRequestDetails.getRequestType().name())) {
+        continue;
+      }
+
+      for (Map.Entry<String, Object> expectedParam : entry.getQueryParams().entrySet()) {
+        String[] actualQueryValue =
+            servletRequestDetails.getParameters().get(expectedParam.getKey());
+
+        if (actualQueryValue == null) {
+          return true;
+        }
+
+        if (MATCHES_ANY_VALUE.equals(expectedParam.getValue())) {
+          return true;
+        } else {
+          if (actualQueryValue.length != 1) {
+            // We currently do not support multivalued query params in skip-lists.
+            return false;
+          }
+
+          if (expectedParam.getValue() instanceof List) {
+            return CollectionUtils.isEqualCollection(
+                (List) expectedParam.getValue(), Arrays.asList(actualQueryValue[0].split(",")));
+
+          } else if (actualQueryValue[0].equals(expectedParam.getValue())) {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  }
+
+  @VisibleForTesting
+  protected void setSkippedResourcesConfig(IgnoredResourcesConfig config) {
+    this.config = config;
+  }
+
+  class IgnoredResourcesConfig {
+    @Getter List<IgnoredResourcesConfig> entries;
+    @Getter private String path;
+    @Getter private String methodType;
+    @Getter private Map<String, Object> queryParams;
+
+    @Override
+    public String toString() {
+      return "SkippedFilesConfig{"
+          + methodType
+          + " path="
+          + path
+          + " fhirResources="
+          + Arrays.toString(queryParams.entrySet().toArray())
+          + '}';
+    }
   }
 }
