@@ -20,6 +20,27 @@
       "queryParams": {
         "_id": "ANY_VALUE"
       }
+    },
+    {
+      "path": "PlanDefinition",
+      "methodType": "GET",
+      "queryParams": {
+        "_id": "ANY_VALUE"
+      }
+    },
+    {
+      "path": "Library",
+      "methodType": "GET",
+      "queryParams": {
+        "_id": "ANY_VALUE"
+      }
+    },
+    {
+      "path": "Measure",
+      "methodType": "GET",
+      "queryParams": {
+        "_id": "ANY_VALUE"
+      }
     }
   ]
 }
