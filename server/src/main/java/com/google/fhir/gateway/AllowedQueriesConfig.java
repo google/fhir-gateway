@@ -38,6 +38,8 @@ class AllowedQueriesConfig {
     // If true, this means all parameters in `queryParams` are required,  i.e., none are optional.
     private boolean allParamsRequired;
 
+    private boolean allowUnAuthenticatedRequests;
+
     @Override
     public String toString() {
       String builder =
@@ -48,7 +50,9 @@ class AllowedQueriesConfig {
               + " allowExtraParams="
               + allowExtraParams
               + " allParamsRequired="
-              + allParamsRequired;
+              + allParamsRequired
+              + " allowUnAuthenticatedRequests="
+              + allowUnAuthenticatedRequests;
       return builder;
     }
   }

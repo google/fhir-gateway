@@ -106,12 +106,13 @@ The configuration parameters are provided through environment variables:
 
 - `ALLOWED_QUERIES_FILE`: A list of URL requests that should bypass the access
   checker and always be allowed.
-  [`AllowedQueriesChecker`](https://github.com/google/fhir-gateway/blob/main/server/src/main/java/com/google/fhir/gateway/AllowedQueriesChecker.java)
-  is a special `AccessChecker` that compares the incoming request with a
-  configured set of allowed-queries. The intended use of this checker is to
-  override all other access-checkers for certain user-defined criteria. The user
-  defines their criteria in a config file and if the URL query matches an entry
-  in the config file, access is granted. An example of this is
+  [`AllowedQueriesChecker`](https://github.com/google/fhir-gateway/blob/main/server/src/main/java/com/google/fhir/gateway/AllowedQueriesChecker.java)compares
+  the incoming request with a configured set of allowed-queries. The intended
+  use of this checker is to override all other access-checkers for certain
+  user-defined criteria. The user defines their criteria in a config file and if
+  the URL query matches an entry in the config file, access is granted.
+  [AllowedQueriesConfig](https://github.com/google/fhir-gateway/blob/main/server/src/main/java/com/google/fhir/gateway/AllowedQueriesConfig.java)
+  provides all the supported configurations. An example of this is
   [`hapi_page_url_allowed_queries.json`](https://github.com/google/fhir-gateway/blob/main/resources/hapi_page_url_allowed_queries.json).
   To use this file with `ALLOWED_QUERIES_FILE`:
 

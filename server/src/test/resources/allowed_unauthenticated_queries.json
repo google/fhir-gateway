@@ -1,0 +1,11 @@
+{
+  "entries": [
+    {
+      "path": "Composition",
+      "allowUnAuthenticatedRequests": true,
+      "queryParams": {
+        "_getpages": "ANY_VALUE"
+      }
+    }
+  ]
+}

@@ -17,7 +17,6 @@ package com.google.fhir.gateway;
 
 import com.google.common.collect.Sets;
 import com.google.fhir.gateway.AllowedQueriesConfig.AllowedQueryEntry;
-import com.google.fhir.gateway.interfaces.AccessChecker;
 import com.google.fhir.gateway.interfaces.AccessDecision;
 import com.google.fhir.gateway.interfaces.NoOpAccessDecision;
 import com.google.fhir.gateway.interfaces.RequestDetailsReader;
@@ -36,7 +35,7 @@ import org.slf4j.LoggerFactory;
  * provided, other access-checkers should be called. TODO: Add a new access state beside "granted"
  * and "denied", e.g, "deferred".
  */
-class AllowedQueriesChecker implements AccessChecker {
+class AllowedQueriesChecker {
   private static final Logger logger = LoggerFactory.getLogger(AllowedQueriesChecker.class);
 
   private AllowedQueriesConfig config = null;
@@ -61,7 +60,18 @@ class AllowedQueriesChecker implements AccessChecker {
     }
   }
 
-  @Override
+  public AccessDecision checkUnAuthenticatedAccess(RequestDetailsReader requestDetails) {
+    if (config == null) {
+      return NoOpAccessDecision.accessDenied();
+    }
+    for (AllowedQueryEntry entry : config.entries) {
+      if (entry.isAllowUnAuthenticatedRequests() && requestMatches(requestDetails, entry)) {
+        return NoOpAccessDecision.accessGranted();
+      }
+    }
+    return NoOpAccessDecision.accessDenied();
+  }
+
   public AccessDecision checkAccess(RequestDetailsReader requestDetails) {
     if (config == null) {
       return NoOpAccessDecision.accessDenied();
