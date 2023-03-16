@@ -15,6 +15,7 @@
  */
 package com.google.fhir.gateway;
 
+import com.google.common.base.Strings;
 import com.google.common.collect.Sets;
 import com.google.fhir.gateway.AllowedQueriesConfig.AllowedQueryEntry;
 import com.google.fhir.gateway.interfaces.AccessDecision;
@@ -85,9 +86,15 @@ class AllowedQueriesChecker {
   }
 
   private boolean requestMatches(RequestDetailsReader requestDetails, AllowedQueryEntry entry) {
-    if (!entry.getPath().equals(requestDetails.getRequestPath())) {
+    if (!allowRequestPath(requestDetails.getRequestPath(), entry)) {
       return false;
     }
+
+    if (!Strings.isNullOrEmpty(entry.getRequestType())
+        && !requestDetails.getRequestType().name().equalsIgnoreCase(entry.getRequestType())) {
+      return false;
+    }
+
     Set<String> matchedQueryParams = Sets.newHashSet();
     for (Entry<String, String> expectedParam : entry.getQueryParams().entrySet()) {
       String[] actualQueryValue = requestDetails.getParameters().get(expectedParam.getKey());
@@ -117,5 +124,16 @@ class AllowedQueriesChecker {
     logger.info(
         "Allowed-queries entry {} matched query {}", entry, requestDetails.getCompleteUrl());
     return true;
+  }
+
+  private boolean allowRequestPath(String path, AllowedQueryEntry entry) {
+    if (path.equals(entry.getPath())) {
+      return true;
+    }
+    if (!AllowedQueriesConfig.MATCHES_PATH_ANY_VALUE_PATTERN.matcher(entry.getPath()).matches()) {
+      return false;
+    }
+    String basePath = entry.getPath().substring(0, entry.getPath().indexOf("/") + 1);
+    return path.startsWith(basePath);
   }
 }

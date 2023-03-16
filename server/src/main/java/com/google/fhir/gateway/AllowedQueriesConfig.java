@@ -18,6 +18,7 @@ package com.google.fhir.gateway;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 import lombok.Getter;
 
 /**
@@ -27,17 +28,25 @@ import lombok.Getter;
 class AllowedQueriesConfig {
   public static final String MATCHES_ANY_VALUE = "ANY_VALUE";
 
+  public static Pattern MATCHES_PATH_ANY_VALUE_PATTERN = Pattern.compile("^[a-zA-Z]*(/ANY_VALUE)$");
+
   // Note this is a very simplistic config for an allow-listed query template; we should expand this
   // with information from the access token once needed.
   @Getter
   public static class AllowedQueryEntry {
+    // Supports exact path match and special path matching @MATCHES_PATH_ANY_VALUE_PATTERN
+    // @MATCHES_PATH_ANY_VALUE_PATTERN allows any value of the path variable for a basePath
     private String path;
+
+    // Http request type allowed by the config.
+    private String requestType;
     private Map<String, String> queryParams;
     // If true, this means other parameters not listed in `queryParams` are allowed too.
     private boolean allowExtraParams;
     // If true, this means all parameters in `queryParams` are required,  i.e., none are optional.
     private boolean allParamsRequired;
 
+    // If true, this means we allow unrestricted access to the allowed queries.
     private boolean allowUnAuthenticatedRequests;
 
     @Override
@@ -52,7 +61,9 @@ class AllowedQueriesConfig {
               + " allParamsRequired="
               + allParamsRequired
               + " allowUnAuthenticatedRequests="
-              + allowUnAuthenticatedRequests;
+              + allowUnAuthenticatedRequests
+              + " requestType="
+              + requestType;
       return builder;
     }
   }

@@ -19,6 +19,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.mockito.Mockito.when;
 
+import ca.uhn.fhir.rest.api.RequestTypeEnum;
 import com.google.common.collect.Maps;
 import com.google.common.io.Resources;
 import com.google.fhir.gateway.interfaces.RequestDetailsReader;
@@ -84,6 +85,37 @@ public class AllowedQueriesCheckerTest {
   }
 
   @Test
+  public void validExactPathMatch() throws IOException {
+    when(requestMock.getRequestPath()).thenReturn("Observation");
+    URL configFileUrl = Resources.getResource("allowed_queries_with_path_type.json");
+
+    AllowedQueriesChecker testInstance = new AllowedQueriesChecker(configFileUrl.getPath());
+
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(true));
+  }
+
+  @Test
+  public void validPathRegexMatch() throws IOException {
+    when(requestMock.getRequestPath()).thenReturn("Composition/233");
+    URL configFileUrl = Resources.getResource("allowed_queries_with_path_type.json");
+
+    AllowedQueriesChecker testInstance = new AllowedQueriesChecker(configFileUrl.getPath());
+
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(true));
+  }
+
+  @Test
+  public void validRequestTypeMatch() throws IOException {
+    when(requestMock.getRequestPath()).thenReturn("Encounter");
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.GET);
+    URL configFileUrl = Resources.getResource("allowed_queries_with_path_type.json");
+
+    AllowedQueriesChecker testInstance = new AllowedQueriesChecker(configFileUrl.getPath());
+
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(true));
+  }
+
+  @Test
   public void noMatchForObservationQuery() throws IOException {
     // Query: GET /Observation?_getpages=A_PAGE_ID
     when(requestMock.getRequestPath()).thenReturn("/Observation");
@@ -136,5 +168,26 @@ public class AllowedQueriesCheckerTest {
     AllowedQueriesChecker testInstance = new AllowedQueriesChecker(configFileUrl.getPath());
 
     assertThat(testInstance.checkUnAuthenticatedAccess(requestMock).canAccess(), equalTo(false));
+  }
+
+  @Test
+  public void denyPathMisMatch() throws IOException {
+    when(requestMock.getRequestPath()).thenReturn("Patient");
+    URL configFileUrl = Resources.getResource("allowed_queries_with_path_type.json");
+
+    AllowedQueriesChecker testInstance = new AllowedQueriesChecker(configFileUrl.getPath());
+
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
+  }
+
+  @Test
+  public void denyRequestTypeMisMatch() throws IOException {
+    when(requestMock.getRequestPath()).thenReturn("Encounter");
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.POST);
+    URL configFileUrl = Resources.getResource("allowed_queries_with_path_type.json");
+
+    AllowedQueriesChecker testInstance = new AllowedQueriesChecker(configFileUrl.getPath());
+
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
   }
 }
