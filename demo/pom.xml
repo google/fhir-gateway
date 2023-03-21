@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>org.example</groupId>
+  <artifactId>demo</artifactId>
+  <version>1.0</version>
+
+  <properties>
+    <spring-boot.version>2.7.5</spring-boot.version>
+    <maven.compiler.source>11</maven.compiler.source>
+    <maven.compiler.target>11</maven.compiler.target>
+  </properties>
+  <dependencyManagement>
+    <dependencies>
+      <!-- Instead of using spring-boot-starter-parent as POM parent we add
+      pieces needed from it; also see:
+      https://docs.spring.io/spring-boot/docs/current/maven-plugin/reference/htmlsingle/#using.import
+      -->
+      <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-dependencies</artifactId>
+        <version>${spring-boot.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+  <dependencies>
+    <dependency>
+      <groupId>com.google.fhir.gateway</groupId>
+      <artifactId>server</artifactId>
+      <version>0.1.1</version>
+    </dependency>
+    <dependency>
+      <groupId>com.google.fhir.gateway</groupId>
+      <artifactId>plugins</artifactId>
+      <version>0.1.1</version>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <!-- With this we can create a standalone executable JAR. -->
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+        <version>${spring-boot.version}</version>
+        <executions>
+          <execution>
+            <id>repackage</id>
+            <goals>
+              <goal>repackage</goal>
+            </goals>
+            <configuration>
+              <mainClass>com.demo.MainApp</mainClass>
+              <!-- We use ZIP layout such that PropertiesLauncher is used and we
+              can add extra jars through `loader.path` property:
+              https://docs.spring.io/spring-boot/docs/current/reference/html/executable-jar.html#appendix.executable-jar.property-launcher
+              This is useful for when people want to inject other plugins into
+              this binary without recompiling this executable. We recognize
+              that this is not a very likely pattern; it is probably easier to
+              create a new executable by including all plugins as dependencies.
+              -->
+              <layout>ZIP</layout>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+
+</project>
