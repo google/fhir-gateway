@@ -203,7 +203,10 @@ public class BearerAuthorizationInterceptorTest {
     JWTCreator.Builder jwtBuilder = JWT.create().withIssuer(TOKEN_ISSUER);
     String jwt = signJwt(jwtBuilder);
     when(requestMock.getHeader("Authorization")).thenReturn("Bearer " + jwt);
+    setupFhirResponse(fhirStoreResponse);
+  }
 
+  private void setupFhirResponse(String fhirStoreResponse) throws IOException {
     IRestfulResponse proxyResponseMock = Mockito.mock(IRestfulResponse.class);
     when(requestMock.getResponse()).thenReturn(proxyResponseMock);
     when(proxyResponseMock.getResponseWriter(
@@ -324,13 +327,13 @@ public class BearerAuthorizationInterceptorTest {
   }
 
   @Test
-  public void authorizeAllowedUnAuthenticatedRequest() throws IOException {
+  public void authorizeAllowedUnauthenticatedRequest() throws IOException {
     // Changing the access-checker to something that always denies except the allowed queries
     testInstance =
         createTestInstance(
             false, Resources.getResource("allowed_unauthenticated_queries.json").getPath());
     String responseJson = "{\"resourceType\": \"Bundle\"}";
-    authorizeRequestCommonSetUp(responseJson);
+    setupFhirResponse(responseJson);
     when(requestMock.getRequestPath()).thenReturn("Composition");
 
     testInstance.authorizeRequest(requestMock);

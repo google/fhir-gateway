@@ -2,7 +2,7 @@
   "entries": [
     {
       "path": "Composition",
-      "allowUnAuthenticatedRequests": true,
+      "allowUnauthenticatedRequests": true,
       "queryParams": {
         "_getpages": "ANY_VALUE"
       }

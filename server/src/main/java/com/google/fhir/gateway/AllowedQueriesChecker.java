@@ -65,7 +65,7 @@ class AllowedQueriesChecker {
       return NoOpAccessDecision.accessDenied();
     }
     for (AllowedQueryEntry entry : config.entries) {
-      if (entry.isAllowUnAuthenticatedRequests() && requestMatches(requestDetails, entry)) {
+      if (entry.isAllowUnauthenticatedRequests() && requestMatches(requestDetails, entry)) {
         return NoOpAccessDecision.accessGranted();
       }
     }
