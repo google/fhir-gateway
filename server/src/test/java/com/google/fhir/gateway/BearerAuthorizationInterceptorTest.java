@@ -118,8 +118,8 @@ public class BearerAuthorizationInterceptorTest {
     return null;
   }
 
-  private BearerAuthorizationInterceptor createTestInstance(boolean isAccessGranted)
-      throws IOException {
+  private BearerAuthorizationInterceptor createTestInstance(
+      boolean isAccessGranted, String allowedQueriesConfig) throws IOException {
     return new BearerAuthorizationInterceptor(
         fhirClientMock,
         TOKEN_ISSUER,
@@ -133,7 +133,7 @@ public class BearerAuthorizationInterceptorTest {
                 return new NoOpAccessDecision(isAccessGranted);
               }
             },
-        new AllowedQueriesChecker(null));
+        new AllowedQueriesChecker(allowedQueriesConfig));
   }
 
   @Before
@@ -150,7 +150,7 @@ public class BearerAuthorizationInterceptorTest {
     when(httpUtilMock.fetchWellKnownConfig(anyString(), anyString())).thenReturn(testIdpConfig);
     when(fhirClientMock.handleRequest(requestMock)).thenReturn(fhirResponseMock);
     when(fhirClientMock.getBaseUrl()).thenReturn(FHIR_STORE);
-    testInstance = createTestInstance(true);
+    testInstance = createTestInstance(true, null);
   }
 
   private String signJwt(JWTCreator.Builder jwtBuilder) {
@@ -203,7 +203,10 @@ public class BearerAuthorizationInterceptorTest {
     JWTCreator.Builder jwtBuilder = JWT.create().withIssuer(TOKEN_ISSUER);
     String jwt = signJwt(jwtBuilder);
     when(requestMock.getHeader("Authorization")).thenReturn("Bearer " + jwt);
+    setupFhirResponse(fhirStoreResponse);
+  }
 
+  private void setupFhirResponse(String fhirStoreResponse) throws IOException {
     IRestfulResponse proxyResponseMock = Mockito.mock(IRestfulResponse.class);
     when(requestMock.getResponse()).thenReturn(proxyResponseMock);
     when(proxyResponseMock.getResponseWriter(
@@ -323,11 +326,30 @@ public class BearerAuthorizationInterceptorTest {
         equalTo("OAuth"));
   }
 
+  @Test
+  public void authorizeAllowedUnauthenticatedRequest() throws IOException {
+    // Changing the access-checker to something that always denies except the allowed queries
+    testInstance =
+        createTestInstance(
+            false, Resources.getResource("allowed_unauthenticated_queries.json").getPath());
+    String responseJson = "{\"resourceType\": \"Bundle\"}";
+    setupFhirResponse(responseJson);
+    when(requestMock.getRequestPath()).thenReturn("Composition");
+
+    testInstance.authorizeRequest(requestMock);
+
+    assertThat(responseJson, equalTo(writerStub.toString()));
+  }
+
   @Test(expected = ForbiddenOperationException.class)
   public void deniedRequest() throws IOException {
     // Changing the access-checker to something that always denies.
-    testInstance = createTestInstance(false);
+    testInstance =
+        createTestInstance(
+            false, Resources.getResource("allowed_unauthenticated_queries.json").getPath());
     authorizeRequestCommonSetUp("never returned response");
+    when(requestMock.getRequestPath()).thenReturn("Patient");
+
     testInstance.authorizeRequest(requestMock);
   }
 }

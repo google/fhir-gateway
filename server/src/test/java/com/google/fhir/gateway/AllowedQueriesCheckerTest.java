@@ -74,6 +74,16 @@ public class AllowedQueriesCheckerTest {
   }
 
   @Test
+  public void validUnAuthenticatedQuery() throws IOException {
+    when(requestMock.getRequestPath()).thenReturn("Composition");
+    URL configFileUrl = Resources.getResource("allowed_unauthenticated_queries.json");
+
+    AllowedQueriesChecker testInstance = new AllowedQueriesChecker(configFileUrl.getPath());
+
+    assertThat(testInstance.checkUnAuthenticatedAccess(requestMock).canAccess(), equalTo(true));
+  }
+
+  @Test
   public void noMatchForObservationQuery() throws IOException {
     // Query: GET /Observation?_getpages=A_PAGE_ID
     when(requestMock.getRequestPath()).thenReturn("/Observation");
@@ -116,5 +126,15 @@ public class AllowedQueriesCheckerTest {
     URL configFileUrl = Resources.getResource("hapi_page_url_allowed_queries.json");
     AllowedQueriesChecker testInstance = new AllowedQueriesChecker(configFileUrl.getPath());
     assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
+  }
+
+  @Test
+  public void denyUnAuthenticatedQuery() throws IOException {
+    when(requestMock.getRequestPath()).thenReturn("Patient");
+    URL configFileUrl = Resources.getResource("allowed_unauthenticated_queries.json");
+
+    AllowedQueriesChecker testInstance = new AllowedQueriesChecker(configFileUrl.getPath());
+
+    assertThat(testInstance.checkUnAuthenticatedAccess(requestMock).canAccess(), equalTo(false));
   }
 }

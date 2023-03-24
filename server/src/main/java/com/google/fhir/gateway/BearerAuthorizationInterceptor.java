@@ -218,6 +218,12 @@ public class BearerAuthorizationInterceptor {
       // Abuse of this open endpoint should be blocked by DDOS prevention means.
       return CapabilityPostProcessor.getInstance(server.getFhirContext());
     }
+    RequestDetailsReader requestDetailsReader = new RequestDetailsToReader(requestDetails);
+    AccessDecision unauthenticatedQueriesDecision =
+        allowedQueriesChecker.checkUnAuthenticatedAccess(requestDetailsReader);
+    if (unauthenticatedQueriesDecision.canAccess()) {
+      return unauthenticatedQueriesDecision;
+    }
     // Check the Bearer token to be a valid JWT with required claims.
     String authHeader = requestDetails.getHeader("Authorization");
     if (authHeader == null) {
@@ -226,7 +232,6 @@ public class BearerAuthorizationInterceptor {
     }
     DecodedJWT decodedJwt = decodeAndVerifyBearerToken(authHeader);
     FhirContext fhirContext = server.getFhirContext();
-    RequestDetailsReader requestDetailsReader = new RequestDetailsToReader(requestDetails);
     AccessDecision allowedQueriesDecision = allowedQueriesChecker.checkAccess(requestDetailsReader);
     if (allowedQueriesDecision.canAccess()) {
       return allowedQueriesDecision;
