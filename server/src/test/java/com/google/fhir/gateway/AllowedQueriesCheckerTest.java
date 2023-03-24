@@ -190,4 +190,5 @@ public class AllowedQueriesCheckerTest {
 
     assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
   }
+
 }

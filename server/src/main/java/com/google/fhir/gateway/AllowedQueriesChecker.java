@@ -18,6 +18,7 @@ package com.google.fhir.gateway;
 import com.google.common.base.Strings;
 import com.google.common.collect.Sets;
 import com.google.fhir.gateway.AllowedQueriesConfig.AllowedQueryEntry;
+import com.google.fhir.gateway.interfaces.AccessChecker;
 import com.google.fhir.gateway.interfaces.AccessDecision;
 import com.google.fhir.gateway.interfaces.NoOpAccessDecision;
 import com.google.fhir.gateway.interfaces.RequestDetailsReader;
@@ -66,7 +67,7 @@ class AllowedQueriesChecker {
       return NoOpAccessDecision.accessDenied();
     }
     for (AllowedQueryEntry entry : config.entries) {
-      if (entry.isAllowUnAuthenticatedRequests() && requestMatches(requestDetails, entry)) {
+      if (entry.isAllowUnauthenticatedRequests() && requestMatches(requestDetails, entry)) {
         return NoOpAccessDecision.accessGranted();
       }
     }
