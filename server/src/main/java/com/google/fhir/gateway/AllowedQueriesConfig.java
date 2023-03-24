@@ -18,7 +18,6 @@ package com.google.fhir.gateway;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Pattern;
 import lombok.Getter;
 
 /**
@@ -28,17 +27,15 @@ import lombok.Getter;
 class AllowedQueriesConfig {
   public static final String MATCHES_ANY_VALUE = "ANY_VALUE";
 
-  public static Pattern MATCHES_PATH_ANY_VALUE_PATTERN = Pattern.compile("^[a-zA-Z]*(/ANY_VALUE)$");
-
   // Note this is a very simplistic config for an allow-listed query template; we should expand this
   // with information from the access token once needed.
   @Getter
   public static class AllowedQueryEntry {
-    // Supports exact path match and special path matching @MATCHES_PATH_ANY_VALUE_PATTERN
-    // @MATCHES_PATH_ANY_VALUE_PATTERN allows any value of the path variable for a basePath
+    // Supports exact path match and special path ending with /ANY_VALUE
+    // Eg - Composition/ANY_VALUE will match Composition and paths matching Composition/.* regex.
     private String path;
 
-    // Http request type allowed by the config.
+    // Case in-sensitive Http request type allowed by the config.
     private String requestType;
     private Map<String, String> queryParams;
     // If true, this means other parameters not listed in `queryParams` are allowed too.

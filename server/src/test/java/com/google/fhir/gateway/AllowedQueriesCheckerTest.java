@@ -95,8 +95,18 @@ public class AllowedQueriesCheckerTest {
   }
 
   @Test
-  public void validPathRegexMatch() throws IOException {
+  public void validPathWithVariableAnyParamValueMatch() throws IOException {
     when(requestMock.getRequestPath()).thenReturn("Composition/233");
+    URL configFileUrl = Resources.getResource("allowed_queries_with_path_type.json");
+
+    AllowedQueriesChecker testInstance = new AllowedQueriesChecker(configFileUrl.getPath());
+
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(true));
+  }
+
+  @Test
+  public void validBasePathAnyParamValueMatch() throws IOException {
+    when(requestMock.getRequestPath()).thenReturn("Composition");
     URL configFileUrl = Resources.getResource("allowed_queries_with_path_type.json");
 
     AllowedQueriesChecker testInstance = new AllowedQueriesChecker(configFileUrl.getPath());
@@ -190,5 +200,4 @@ public class AllowedQueriesCheckerTest {
 
     assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
   }
-
 }

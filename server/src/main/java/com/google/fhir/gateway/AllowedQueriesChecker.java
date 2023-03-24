@@ -18,7 +18,6 @@ package com.google.fhir.gateway;
 import com.google.common.base.Strings;
 import com.google.common.collect.Sets;
 import com.google.fhir.gateway.AllowedQueriesConfig.AllowedQueryEntry;
-import com.google.fhir.gateway.interfaces.AccessChecker;
 import com.google.fhir.gateway.interfaces.AccessDecision;
 import com.google.fhir.gateway.interfaces.NoOpAccessDecision;
 import com.google.fhir.gateway.interfaces.RequestDetailsReader;
@@ -131,10 +130,12 @@ class AllowedQueriesChecker {
     if (path.equals(entry.getPath())) {
       return true;
     }
-    if (!AllowedQueriesConfig.MATCHES_PATH_ANY_VALUE_PATTERN.matcher(entry.getPath()).matches()) {
-      return false;
+    if (entry.getPath().endsWith("/" + AllowedQueriesConfig.MATCHES_ANY_VALUE)) {
+      int basePathSize =
+          entry.getPath().length() - AllowedQueriesConfig.MATCHES_ANY_VALUE.length() - 1;
+      String basePath = entry.getPath().substring(0, basePathSize);
+      return path.equals(basePath) || path.startsWith(basePath + "/");
     }
-    String basePath = entry.getPath().substring(0, entry.getPath().indexOf("/") + 1);
-    return path.startsWith(basePath);
+    return false;
   }
 }
