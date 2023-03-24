@@ -16,6 +16,7 @@
 package com.google.fhir.gateway;
 
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import lombok.Getter;
@@ -44,6 +45,10 @@ class AllowedQueriesConfig {
     private boolean allParamsRequired;
 
     private boolean allowUnauthenticatedRequests;
+
+    AllowedQueryEntry() {
+      queryParams = new HashMap<>();
+    }
 
     @Override
     public String toString() {

@@ -1,19 +1,13 @@
 {
   "entries": [
     {
-      "path": "Observation",
-      "queryParams": {
-      }
+      "path": "Observation"
     },
     {
-      "path": "Composition/ANY_VALUE",
-      "queryParams": {
-      }
+      "path": "Composition/ANY_VALUE"
     },
     {
       "path": "Encounter",
-      "queryParams": {
-      },
       "requestType" : "Get"
     }
   ]
