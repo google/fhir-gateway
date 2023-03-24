@@ -18,6 +18,7 @@ package com.google.fhir.gateway.interfaces;
 import ca.uhn.fhir.rest.server.exceptions.InvalidRequestException;
 import com.google.fhir.gateway.BundlePatients;
 import java.util.Set;
+import org.hl7.fhir.r4.model.Bundle;
 
 public interface PatientFinder {
   /**
@@ -34,12 +35,12 @@ public interface PatientFinder {
   /**
    * Find all patients referenced or updated in a Bundle.
    *
-   * @param request that is expected to have a Bundle content.
+   * @param bundle bundle request to find patient references in.
    * @return the {@link BundlePatients} that wraps all found patients.
    * @throws InvalidRequestException for various reasons when unexpected content is encountered.
    *     Callers are expected to deny access when this happens.
    */
-  BundlePatients findPatientsInBundle(RequestDetailsReader request);
+  BundlePatients findPatientsInBundle(Bundle bundle);
 
   /**
    * Finds all patients in the content of a request.

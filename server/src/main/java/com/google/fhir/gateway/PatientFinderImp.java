@@ -211,17 +211,6 @@ public final class PatientFinderImp implements PatientFinder {
     return patientId;
   }
 
-  private IBaseResource createResourceFromRequest(RequestDetailsReader request) {
-    byte[] requestContentBytes = request.loadRequestContents();
-    Charset charset = request.getCharset();
-    if (charset == null) {
-      charset = StandardCharsets.UTF_8;
-    }
-    String requestContent = new String(requestContentBytes, charset);
-    IParser jsonParser = fhirContext.newJsonParser();
-    return jsonParser.parseResource(requestContent);
-  }
-
   private JsonArray createJsonArrayFromRequest(RequestDetailsReader request) {
     byte[] requestContentBytes = request.loadRequestContents();
     Charset charset = request.getCharset();
@@ -253,14 +242,7 @@ public final class PatientFinderImp implements PatientFinder {
   }
 
   @Override
-  public BundlePatients findPatientsInBundle(RequestDetailsReader request) {
-    IBaseResource resource = createResourceFromRequest(request);
-    if (!(resource instanceof Bundle)) {
-      ExceptionUtil.throwRuntimeExceptionAndLog(
-          logger, "The provided resource is not a Bundle!", InvalidRequestException.class);
-    }
-    Bundle bundle = (Bundle) resource;
-
+  public BundlePatients findPatientsInBundle(Bundle bundle) {
     if (bundle.getType() != BundleType.TRANSACTION) {
       // Currently, support only for transaction bundles; see:
       //   https://github.com/google/fhir-access-proxy/issues/67
@@ -460,7 +442,7 @@ public final class PatientFinderImp implements PatientFinder {
 
   @Override
   public Set<String> findPatientsInResource(RequestDetailsReader request) {
-    IBaseResource resource = createResourceFromRequest(request);
+    IBaseResource resource = FhirUtil.createResourceFromRequest(fhirContext, request);
     if (!resource.fhirType().equals(request.getResourceName())) {
       ExceptionUtil.throwRuntimeExceptionAndLog(
           logger,
