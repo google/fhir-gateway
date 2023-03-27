@@ -106,9 +106,11 @@ if __name__ == "__main__":
     fhir_proxy_client = clients.FhirProxyClient()
     hapi_client = clients.HapiClient()
 
+    logging.info("Testing proxy and server resource counts ...")
     test_proxy_and_server_equal_count(
         patients, resources, hapi_client, fhir_proxy_client, auth_client
     )
+    logging.info("Testing post resource ...")
     test_post_resource_increase_count(
         ("Observation", "subject"),
         "e2e-test/obs.json",
