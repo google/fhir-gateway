@@ -16,7 +16,10 @@
 
 # Image for building and running tests against the source code of
 # the FHIR Access Proxy.
-FROM maven:3.8.5-openjdk-17-slim as build
+FROM maven:3.8.5-openjdk-11 as build
+
+RUN apt-get update && apt-get install -y nodejs npm
+RUN npm cache clean -f && npm install -g n && n stable
 
 WORKDIR /app
 
@@ -31,15 +34,14 @@ COPY pom.xml .
 
 RUN mvn spotless:check
 # Updating license will fail in e2e and there is no point doing it here anyways.
-RUN mvn --batch-mode package -Dmaven.test.skip=true -Dspotless.apply.skip=true -Dspotless.check.skip=true -Pstandalone-app
+RUN mvn --batch-mode package -Pstandalone-app -Dlicense.skip=true
 
 
 # Image for FHIR Access Proxy binary with configuration knobs as environment vars.
-FROM eclipse-temurin:17-jdk-focal as main
+FROM eclipse-temurin:11-jdk-focal as main
 
 COPY --from=build /app/exec/target/exec-0.1.1.jar /
 COPY resources/hapi_page_url_allowed_queries.json resources/hapi_page_url_allowed_queries.json
-COPY resources/hapi_sync_filter_ignored_queries.json resources/hapi_sync_filter_ignored_queries.json
 
 ENV PROXY_PORT=8080
 ENV TOKEN_ISSUER="http://localhost/auth/realms/test"
