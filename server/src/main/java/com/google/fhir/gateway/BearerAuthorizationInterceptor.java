@@ -226,7 +226,7 @@ public class BearerAuthorizationInterceptor {
     }
     // Check the Bearer token to be a valid JWT with required claims.
 
-     requestDetailsReader = new RequestDetailsToReader(requestDetails);
+    requestDetailsReader = new RequestDetailsToReader(requestDetails);
     String authHeader = requestDetails.getHeader("Authorization");
     if (authHeader == null) {
       ExceptionUtil.throwRuntimeExceptionAndLog(

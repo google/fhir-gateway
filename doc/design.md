@@ -367,7 +367,7 @@ The mapping from resources to patients is done through the
 [patient compartment](https://www.hl7.org/fhir/compartmentdefinition-patient.html)
 definition. Note that we can still access many resources in one query; in
 particular through
-[Patient/ID/$everything](https://hl7.org/fhir/patient-operation-everything.html)
+[Patient/ID/\$everything](https://hl7.org/fhir/patient-operation-everything.html)
 queries, we can fetch all updates for a single patient.
 
 This approach helps support both the **flexible-access-control** and
@@ -553,10 +553,10 @@ In the main text, we refer to these examples by "all-patients",
 ## Notes
 
 [^1]:
-    The simplified
-    [Implicit](https://smilecdr.com/docs/smart/smart_on_fhir_authorization_flows.html#launch-flow-implicit-grant)
-    flow could work for our use-case too but that has important security
-    shortcomings. For example, it exposes access_token in URLs which can leak
-    through browser history. Another more important shortcoming is that we
-    cannot implement PKCE in the Implicit flow as the access_token is directly
-    returned in the first request.
+  The simplified
+  [Implicit](https://smilecdr.com/docs/smart/smart_on_fhir_authorization_flows.html#launch-flow-implicit-grant)
+  flow could work for our use-case too but that has important security
+  shortcomings. For example, it exposes access_token in URLs which can leak
+  through browser history. Another more important shortcoming is that we cannot
+  implement PKCE in the Implicit flow as the access_token is directly returned
+  in the first request.

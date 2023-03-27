@@ -22,14 +22,13 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
-import java.util.Set;
-import javax.inject.Named;
-
 import com.google.fhir.gateway.BundlePatients;
 import com.google.fhir.gateway.FhirUtil;
 import com.google.fhir.gateway.HttpFhirClient;
 import com.google.fhir.gateway.JwtUtil;
 import com.google.fhir.gateway.interfaces.*;
+import java.util.Set;
+import javax.inject.Named;
 import org.hl7.fhir.r4.model.Bundle.HTTPVerb;
 import org.hl7.fhir.r4.model.ResourceType;
 import org.slf4j.Logger;
