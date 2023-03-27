@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2022 Google LLC
+ * Copyright 2021-2023 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,18 +22,14 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
-import com.google.fhir.proxy.BundlePatients;
-import com.google.fhir.proxy.FhirUtil;
-import com.google.fhir.proxy.HttpFhirClient;
-import com.google.fhir.proxy.JwtUtil;
-import com.google.fhir.proxy.interfaces.AccessChecker;
-import com.google.fhir.proxy.interfaces.AccessCheckerFactory;
-import com.google.fhir.proxy.interfaces.AccessDecision;
-import com.google.fhir.proxy.interfaces.NoOpAccessDecision;
-import com.google.fhir.proxy.interfaces.PatientFinder;
-import com.google.fhir.proxy.interfaces.RequestDetailsReader;
 import java.util.Set;
 import javax.inject.Named;
+
+import com.google.fhir.gateway.BundlePatients;
+import com.google.fhir.gateway.FhirUtil;
+import com.google.fhir.gateway.HttpFhirClient;
+import com.google.fhir.gateway.JwtUtil;
+import com.google.fhir.gateway.interfaces.*;
 import org.hl7.fhir.r4.model.Bundle.HTTPVerb;
 import org.hl7.fhir.r4.model.ResourceType;
 import org.slf4j.Logger;
