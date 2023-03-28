@@ -75,10 +75,8 @@ public class FhirUtil {
 
   public static Bundle parseRequestToBundle(FhirContext fhirContext, RequestDetailsReader request) {
     IBaseResource resource = createResourceFromRequest(fhirContext, request);
-    if (!(resource instanceof Bundle)) {
-      ExceptionUtil.throwRuntimeExceptionAndLog(
-          logger, "The provided resource is not a Bundle!", InvalidRequestException.class);
-    }
+    Preconditions.checkArgument(
+        FhirUtil.isSameResourceType(resource.fhirType(), ResourceType.Bundle));
     return (Bundle) resource;
   }
 
