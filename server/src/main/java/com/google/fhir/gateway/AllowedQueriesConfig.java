@@ -31,12 +31,19 @@ class AllowedQueriesConfig {
   // with information from the access token once needed.
   @Getter
   public static class AllowedQueryEntry {
+    // Supports exact path match and special path ending with /ANY_VALUE
+    // Eg - Composition/ANY_VALUE will match Composition and paths matching Composition/.* regex.
     private String path;
+
+    // Case in-sensitive Http request type allowed by the config.
+    private String requestType;
     private Map<String, String> queryParams;
     // If true, this means other parameters not listed in `queryParams` are allowed too.
     private boolean allowExtraParams;
     // If true, this means all parameters in `queryParams` are required,  i.e., none are optional.
     private boolean allParamsRequired;
+
+    private boolean allowUnauthenticatedRequests;
 
     @Override
     public String toString() {
@@ -48,7 +55,11 @@ class AllowedQueriesConfig {
               + " allowExtraParams="
               + allowExtraParams
               + " allParamsRequired="
-              + allParamsRequired;
+              + allParamsRequired
+              + " allowUnauthenticatedRequests="
+              + allowUnauthenticatedRequests
+              + " requestType="
+              + requestType;
       return builder;
     }
   }
