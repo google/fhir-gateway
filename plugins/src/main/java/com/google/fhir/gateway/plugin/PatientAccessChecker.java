@@ -16,7 +16,6 @@
 package com.google.fhir.gateway.plugin;
 
 import ca.uhn.fhir.context.FhirContext;
-import ca.uhn.fhir.parser.IParser;
 import ca.uhn.fhir.rest.api.RequestTypeEnum;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import com.google.common.annotations.VisibleForTesting;
@@ -37,12 +36,9 @@ import com.google.fhir.gateway.plugin.SmartFhirScope.Permission;
 import com.google.fhir.gateway.plugin.SmartFhirScope.Principal;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Set;
 import javax.inject.Named;
-import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.instance.model.api.IIdType;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Bundle.BundleEntryComponent;
@@ -208,7 +204,8 @@ public class PatientAccessChecker implements AccessChecker {
   }
 
   private AccessDecision processBundle(RequestDetailsReader requestDetails) {
-    BundlePatients patientsInBundle = patientFinder.findPatientsInBundle(requestDetails);
+    Bundle requestBundle = FhirUtil.parseRequestToBundle(fhirContext, requestDetails);
+    BundlePatients patientsInBundle = patientFinder.findPatientsInBundle(requestBundle);
 
     if (patientsInBundle == null
         || patientsInBundle.areTherePatientToCreate()
@@ -226,34 +223,13 @@ public class PatientAccessChecker implements AccessChecker {
         return NoOpAccessDecision.accessDenied();
       }
     }
-    // TODO: there is duplication in processing the request Bundle here. It is already processed in
-    // PatientFinder
-    // Will follow up with a PR to solve this :https://github.com/google/fhir-gateway/issues/104
-    Bundle requestBundle = createBundleFromRequest(requestDetails);
-    if (requestBundle == null) {
-      return NoOpAccessDecision.accessDenied();
-    }
+
     for (BundleEntryComponent entryComponent : requestBundle.getEntry()) {
       if (!doesBundleElementHavePermission(entryComponent)) {
         return NoOpAccessDecision.accessDenied();
       }
     }
     return NoOpAccessDecision.accessGranted();
-  }
-
-  private Bundle createBundleFromRequest(RequestDetailsReader request) {
-    byte[] requestContentBytes = request.loadRequestContents();
-    Charset charset = request.getCharset();
-    if (charset == null) {
-      charset = StandardCharsets.UTF_8;
-    }
-    String requestContent = new String(requestContentBytes, charset);
-    IParser jsonParser = fhirContext.newJsonParser();
-    IBaseResource resource = jsonParser.parseResource(requestContent);
-    if (!(resource instanceof Bundle)) {
-      return null;
-    }
-    return (Bundle) resource;
   }
 
   private boolean doesReferenceElementHavePermission(
