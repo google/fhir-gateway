@@ -35,13 +35,6 @@
   </properties>
 
   <dependencies>
-
-    <dependency>
-      <groupId>org.smartregister</groupId>
-      <artifactId>fhir-common-utils</artifactId>
-      <version>0.0.6-SNAPSHOT</version>
-    </dependency>
-
     <!-- This dependency includes the HAPI FHIR Server Framework -->
     <dependency>
       <groupId>ca.uhn.hapi.fhir</groupId>
