@@ -21,9 +21,9 @@
   <parent>
     <!-- This is to inherit common test dependencies. External plugin
     implementations do not have to do this; they can redeclare those deps. -->
-    <groupId>com.google.fhir.proxy</groupId>
-    <artifactId>fhir-proxy</artifactId>
-    <version>0.1.17-beta</version>
+    <groupId>com.google.fhir.gateway</groupId>
+    <artifactId>fhir-gateway</artifactId>
+    <version>0.1.1</version>
   </parent>
 
   <artifactId>plugins</artifactId>
@@ -51,51 +51,5 @@
       <scope>compile</scope>
     </dependency>
   </dependencies>
-
-  <profiles>
-    <profile>
-      <id>standalone-app</id>
-      <!-- With this profile we can create a standalone executable JAR. This is
-      mostly for convenience and is not necessary for plugin modules. The plugin
-      modules do not need any direct dependency on Spring. The server module
-      already has a standalone app and plugin jars can be added to its
-      classpath, using the loader.path property:
-      https://docs.spring.io/spring-boot/docs/current/reference/html/executable-jar.html#appendix.executable-jar.property-launcher
-      -->
-      <dependencyManagement>
-        <dependencies>
-          <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-dependencies</artifactId>
-            <version>${spring-boot.version}</version>
-            <type>pom</type>
-            <scope>import</scope>
-          </dependency>
-        </dependencies>
-      </dependencyManagement>
-
-      <build>
-        <finalName>${project.parent.artifactId}-${project.artifactId}</finalName>
-        <plugins>
-          <plugin>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-maven-plugin</artifactId>
-            <executions>
-              <execution>
-                <id>repackage</id>
-                <goals>
-                  <goal>repackage</goal>
-                </goals>
-                <configuration>
-                  <classifier>exec</classifier>
-                  <mainClass>com.google.fhir.proxy.MainApp</mainClass>
-                </configuration>
-              </execution>
-            </executions>
-          </plugin>
-        </plugins>
-      </build>
-    </profile>
-  </profiles>
 
 </project>

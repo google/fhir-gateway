@@ -1,0 +1,20 @@
+{
+  "entries": [
+    {
+      "path": "Observation",
+      "queryParams": {
+      }
+    },
+    {
+      "path": "Composition/ANY_VALUE",
+      "queryParams": {
+      }
+    },
+    {
+      "path": "Encounter",
+      "queryParams": {
+      },
+      "requestType" : "Get"
+    }
+  ]
+}
