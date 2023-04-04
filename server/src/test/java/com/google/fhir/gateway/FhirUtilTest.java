@@ -17,13 +17,22 @@ package com.google.fhir.gateway;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
+import ca.uhn.fhir.context.FhirContext;
+import com.google.common.io.Resources;
+import com.google.fhir.gateway.interfaces.RequestDetailsReader;
+import java.io.IOException;
+import java.net.URL;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.junit.MockitoJUnitRunner;
 
 @RunWith(MockitoJUnitRunner.class)
 public class FhirUtilTest {
+
+  private static final FhirContext fhirContext = FhirContext.forR4();
 
   @Test
   public void isValidIdPass() {
@@ -71,5 +80,24 @@ public class FhirUtilTest {
   @Test
   public void isValidIdNull() {
     assertThat(FhirUtil.isValidId(""), equalTo(false));
+  }
+
+  @Test
+  public void canParseValidBundle() throws IOException {
+    URL bundleUrl = Resources.getResource("patient_id_search.json");
+    byte[] bundleBytes = Resources.toByteArray(bundleUrl);
+    RequestDetailsReader requestMock = mock(RequestDetailsReader.class);
+    when(requestMock.loadRequestContents()).thenReturn(bundleBytes);
+    assertThat(
+        FhirUtil.parseRequestToBundle(fhirContext, requestMock).getEntry().size(), equalTo(10));
+  }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void throwExceptionOnNonBundleResource() throws IOException {
+    URL bundleUrl = Resources.getResource("test_patient.json");
+    byte[] bundleBytes = Resources.toByteArray(bundleUrl);
+    RequestDetailsReader requestMock = mock(RequestDetailsReader.class);
+    when(requestMock.loadRequestContents()).thenReturn(bundleBytes);
+    FhirUtil.parseRequestToBundle(fhirContext, requestMock).getEntry().size();
   }
 }

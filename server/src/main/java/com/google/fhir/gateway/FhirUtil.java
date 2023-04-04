@@ -21,6 +21,8 @@ import ca.uhn.fhir.rest.server.exceptions.InvalidRequestException;
 import com.google.common.base.Preconditions;
 import com.google.fhir.gateway.interfaces.RequestDetailsReader;
 import java.io.IOException;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 import org.apache.http.HttpResponse;
@@ -54,6 +56,25 @@ public class FhirUtil {
     Preconditions.checkState(HttpUtil.isResponseEntityValid(httpResponse));
     IParser jsonParser = fhirContext.newJsonParser();
     IBaseResource resource = jsonParser.parseResource(httpResponse.getEntity().getContent());
+    Preconditions.checkArgument(
+        FhirUtil.isSameResourceType(resource.fhirType(), ResourceType.Bundle));
+    return (Bundle) resource;
+  }
+
+  public static IBaseResource createResourceFromRequest(
+      FhirContext fhirContext, RequestDetailsReader request) {
+    byte[] requestContentBytes = request.loadRequestContents();
+    Charset charset = request.getCharset();
+    if (charset == null) {
+      charset = StandardCharsets.UTF_8;
+    }
+    String requestContent = new String(requestContentBytes, charset);
+    IParser jsonParser = fhirContext.newJsonParser();
+    return jsonParser.parseResource(requestContent);
+  }
+
+  public static Bundle parseRequestToBundle(FhirContext fhirContext, RequestDetailsReader request) {
+    IBaseResource resource = createResourceFromRequest(fhirContext, request);
     Preconditions.checkArgument(
         FhirUtil.isSameResourceType(resource.fhirType(), ResourceType.Bundle));
     return (Bundle) resource;

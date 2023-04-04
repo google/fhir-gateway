@@ -15,9 +15,9 @@
  */
 package com.google.fhir.gateway;
 
+import com.google.common.base.Strings;
 import com.google.common.collect.Sets;
 import com.google.fhir.gateway.AllowedQueriesConfig.AllowedQueryEntry;
-import com.google.fhir.gateway.interfaces.AccessChecker;
 import com.google.fhir.gateway.interfaces.AccessDecision;
 import com.google.fhir.gateway.interfaces.NoOpAccessDecision;
 import com.google.fhir.gateway.interfaces.RequestDetailsReader;
@@ -36,7 +36,7 @@ import org.slf4j.LoggerFactory;
  * provided, other access-checkers should be called. TODO: Add a new access state beside "granted"
  * and "denied", e.g, "deferred".
  */
-class AllowedQueriesChecker implements AccessChecker {
+class AllowedQueriesChecker {
   private static final Logger logger = LoggerFactory.getLogger(AllowedQueriesChecker.class);
 
   private AllowedQueriesConfig config = null;
@@ -61,7 +61,18 @@ class AllowedQueriesChecker implements AccessChecker {
     }
   }
 
-  @Override
+  public AccessDecision checkUnAuthenticatedAccess(RequestDetailsReader requestDetails) {
+    if (config == null) {
+      return NoOpAccessDecision.accessDenied();
+    }
+    for (AllowedQueryEntry entry : config.entries) {
+      if (entry.isAllowUnauthenticatedRequests() && requestMatches(requestDetails, entry)) {
+        return NoOpAccessDecision.accessGranted();
+      }
+    }
+    return NoOpAccessDecision.accessDenied();
+  }
+
   public AccessDecision checkAccess(RequestDetailsReader requestDetails) {
     if (config == null) {
       return NoOpAccessDecision.accessDenied();
@@ -75,9 +86,15 @@ class AllowedQueriesChecker implements AccessChecker {
   }
 
   private boolean requestMatches(RequestDetailsReader requestDetails, AllowedQueryEntry entry) {
-    if (!entry.getPath().equals(requestDetails.getRequestPath())) {
+    if (!allowRequestPath(requestDetails.getRequestPath(), entry)) {
       return false;
     }
+
+    if (!Strings.isNullOrEmpty(entry.getRequestType())
+        && !requestDetails.getRequestType().name().equalsIgnoreCase(entry.getRequestType())) {
+      return false;
+    }
+
     Set<String> matchedQueryParams = Sets.newHashSet();
     for (Entry<String, String> expectedParam : entry.getQueryParams().entrySet()) {
       String[] actualQueryValue = requestDetails.getParameters().get(expectedParam.getKey());
@@ -107,5 +124,18 @@ class AllowedQueriesChecker implements AccessChecker {
     logger.info(
         "Allowed-queries entry {} matched query {}", entry, requestDetails.getCompleteUrl());
     return true;
+  }
+
+  private boolean allowRequestPath(String path, AllowedQueryEntry entry) {
+    if (path.equals(entry.getPath())) {
+      return true;
+    }
+    if (entry.getPath().endsWith("/" + AllowedQueriesConfig.MATCHES_ANY_VALUE)) {
+      int basePathSize =
+          entry.getPath().length() - AllowedQueriesConfig.MATCHES_ANY_VALUE.length() - 1;
+      String basePath = entry.getPath().substring(0, basePathSize);
+      return path.equals(basePath) || path.startsWith(basePath + "/");
+    }
+    return false;
   }
 }
