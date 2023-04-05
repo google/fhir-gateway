@@ -26,6 +26,11 @@ public final class NoOpAccessDecision implements AccessDecision {
   }
 
   @Override
+  public RequestMutation preprocess(RequestDetailsReader requestDetailsReader) {
+    return null;
+  }
+
+  @Override
   public boolean canAccess() {
     return accessGranted;
   }

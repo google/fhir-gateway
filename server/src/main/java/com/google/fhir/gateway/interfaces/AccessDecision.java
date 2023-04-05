@@ -20,7 +20,17 @@ import org.apache.http.HttpResponse;
 
 public interface AccessDecision {
 
-  /** @return true iff access was granted. */
+  /**
+   * Allows the incoming request mutation based on the access decision.
+   *
+   * @param requestDetailsReader details about the resource and operation requested
+   * @return the mutation to be applied on the incoming request
+   */
+  RequestMutation preprocess(RequestDetailsReader requestDetailsReader);
+
+  /**
+   * @return true iff access was granted.
+   */
   boolean canAccess();
 
   /**
