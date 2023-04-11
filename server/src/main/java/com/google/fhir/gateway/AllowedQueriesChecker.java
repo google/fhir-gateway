@@ -113,8 +113,8 @@ class AllowedQueriesChecker {
       }
     }
 
-    if (entry.getMethodType() != null
-        && !entry.getMethodType().equals(requestDetails.getRequestType().name())) {
+    if (entry.getRequestType() != null
+        && !(entry.getRequestType().toUpperCase()).equals(requestDetails.getRequestType().name())) {
       return false;
     }
 
