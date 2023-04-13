@@ -11,6 +11,10 @@ import lombok.Getter;
 @Getter
 public class RequestMutation {
 
-  // Additional query parameters that should be added to the outgoing FHIR request
+  // Additional query parameters and list of values for a parameter that should be added to the
+  // outgoing FHIR request.
+  // New values overwrites the old one if there is a conflict for a request param (i.e. a returned
+  // parameter in RequestMutation is already present in the original request).
+  // Old parameter values should be explicitly retained while mutating values for that parameter.
   @Builder.Default Map<String, List<String>> queryParams = new HashMap<>();
 }

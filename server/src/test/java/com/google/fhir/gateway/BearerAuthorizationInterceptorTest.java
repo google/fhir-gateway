@@ -16,6 +16,7 @@
 package com.google.fhir.gateway;
 
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.arrayContainingInAnyOrder;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.mockito.ArgumentMatchers.any;
@@ -42,6 +43,7 @@ import com.google.fhir.gateway.interfaces.AccessChecker;
 import com.google.fhir.gateway.interfaces.AccessDecision;
 import com.google.fhir.gateway.interfaces.NoOpAccessDecision;
 import com.google.fhir.gateway.interfaces.RequestDetailsReader;
+import com.google.fhir.gateway.interfaces.RequestMutation;
 import com.google.gson.Gson;
 import java.io.IOException;
 import java.io.StringWriter;
@@ -56,6 +58,8 @@ import java.security.KeyPairGenerator;
 import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
 import java.util.Base64;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
 import org.apache.http.HttpResponse;
@@ -351,5 +355,40 @@ public class BearerAuthorizationInterceptorTest {
     when(requestMock.getRequestPath()).thenReturn("Patient");
 
     testInstance.authorizeRequest(requestMock);
+  }
+
+  @Test
+  public void mutateRequest() {
+    ServletRequestDetails requestDetails = new ServletRequestDetails();
+    requestDetails.addParameter("param1", new String[] {"param1-value1"});
+    requestDetails.addParameter("param2", new String[] {"param2-value1"});
+
+    HashMap<String, List<String>> paramMutations = new HashMap<>();
+    paramMutations.put("param1", List.of("param1-value2"));
+    paramMutations.put("param3", List.of("param3-value1", "param3-value2"));
+    AccessDecision mutableAccessDecision =
+        new AccessDecision() {
+          public boolean canAccess() {
+            return true;
+          }
+
+          public RequestMutation getRequestMutation(RequestDetailsReader requestDetailsReader) {
+            return RequestMutation.builder().queryParams(paramMutations).build();
+          }
+
+          public String postProcess(HttpResponse response) throws IOException {
+            return null;
+          }
+        };
+
+    BearerAuthorizationInterceptor.mutateRequest(requestDetails, mutableAccessDecision);
+
+    assertThat(
+        requestDetails.getParameters().get("param1"), arrayContainingInAnyOrder("param1-value2"));
+    assertThat(
+        requestDetails.getParameters().get("param2"), arrayContainingInAnyOrder("param2-value1"));
+    assertThat(
+        requestDetails.getParameters().get("param3"),
+        arrayContainingInAnyOrder("param3-value2", "param3-value1"));
   }
 }

@@ -26,7 +26,7 @@ public final class NoOpAccessDecision implements AccessDecision {
   }
 
   @Override
-  public RequestMutation preprocess(RequestDetailsReader requestDetailsReader) {
+  public RequestMutation getRequestMutation(RequestDetailsReader requestDetailsReader) {
     return null;
   }
 

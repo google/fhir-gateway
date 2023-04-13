@@ -272,7 +272,7 @@ public class BearerAuthorizationInterceptor {
       return false;
     }
     AccessDecision outcome = checkAuthorization(requestDetails);
-    preprocessRequest(servletDetails, outcome);
+    mutateRequest(requestDetails, outcome);
     logger.debug("Authorized request path " + requestPath);
     try {
       HttpResponse response = fhirClient.handleRequest(servletDetails);
@@ -394,20 +394,16 @@ public class BearerAuthorizationInterceptor {
     }
   }
 
-  private void preprocessRequest(
-      ServletRequestDetails servletRequestDetails, AccessDecision accessDecision) {
+  @VisibleForTesting
+  static void mutateRequest(RequestDetails requestDetails, AccessDecision accessDecision) {
     RequestMutation mutation =
-        accessDecision.preprocess(new RequestDetailsToReader(servletRequestDetails));
+        accessDecision.getRequestMutation(new RequestDetailsToReader(requestDetails));
     if (mutation == null || CollectionUtils.isEmpty(mutation.getQueryParams())) {
-      return ;
+      return;
     }
 
     mutation
         .getQueryParams()
-        .forEach((key, value) -> servletRequestDetails.addParameter(
-            key, value.toArray(new String[0])));
-
-    // TODO update the query params in search by Post
-
+        .forEach((key, value) -> requestDetails.addParameter(key, value.toArray(new String[0])));
   }
 }
