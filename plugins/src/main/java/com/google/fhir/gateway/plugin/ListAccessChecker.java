@@ -315,7 +315,8 @@ public class ListAccessChecker implements AccessChecker {
   @Nullable
   private BundlePatients createBundlePatients(RequestDetailsReader requestDetails)
       throws IOException {
-    BundlePatients patientsInBundleUnfiltered = patientFinder.findPatientsInBundle(requestDetails);
+    Bundle requestBundle = FhirUtil.parseRequestToBundle(fhirContext, requestDetails);
+    BundlePatients patientsInBundleUnfiltered = patientFinder.findPatientsInBundle(requestBundle);
 
     if (patientsInBundleUnfiltered == null) {
       return null;
