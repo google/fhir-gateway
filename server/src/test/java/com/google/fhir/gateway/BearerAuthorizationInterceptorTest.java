@@ -31,6 +31,7 @@ import ca.uhn.fhir.rest.server.RestfulServer;
 import ca.uhn.fhir.rest.server.exceptions.AuthenticationException;
 import ca.uhn.fhir.rest.server.exceptions.ForbiddenOperationException;
 import ca.uhn.fhir.rest.server.servlet.ServletRequestDetails;
+import ca.uhn.fhir.rest.server.servlet.ServletRestfulResponse;
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.JWTCreator;
 import com.auth0.jwt.algorithms.Algorithm;
@@ -58,6 +59,7 @@ import java.security.interfaces.RSAPublicKey;
 import java.util.Base64;
 import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
 import org.hl7.fhir.instance.model.api.IBaseResource;
@@ -71,6 +73,7 @@ import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnitRunner;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.mock.web.MockHttpServletResponse;
 
 @RunWith(MockitoJUnitRunner.class)
 public class BearerAuthorizationInterceptorTest {
@@ -150,6 +153,7 @@ public class BearerAuthorizationInterceptorTest {
     when(httpUtilMock.fetchWellKnownConfig(anyString(), anyString())).thenReturn(testIdpConfig);
     when(fhirClientMock.handleRequest(requestMock)).thenReturn(fhirResponseMock);
     when(fhirClientMock.getBaseUrl()).thenReturn(FHIR_STORE);
+    when(requestMock.getHeader("Accept-Encoding".toLowerCase())).thenReturn("");
     testInstance = createTestInstance(true, null);
   }
 
@@ -351,5 +355,25 @@ public class BearerAuthorizationInterceptorTest {
     when(requestMock.getRequestPath()).thenReturn("Patient");
 
     testInstance.authorizeRequest(requestMock);
+  }
+
+  @Test
+  public void shouldSendGzippedResponseWhenRequested() throws IOException {
+    testInstance = createTestInstance(true, null);
+    String responseJson = "{\"resourceType\": \"Bundle\"}";
+    JWTCreator.Builder jwtBuilder = JWT.create().withIssuer(TOKEN_ISSUER);
+    when(requestMock.getHeader("Authorization")).thenReturn("Bearer " + signJwt(jwtBuilder));
+    when(requestMock.getHeader("Accept-Encoding".toLowerCase())).thenReturn("gzip");
+    when(requestMock.getServer()).thenReturn(serverMock);
+    ServletRestfulResponse proxyResponseMock = new ServletRestfulResponse(requestMock);
+    when(requestMock.getResponse()).thenReturn(proxyResponseMock);
+    HttpServletResponse proxyServletResponseMock = new MockHttpServletResponse();
+    when(requestMock.getServletResponse()).thenReturn(proxyServletResponseMock);
+    TestUtil.setUpFhirResponseMock(fhirResponseMock, responseJson);
+
+    testInstance.authorizeRequest(requestMock);
+
+    assertThat(
+        proxyServletResponseMock.getHeader("Content-Encoding".toLowerCase()), equalTo("gzip"));
   }
 }
