@@ -39,6 +39,7 @@ import com.google.fhir.gateway.interfaces.AccessChecker;
 import com.google.fhir.gateway.interfaces.AccessCheckerFactory;
 import com.google.fhir.gateway.interfaces.AccessDecision;
 import com.google.fhir.gateway.interfaces.RequestDetailsReader;
+import com.google.fhir.gateway.interfaces.RequestMutation;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import java.io.IOException;
@@ -62,6 +63,7 @@ import org.apache.http.HttpStatus;
 import org.apache.http.util.EntityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.util.CollectionUtils;
 
 @Interceptor
 public class BearerAuthorizationInterceptor {
@@ -270,6 +272,7 @@ public class BearerAuthorizationInterceptor {
       return false;
     }
     AccessDecision outcome = checkAuthorization(requestDetails);
+    mutateRequest(requestDetails, outcome);
     logger.debug("Authorized request path " + requestPath);
     try {
       HttpResponse response = fhirClient.handleRequest(servletDetails);
@@ -389,5 +392,18 @@ public class BearerAuthorizationInterceptor {
           String.format("Exception serving %s with error %s", request.getRequestPath(), e));
       ExceptionUtil.throwRuntimeExceptionAndLog(logger, e.getMessage(), e);
     }
+  }
+
+  @VisibleForTesting
+  void mutateRequest(RequestDetails requestDetails, AccessDecision accessDecision) {
+    RequestMutation mutation =
+        accessDecision.getRequestMutation(new RequestDetailsToReader(requestDetails));
+    if (mutation == null || CollectionUtils.isEmpty(mutation.getQueryParams())) {
+      return;
+    }
+
+    mutation
+        .getQueryParams()
+        .forEach((key, value) -> requestDetails.addParameter(key, value.toArray(new String[0])));
   }
 }
