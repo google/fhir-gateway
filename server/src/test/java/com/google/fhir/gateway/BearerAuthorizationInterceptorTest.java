@@ -381,7 +381,7 @@ public class BearerAuthorizationInterceptorTest {
           }
         };
 
-    BearerAuthorizationInterceptor.mutateRequest(requestDetails, mutableAccessDecision);
+    testInstance.mutateRequest(requestDetails, mutableAccessDecision);
 
     assertThat(
         requestDetails.getParameters().get("param1"), arrayContainingInAnyOrder("param1-value2"));

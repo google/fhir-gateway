@@ -395,7 +395,7 @@ public class BearerAuthorizationInterceptor {
   }
 
   @VisibleForTesting
-  static void mutateRequest(RequestDetails requestDetails, AccessDecision accessDecision) {
+  void mutateRequest(RequestDetails requestDetails, AccessDecision accessDecision) {
     RequestMutation mutation =
         accessDecision.getRequestMutation(new RequestDetailsToReader(requestDetails));
     if (mutation == null || CollectionUtils.isEmpty(mutation.getQueryParams())) {
