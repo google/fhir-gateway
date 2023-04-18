@@ -20,6 +20,8 @@ import ca.uhn.fhir.parser.IParser;
 import com.google.common.base.Preconditions;
 import com.google.common.io.CharStreams;
 import com.google.fhir.gateway.interfaces.AccessDecision;
+import com.google.fhir.gateway.interfaces.RequestDetailsReader;
+import com.google.fhir.gateway.interfaces.RequestMutation;
 import java.io.IOException;
 import org.apache.http.HttpResponse;
 import org.hl7.fhir.instance.model.api.IBaseResource;
@@ -50,6 +52,11 @@ public class CapabilityPostProcessor implements AccessDecision {
       instance = new CapabilityPostProcessor(fhirContext);
     }
     return instance;
+  }
+
+  @Override
+  public RequestMutation getRequestMutation(RequestDetailsReader requestDetailsReader) {
+    return null;
   }
 
   @Override
