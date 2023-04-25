@@ -14,18 +14,16 @@
 # limitations under the License.
 #
 
+{{ $scope := .}}
 apiVersion: v1
-kind: Pod
+kind: ConfigMap
 metadata:
-  name: "{{ include "fhir-access-proxy.fullname" . }}-test-connection"
+  name: {{ include "fhir-gateway.fullname" . }}
   labels:
-    {{- include "fhir-access-proxy.labels" . | nindent 4 }}
-  annotations:
-    "helm.sh/hook": test
-spec:
-  containers:
-    - name: wget
-      image: busybox
-      command: ['wget']
-      args: ['{{ include "fhir-access-proxy.fullname" . }}:{{ .Values.service.port }}']
-  restartPolicy: Never
+    {{- include "fhir-gateway.labels" . | nindent 4 }}
+data:
+  {{ range $value := .Values.configMaps -}}
+  {{ $value.name }}: |
+  {{ tpl $value.contents $scope | nindent 8 }}
+  {{ end }}
+

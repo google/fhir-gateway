@@ -14,16 +14,22 @@
 # limitations under the License.
 #
 
-{{ $scope := .}}
-apiVersion: v1
-kind: ConfigMap
+{{ if .Values.vpa.enabled }}
+apiVersion: "autoscaling.k8s.io/v1"
+kind: VerticalPodAutoscaler
 metadata:
-  name: {{ include "fhir-access-proxy.fullname" . }}
+  name: {{ include "fhir-gateway.fullname" . }}
   labels:
-    {{- include "fhir-access-proxy.labels" . | nindent 4 }}
-data:
-  {{ range $value := .Values.configMaps -}}
-  {{ $value.name }}: |
-  {{ tpl $value.contents $scope | nindent 8 }}
-  {{ end }}
-
+    {{- include "fhir-gateway.labels" . | nindent 4 }}
+spec:
+  targetRef:
+    apiVersion: "apps/v1"
+    kind: Deployment
+    name: {{ include "fhir-gateway.fullname" . }}
+  updatePolicy:
+    {{- toYaml .Values.vpa.updatePolicy | nindent 4 }}
+  {{- if .Values.vpa.resourcePolicy }}
+  resourcePolicy:
+    {{- toYaml .Values.vpa.resourcePolicy | nindent 4 }}
+  {{- end }}
+{{- end }}

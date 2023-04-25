@@ -1,18 +1,18 @@
-# FHIR Access Proxy
+# FHIR Gateway
 
-[FHIR Access Proxy](../../README.md) is a simple access-control proxy that sits
-in front of FHIR store and server and controls access to FHIR resources.
+[FHIR Gateway](../../README.md) is a simple access-control proxy that sits in
+front of FHIR store and server and controls access to FHIR resources.
 
 ## TL;DR
 
 ```bash
-helm repo add opensrp-fhir-access-proxy https://fhir-access-proxy.helm.smartregister.org &&
-helm install fhir-access-proxy opensrp-fhir-access-proxy/fhir-access-proxy
+helm repo add opensrp-fhir-gateway https://fhir-gateway.helm.smartregister.org &&
+helm install fhir-gateway opensrp-fhir-gateway/fhir-gateway
 ```
 
 ## Introduction
 
-This chart bootstraps [fhir access proxy](../../README.md) deployment on a
+This chart bootstraps [FHIR Gateway](../../README.md) deployment on a
 [Kubernetes](http://kubernetes.io) cluster using the [Helm](https://helm.sh)
 package manager.
 
@@ -23,19 +23,19 @@ package manager.
 
 ## Installing the Chart
 
-To install the chart with the release name `fhir-access-proxy`:
+To install the chart with the release name `fhir-gateway`:
 
 ```shell
-helm repo add opensrp-fhir-access-proxy https://fhir-access-proxy.helm.smartregister.org &&
-helm install fhir-access-proxy opensrp-fhir-access-proxy/fhir-access-proxy
+helm repo add opensrp-fhir-gateway https://fhir-gateway.helm.smartregister.org &&
+helm install fhir-gateway opensrp-fhir-gateway/fhir-gateway
 ```
 
 ## Uninstalling the Chart
 
-To uninstall/delete the `fhir-access-proxy` deployment:
+To uninstall/delete the `fhir-gateway` deployment:
 
 ```shell
-helm delete fhir-access-proxy
+helm delete fhir-gateway
 ```
 
 The command removes all the Kubernetes components associated with the chart and
@@ -43,15 +43,15 @@ deletes the release.
 
 ## Parameters
 
-The following table lists the configurable parameters of the fhir access proxy
-chart and their default values.
+The following table lists the configurable parameters of the FHIR Gateway chart
+and their default values.
 
 ## Common Parameters
 
 | Parameter                                    | Description | Default                                                                                                                                                                                                                                                                                  |
 | -------------------------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `replicaCount`                               |             | `1`                                                                                                                                                                                                                                                                                      |
-| `image.repository`                           |             | `"opensrp/fhir-access-proxy"`                                                                                                                                                                                                                                                            |
+| `image.repository`                           |             | `"opensrp/fhir-gateway"`                                                                                                                                                                                                                                                                 |
 | `image.pullPolicy`                           |             | `"IfNotPresent"`                                                                                                                                                                                                                                                                         |
 | `image.tag`                                  |             | `"latest"`                                                                                                                                                                                                                                                                               |
 | `imagePullSecrets`                           |             | `[]`                                                                                                                                                                                                                                                                                     |
@@ -68,7 +68,7 @@ chart and their default values.
 | `ingress.enabled`                            |             | `false`                                                                                                                                                                                                                                                                                  |
 | `ingress.className`                          |             | `""`                                                                                                                                                                                                                                                                                     |
 | `ingress.annotations`                        |             | `{}`                                                                                                                                                                                                                                                                                     |
-| `ingress.hosts`                              |             | `[{"host": "fhir-access-proxy.local", "paths": [{"path": "/", "pathType": "ImplementationSpecific"}]}]`                                                                                                                                                                                  |
+| `ingress.hosts`                              |             | `[{"host": "fhir-gateway.local", "paths": [{"path": "/", "pathType": "ImplementationSpecific"}]}]`                                                                                                                                                                                       |
 | `ingress.tls`                                |             | `[]`                                                                                                                                                                                                                                                                                     |
 | `resources`                                  |             | `{}`                                                                                                                                                                                                                                                                                     |
 | `autoscaling.enabled`                        |             | `false`                                                                                                                                                                                                                                                                                  |
@@ -130,15 +130,14 @@ file).
 2.  Create a configmap volume type:
 
     - The name of the configMap resemble the ConfigMap manifest metadata.name
-      i.e. `fhir-access-proxy` but we obtain the generated name from the
-      function `'{{ include "fhir-access-proxy.fullname" . }}'` using tpl
-      function.
+      i.e. `fhir-gateway` but we obtain the generated name from the function
+      `'{{ include "fhir-gateway.fullname" . }}'` using tpl function.
 
     ```yaml
     volumes:
       - name: hapi-page-url-allowed-queries
         configMap:
-          name: '{{ include "fhir-access-proxy.fullname" . }}'
+          name: '{{ include "fhir-gateway.fullname" . }}'
     ```
 
 3.  Mount the Configmap volume:

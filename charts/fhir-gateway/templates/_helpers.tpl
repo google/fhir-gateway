@@ -1,7 +1,7 @@
 {{/*
 Expand the name of the chart.
 */}}
-{{- define "fhir-access-proxy.name" -}}
+{{- define "fhir-gateway.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
@@ -10,7 +10,7 @@ Create a default fully qualified app name.
 We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
 If release name contains chart name it will be used as a full name.
 */}}
-{{- define "fhir-access-proxy.fullname" -}}
+{{- define "fhir-gateway.fullname" -}}
 {{- if .Values.fullnameOverride }}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
 {{- else }}
@@ -26,16 +26,16 @@ If release name contains chart name it will be used as a full name.
 {{/*
 Create chart name and version as used by the chart label.
 */}}
-{{- define "fhir-access-proxy.chart" -}}
+{{- define "fhir-gateway.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
 Common labels
 */}}
-{{- define "fhir-access-proxy.labels" -}}
-helm.sh/chart: {{ include "fhir-access-proxy.chart" . }}
-{{ include "fhir-access-proxy.selectorLabels" . }}
+{{- define "fhir-gateway.labels" -}}
+helm.sh/chart: {{ include "fhir-gateway.chart" . }}
+{{ include "fhir-gateway.selectorLabels" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
@@ -45,17 +45,17 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{/*
 Selector labels
 */}}
-{{- define "fhir-access-proxy.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "fhir-access-proxy.name" . }}
+{{- define "fhir-gateway.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "fhir-gateway.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{/*
 Create the name of the service account to use
 */}}
-{{- define "fhir-access-proxy.serviceAccountName" -}}
+{{- define "fhir-gateway.serviceAccountName" -}}
 {{- if .Values.serviceAccount.create }}
-{{- default (include "fhir-access-proxy.fullname" .) .Values.serviceAccount.name }}
+{{- default (include "fhir-gateway.fullname" .) .Values.serviceAccount.name }}
 {{- else }}
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
@@ -64,7 +64,7 @@ Create the name of the service account to use
 {{/*
 Populate the pod annotations
 */}}
-{{- define "fhir-access-proxy.podAnnotations" -}}
+{{- define "fhir-gateway.podAnnotations" -}}
 {{- range $index, $element:=.Values.podAnnotations }}
 {{ $index }}: {{ $element | quote }}
 {{- end }}

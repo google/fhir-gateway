@@ -14,22 +14,18 @@
 # limitations under the License.
 #
 
-{{ if .Values.vpa.enabled }}
-apiVersion: "autoscaling.k8s.io/v1"
-kind: VerticalPodAutoscaler
+apiVersion: v1
+kind: Pod
 metadata:
-  name: {{ include "fhir-access-proxy.fullname" . }}
+  name: "{{ include "fhir-gateway.fullname" . }}-test-connection"
   labels:
-    {{- include "fhir-access-proxy.labels" . | nindent 4 }}
+    {{- include "fhir-gateway.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
 spec:
-  targetRef:
-    apiVersion: "apps/v1"
-    kind: Deployment
-    name: {{ include "fhir-access-proxy.fullname" . }}
-  updatePolicy:
-    {{- toYaml .Values.vpa.updatePolicy | nindent 4 }}
-  {{- if .Values.vpa.resourcePolicy }}
-  resourcePolicy:
-    {{- toYaml .Values.vpa.resourcePolicy | nindent 4 }}
-  {{- end }}
-{{- end }}
+  containers:
+    - name: wget
+      image: busybox
+      command: ['wget']
+      args: ['{{ include "fhir-gateway.fullname" . }}:{{ .Values.service.port }}']
+  restartPolicy: Never

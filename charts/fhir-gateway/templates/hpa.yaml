@@ -18,14 +18,14 @@
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
-  name: {{ include "fhir-access-proxy.fullname" . }}
+  name: {{ include "fhir-gateway.fullname" . }}
   labels:
-    {{- include "fhir-access-proxy.labels" . | nindent 4 }}
+    {{- include "fhir-gateway.labels" . | nindent 4 }}
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: {{ include "fhir-access-proxy.fullname" . }}
+    name: {{ include "fhir-gateway.fullname" . }}
   minReplicas: {{ .Values.autoscaling.minReplicas }}
   maxReplicas: {{ .Values.autoscaling.maxReplicas }}
   metrics:

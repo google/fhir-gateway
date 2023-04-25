@@ -245,7 +245,7 @@ public final class PatientFinderImp implements PatientFinder {
   public BundlePatients findPatientsInBundle(Bundle bundle) {
     if (bundle.getType() != BundleType.TRANSACTION) {
       // Currently, support only for transaction bundles; see:
-      //   https://github.com/google/fhir-access-proxy/issues/67
+      //   https://github.com/google/fhir-gateway/issues/67
       ExceptionUtil.throwRuntimeExceptionAndLog(
           logger, "Bundle type needs to be transaction!", InvalidRequestException.class);
     }

@@ -15,7 +15,7 @@
 #
 
 # Image for building and running tests against the source code of
-# the FHIR Access Proxy.
+# the FHIR Gateway.
 FROM maven:3.8.5-openjdk-11 as build
 
 RUN apt-get update && apt-get install -y nodejs npm
@@ -37,7 +37,7 @@ RUN mvn spotless:check
 RUN mvn --batch-mode package -Pstandalone-app -Dlicense.skip=true
 
 
-# Image for FHIR Access Proxy binary with configuration knobs as environment vars.
+# Image for FHIR Gateway binary with configuration knobs as environment vars.
 FROM eclipse-temurin:11-jdk-focal as main
 
 COPY --from=build /app/exec/target/exec-0.1.1.jar /

@@ -113,7 +113,7 @@ public class ListAccessChecker implements AccessChecker {
       return false;
     }
     // TODO consider using the HAPI FHIR client instead; see:
-    //   https://github.com/google/fhir-access-proxy/issues/65.
+    //   https://github.com/google/fhir-gateway/issues/65.
     String patientParam =
         queryBuilder(patientIds, PARAM_ESCAPER.escape("Patient/"), PARAM_ESCAPER.escape(","));
     return listIncludesItems("item=" + patientParam);
@@ -132,7 +132,7 @@ public class ListAccessChecker implements AccessChecker {
 
   private boolean patientsExist(String patientId) throws IOException {
     // TODO consider using the HAPI FHIR client instead; see:
-    //   https://github.com/google/fhir-access-proxy/issues/65
+    //   https://github.com/google/fhir-gateway/issues/65
     String searchQuery =
         String.format("/Patient?_id=%s&_elements=id", PARAM_ESCAPER.escape(patientId));
     HttpResponse response = httpFhirClient.getResource(searchQuery);
@@ -235,7 +235,7 @@ public class ListAccessChecker implements AccessChecker {
       return NoOpAccessDecision.accessDenied();
     }
 
-    // TODO(https://github.com/google/fhir-access-proxy/issues/63):Support direct resource deletion.
+    // TODO(https://github.com/google/fhir-gateway/issues/63):Support direct resource deletion.
 
     // There should be a patient id in search params; the param name is based on the resource.
     String patientId = patientFinder.findPatientFromParams(requestDetails);

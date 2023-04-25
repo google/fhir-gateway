@@ -63,7 +63,7 @@ public abstract class HttpFhirClient {
   // https://www.hl7.org/fhir/async.html
   // We should NOT copy Content-Length as this is automatically set by the RequestBuilder when
   // setting content Entity; otherwise we will get a ClientProtocolException.
-  // TODO(https://github.com/google/fhir-access-proxy/issues/60): Allow Accept header
+  // TODO(https://github.com/google/fhir-gateway/issues/60): Allow Accept header
   static final Set<String> REQUEST_HEADERS_TO_KEEP =
       Sets.newHashSet(
           "content-type",

@@ -14,15 +14,18 @@
 # limitations under the License.
 #
 
-{{ if .Values.serviceAccount.create -}}
 apiVersion: v1
-kind: ServiceAccount
+kind: Service
 metadata:
-  name: {{ include "fhir-access-proxy.serviceAccountName" . }}
+  name: {{ include "fhir-gateway.fullname" . }}
   labels:
-    {{- include "fhir-access-proxy.labels" . | nindent 4 }}
-  {{- with .Values.serviceAccount.annotations }}
-  annotations:
-    {{- toYaml . | nindent 4 }}
-  {{- end }}
-{{- end }}
+    {{- include "fhir-gateway.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "fhir-gateway.selectorLabels" . | nindent 4 }}

@@ -17,28 +17,28 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "fhir-access-proxy.fullname" . }}
+  name: {{ include "fhir-gateway.fullname" . }}
   labels:
-    {{- include "fhir-access-proxy.labels" . | nindent 4 }}
+    {{- include "fhir-gateway.labels" . | nindent 4 }}
 spec:
   {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
   {{- end }}
   selector:
     matchLabels:
-      {{- include "fhir-access-proxy.selectorLabels" . | nindent 6 }}
+      {{- include "fhir-gateway.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       annotations:
-        {{- include "fhir-access-proxy.podAnnotations" . | indent 8 }}
+        {{- include "fhir-gateway.podAnnotations" . | indent 8 }}
       labels:
-        {{- include "fhir-access-proxy.selectorLabels" . | nindent 8 }}
+        {{- include "fhir-gateway.selectorLabels" . | nindent 8 }}
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ include "fhir-access-proxy.serviceAccountName" . }}
+      serviceAccountName: {{ include "fhir-gateway.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       volumes:
