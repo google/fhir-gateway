@@ -337,8 +337,11 @@ public class BearerAuthorizationInterceptor {
 
   private boolean sendGzippedResponse(ServletRequestDetails requestDetails) {
     // we send gzipped encoded response to client only if they requested so
-    return GZIP_ENCODING_VALUE.equals(
-        requestDetails.getHeader(ACCEPT_ENCODING_HEADER.toLowerCase()).toLowerCase());
+    String acceptEncodingValue = requestDetails.getHeader(ACCEPT_ENCODING_HEADER.toLowerCase());
+    if (acceptEncodingValue == null) {
+      return false;
+    }
+    return GZIP_ENCODING_VALUE.equalsIgnoreCase(acceptEncodingValue);
   }
 
   /**

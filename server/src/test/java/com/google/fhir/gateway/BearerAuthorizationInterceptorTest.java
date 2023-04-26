@@ -157,7 +157,6 @@ public class BearerAuthorizationInterceptorTest {
     when(httpUtilMock.fetchWellKnownConfig(anyString(), anyString())).thenReturn(testIdpConfig);
     when(fhirClientMock.handleRequest(requestMock)).thenReturn(fhirResponseMock);
     when(fhirClientMock.getBaseUrl()).thenReturn(FHIR_STORE);
-    when(requestMock.getHeader("Accept-Encoding".toLowerCase())).thenReturn("");
     testInstance = createTestInstance(true, null);
   }
 
@@ -403,19 +402,18 @@ public class BearerAuthorizationInterceptorTest {
     JWTCreator.Builder jwtBuilder = JWT.create().withIssuer(TOKEN_ISSUER);
     when(requestMock.getHeader("Authorization")).thenReturn("Bearer " + signJwt(jwtBuilder));
     when(requestMock.getHeader("Accept-Encoding".toLowerCase())).thenReturn("gzip");
-    /**
-     * requestMock.getResponse() {@link ServletRequestDetails#getResponse()} is an abstraction HAPI
-     * provides to access the response object which is of type ServletRestfulResponse {@link
-     * ServletRestfulResponse}. Internally HAPI uses the HttpServletResponse {@link
-     * HttpServletResponse} object to perform any response related operations for this wrapper class
-     * ServletRestfulResponse. We have to perform mocking at two levels: one with
-     * requestMock.getResponse() because this is how we access the wrapper response object and write
-     * to it. We also need to perform a deeper level mock using requestMock.getServletResponse()
-     * {@link ServletRequestDetails#getServletResponse()} for the internal HAPI operations to be
-     * performed successfully. This complication arises from us mocking the request object. Had the
-     * object been not mocked, and set by a server we would not have needed to do this levels of
-     * mocks.
-     */
+
+    // requestMock.getResponse() {@link ServletRequestDetails#getResponse()} is an abstraction HAPI
+    // provides to access the response object which is of type ServletRestfulResponse {@link
+    // ServletRestfulResponse}. Internally HAPI uses the HttpServletResponse {@link
+    // HttpServletResponse} object to perform any response related operations for this wrapper class
+    // ServletRestfulResponse. We have to perform mocking at two levels: one with
+    // requestMock.getResponse() because this is how we access the wrapper response object and write
+    // to it. We also need to perform a deeper level mock using requestMock.getServletResponse()
+    // {@link ServletRequestDetails#getServletResponse()} for the internal HAPI operations to be
+    // performed successfully. This complication arises from us mocking the request object. Had the
+    // object been not mocked, and set by a server we would not have needed to do this levels of
+    // mocks.
     when(requestMock.getServer()).thenReturn(serverMock);
     ServletRestfulResponse proxyResponseMock = new ServletRestfulResponse(requestMock);
     when(requestMock.getResponse()).thenReturn(proxyResponseMock);
