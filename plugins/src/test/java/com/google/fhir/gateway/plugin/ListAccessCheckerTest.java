@@ -23,6 +23,7 @@ import static org.mockito.Mockito.when;
 import ca.uhn.fhir.model.primitive.IdDt;
 import ca.uhn.fhir.rest.api.RequestTypeEnum;
 import ca.uhn.fhir.rest.server.exceptions.InvalidRequestException;
+import com.google.common.collect.Maps;
 import com.google.common.io.Resources;
 import com.google.fhir.gateway.HttpFhirClient;
 import com.google.fhir.gateway.PatientFinderImp;
@@ -140,6 +141,54 @@ public class ListAccessCheckerTest extends AccessCheckerTestBase {
   }
 
   @Test
+  public void canAccessPatientWithMultipleIdSearch() throws IOException {
+    when(requestMock.getResourceName()).thenReturn("Patient");
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.GET);
+    Map<String, String[]> params = Maps.newHashMap();
+    params.put("_id", new String[] {PATIENT_AUTHORIZED + "," + PATIENT_IN_BUNDLE_1});
+    when(requestMock.getParameters()).thenReturn(params);
+    setUpFhirListSearchMock(
+        String.format(
+            "item=Patient%%2F%s&item=Patient%%2F%s", PATIENT_IN_BUNDLE_1, PATIENT_AUTHORIZED),
+        "bundle_list_patient_item.json");
+    AccessChecker testInstance = getInstance();
+    testInstance.checkAccess(requestMock).canAccess();
+  }
+
+  @Test
+  public void canAccessPatientWithMultipleIdSearchUnauthorized() throws IOException {
+    when(requestMock.getResourceName()).thenReturn("Patient");
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.GET);
+    Map<String, String[]> params = Maps.newHashMap();
+    params.put("_id", new String[] {PATIENT_AUTHORIZED + "," + PATIENT_NON_AUTHORIZED});
+    when(requestMock.getParameters()).thenReturn(params);
+    setUpFhirListSearchMock(
+        String.format(
+            "item=Patient%%2F%s&item=Patient%%2F%s", PATIENT_NON_AUTHORIZED, PATIENT_AUTHORIZED),
+        "bundle_empty.json");
+    AccessChecker testInstance = getInstance();
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
+  }
+
+  @Test
+  public void canAccessGetObservations() throws IOException {
+    when(requestMock.getResourceName()).thenReturn("Observation");
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.GET);
+    setUpPatientSearchMock(PATIENT_AUTHORIZED, "patient_id_search_single.json");
+    setUpPatientSearchMock(PATIENT_IN_BUNDLE_1, "patient_id_search_single.json");
+    setUpFhirListSearchMock(
+        String.format(
+            "item=Patient%%2F%s&item=Patient%%2F%s", PATIENT_IN_BUNDLE_1, PATIENT_AUTHORIZED),
+        "bundle_list_patient_item.json");
+    Map<String, String[]> params = Maps.newHashMap();
+    params.put("subject", new String[] {PATIENT_AUTHORIZED + "," + PATIENT_IN_BUNDLE_1});
+    when(requestMock.getParameters()).thenReturn(params);
+
+    AccessChecker testInstance = getInstance();
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(true));
+  }
+
+  @Test
   public void canAccessPutNewPatient() throws IOException {
     when(requestMock.getResourceName()).thenReturn("Patient");
     when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.PUT);
@@ -162,6 +211,19 @@ public class ListAccessCheckerTest extends AccessCheckerTestBase {
         "item=Patient%2Fdb6e42c7-04fc-4d9d-b394-9ff33a41e178", "bundle_empty.json");
     AccessChecker testInstance = getInstance();
     assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
+  }
+
+  @Test
+  public void canAccessBundleGetNonPatientAuthorized() throws IOException {
+    setUpFhirBundle("bundle_transaction_get_non_patient_multiple_authorized.json");
+    setUpPatientSearchMock(PATIENT_AUTHORIZED, "patient_id_search_single.json");
+    setUpPatientSearchMock(PATIENT_IN_BUNDLE_1, "patient_id_search_single.json");
+    setUpFhirListSearchMock(
+        String.format(
+            "item=Patient%%2F%s&item=Patient%%2F%s", PATIENT_IN_BUNDLE_1, PATIENT_AUTHORIZED),
+        "bundle_list_patient_item.json");
+    AccessChecker testInstance = getInstance();
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(true));
   }
 
   @Test(expected = InvalidRequestException.class)
@@ -256,6 +318,20 @@ public class ListAccessCheckerTest extends AccessCheckerTestBase {
   }
 
   @Test
+  public void canAccessBundleDeleteMultiplePatients() throws IOException {
+    // Query: POST / -d @bundle_transaction_delete_multiple_patient.json
+    setUpFhirBundle("bundle_transaction_delete_multiple_patient.json");
+    setUpFhirListSearchMock(
+        String.format(
+            "item=Patient%%2F%s&item=Patient%%2F%s", PATIENT_IN_BUNDLE_1, PATIENT_AUTHORIZED),
+        "bundle_list_patient_item.json");
+
+    AccessChecker testInstance = getInstance();
+
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(true));
+  }
+
+  @Test
   public void canAccessPatchObservationUnauthorizedPatient() throws IOException {
     // Query: PATCH /Observation?subject=Patient/PATIENT_AUTHORIZED -d \
     // @test_obs_patch_unauthorized_patient.json
@@ -312,6 +388,44 @@ public class ListAccessCheckerTest extends AccessCheckerTestBase {
     AccessChecker testInstance = getInstance();
 
     assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(true));
+  }
+
+  @Test
+  public void canAccessDeleteObservationsForMultiplePatients() throws IOException {
+    when(requestMock.getResourceName()).thenReturn("Observation");
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.DELETE);
+    setUpPatientSearchMock(PATIENT_AUTHORIZED, "patient_id_search_single.json");
+    setUpPatientSearchMock(PATIENT_IN_BUNDLE_1, "patient_id_search_single.json");
+    setUpFhirListSearchMock(
+        String.format(
+            "item=Patient%%2F%s&item=Patient%%2F%s", PATIENT_IN_BUNDLE_1, PATIENT_AUTHORIZED),
+        "bundle_list_patient_item.json");
+    Map<String, String[]> params = Maps.newHashMap();
+    params.put("subject", new String[] {PATIENT_AUTHORIZED + "," + PATIENT_IN_BUNDLE_1});
+    when(requestMock.getParameters()).thenReturn(params);
+
+    AccessChecker testInstance = getInstance();
+
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(true));
+  }
+
+  @Test
+  public void canAccessDeleteObservationsForMultiplePatientsUnauthorized() throws IOException {
+    when(requestMock.getResourceName()).thenReturn("Observation");
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.DELETE);
+    setUpPatientSearchMock(PATIENT_AUTHORIZED, "patient_id_search_single.json");
+    setUpPatientSearchMock(PATIENT_NON_AUTHORIZED, "patient_id_search_single.json");
+    setUpFhirListSearchMock(
+        String.format(
+            "item=Patient%%2F%s&item=Patient%%2F%s", PATIENT_NON_AUTHORIZED, PATIENT_AUTHORIZED),
+        "bundle_empty.json");
+    Map<String, String[]> params = Maps.newHashMap();
+    params.put("subject", new String[] {PATIENT_NON_AUTHORIZED + "," + PATIENT_AUTHORIZED});
+    when(requestMock.getParameters()).thenReturn(params);
+
+    AccessChecker testInstance = getInstance();
+
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
   }
 
   @Test

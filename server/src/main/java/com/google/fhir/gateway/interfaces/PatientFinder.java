@@ -26,11 +26,11 @@ public interface PatientFinder {
    * patient can be inferred from query parameters.
    *
    * @param requestDetails the request
-   * @return the id of the patient that this query belongs to or null if it cannot be inferred.
+   * @return the ids of the patients that this query belongs to or null if it cannot be inferred.
    * @throws InvalidRequestException for various reasons when unexpected parameters or content are
    *     encountered. Callers are expected to deny access when this happens.
    */
-  String findPatientFromParams(RequestDetailsReader requestDetails);
+  Set<String> findPatientsFromParams(RequestDetailsReader requestDetails);
 
   /**
    * Find all patients referenced or updated in a Bundle.

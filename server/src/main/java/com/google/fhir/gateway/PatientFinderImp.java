@@ -44,8 +44,11 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -74,6 +77,7 @@ public final class PatientFinderImp implements PatientFinder {
   private static final String PATCH_OP_ADD = "add";
   private static final String PATCH_VALUE = "value";
   private static final String PATCH_PATH = "path";
+  private static final String RESOURCE_ID_FIELD = "_id";
 
   private final IFhirPath fhirPath;
   private final Map<String, List<String>> patientSearchParams;
@@ -95,7 +99,7 @@ public final class PatientFinderImp implements PatientFinder {
   }
 
   @Nullable
-  private String checkParamsAndFindPatientId(
+  private ImmutableSet<String> checkParamsAndFindPatientIds(
       String resourceName, Map<String, String[]> queryParameters) {
     checkFhirJoinParams(queryParameters);
     List<String> searchParams = patientSearchParams.get(resourceName);
@@ -104,16 +108,32 @@ public final class PatientFinderImp implements PatientFinder {
         String[] paramValues = queryParameters.get(param);
         // We ignore if multiple search parameters match compartment definition.
         if (paramValues != null && paramValues.length == 1) {
-          // Making sure that we extract the actual ID without any resource type or URL.
-          IIdType id = new IdDt(paramValues[0]);
-          // TODO add test for null/non-Patient cases.
-          if (id.getResourceType() == null || id.getResourceType().equals("Patient")) {
-            return FhirUtil.checkIdOrFail(id.getIdPart());
-          }
+          // Making sure we extract all patient IDs in case this is a comma delimited string
+          return getPatientIdsFromDelimitedString(paramValues[0]);
         }
       }
     }
     return null;
+  }
+
+  private ImmutableSet<String> getPatientIdsFromDelimitedString(String delimitedString) {
+    String[] patientResources = delimitedString.trim().split(",");
+    Set<String> patients =
+        Arrays.stream(patientResources)
+            .distinct()
+            .map(
+                resource -> {
+                  // Making sure that we extract the actual ID without any resource type or URL.
+                  IIdType id = new IdDt(resource);
+                  // TODO add test for null/non-Patient cases.
+                  if (id.getResourceType() == null || id.getResourceType().equals("Patient")) {
+                    return FhirUtil.checkIdOrFail(id.getIdPart());
+                  }
+                  return null;
+                })
+            .filter(Objects::nonNull)
+            .collect(Collectors.toSet());
+    return ImmutableSet.copyOf(patients);
   }
 
   private void checkFhirJoinParams(Map<String, String[]> queryParams) {
@@ -142,27 +162,42 @@ public final class PatientFinderImp implements PatientFinder {
     }
   }
 
-  private String findPatientId(BundleEntryRequestComponent requestComponent)
+  private ImmutableSet<String> findPatientIds(BundleEntryRequestComponent requestComponent)
       throws URISyntaxException {
-    String patientId = null;
+    ImmutableSet<String> patientIds = null;
     if (requestComponent.getUrl() != null) {
       URI resourceUri = new URI(requestComponent.getUrl());
       IIdType referenceElement = new Reference(resourceUri.getPath()).getReferenceElement();
       if (FhirUtil.isSameResourceType(referenceElement.getResourceType(), ResourceType.Patient)) {
-        return FhirUtil.checkIdOrFail(referenceElement.getIdPart());
+        String patientId = FhirUtil.checkIdOrFail(referenceElement.getIdPart());
+        if (patientId != null) {
+          return ImmutableSet.of(patientId);
+        }
       }
+
+      // Reference is not created for URLs without an ID as a path parameter, hence an explicit
+      // check on the path
+      if (Objects.equals(resourceUri.getPath().toLowerCase(), ResourceType.Patient.getPath())) {
+        Map<String, String[]> queryParams = UrlUtil.parseQueryString(resourceUri.getQuery());
+        String[] patientIdValues = queryParams.get(RESOURCE_ID_FIELD);
+        if (patientIdValues != null && patientIdValues.length == 1) {
+          // Making sure we extract all patient IDs in case this is a comma delimited string
+          return getPatientIdsFromDelimitedString(patientIdValues[0]);
+        }
+      }
+
       if (referenceElement.getResourceType() == null) {
         Map<String, String[]> queryParams = UrlUtil.parseQueryString(resourceUri.getQuery());
-        patientId = checkParamsAndFindPatientId(resourceUri.getPath(), queryParams);
+        patientIds = checkParamsAndFindPatientIds(resourceUri.getPath(), queryParams);
       }
     }
-    if (patientId == null) {
+    if (patientIds == null || patientIds.isEmpty()) {
       ExceptionUtil.throwRuntimeExceptionAndLog(
           logger,
-          "Patient ID cannot be found in " + requestComponent.getUrl(),
+          "Patient IDs cannot be found in " + requestComponent.getUrl(),
           InvalidRequestException.class);
     }
-    return patientId;
+    return patientIds;
   }
 
   /** Checks if the request is for a Patient resource. */
@@ -171,13 +206,14 @@ public final class PatientFinderImp implements PatientFinder {
     if (requestComponent.getUrl() != null) {
       URI resourceUri = new URI(requestComponent.getUrl());
       IIdType referenceElement = new Reference(resourceUri.getPath()).getReferenceElement();
-      return FhirUtil.isSameResourceType(referenceElement.getResourceType(), ResourceType.Patient);
+      return FhirUtil.isSameResourceType(referenceElement.getResourceType(), ResourceType.Patient)
+          || Objects.equals(resourceUri.getPath().toLowerCase(), ResourceType.Patient.getPath());
     }
     return false;
   }
 
   @Override
-  public String findPatientFromParams(RequestDetailsReader requestDetails) {
+  public Set<String> findPatientsFromParams(RequestDetailsReader requestDetails) {
     String resourceName = requestDetails.getResourceName();
     if (resourceName == null) {
       ExceptionUtil.throwRuntimeExceptionAndLog(
@@ -185,10 +221,9 @@ public final class PatientFinderImp implements PatientFinder {
           "No resource specified for request " + requestDetails.getRequestPath(),
           InvalidRequestException.class);
     }
-    // Note we only let fetching data for one patient in each query; we may want to revisit this
-    // if we need to batch multiple patients together in one query.
+
     if (FhirUtil.isSameResourceType(resourceName, ResourceType.Patient)) {
-      return FhirUtil.getIdOrNull(requestDetails);
+      return getPatientIdsFromPatientRequestUrl(requestDetails);
     }
     if (FhirUtil.getIdOrNull(requestDetails) != null) {
       // Block any direct, non-patient resource fetches (e.g. Encounter/EID).
@@ -201,14 +236,31 @@ public final class PatientFinderImp implements PatientFinder {
       return null;
     }
     Map<String, String[]> queryParams = requestDetails.getParameters();
-    String patientId = checkParamsAndFindPatientId(resourceName, queryParams);
-    if (patientId == null) {
+    Set<String> patientIds = checkParamsAndFindPatientIds(resourceName, queryParams);
+    if (patientIds == null || patientIds.isEmpty()) {
       ExceptionUtil.throwRuntimeExceptionAndLog(
           logger,
           "Patient ID cannot be found in " + requestDetails.getCompleteUrl(),
           InvalidRequestException.class);
     }
-    return patientId;
+    return patientIds;
+  }
+
+  private Set<String> getPatientIdsFromPatientRequestUrl(RequestDetailsReader requestDetails) {
+    // Note we only let fetching data for one patient in each query for a patient resource URL; we
+    // may want to revisit this
+    // if we need to batch multiple patients together in one query.
+    String patientId = FhirUtil.getIdOrNull(requestDetails);
+    if (patientId != null) {
+      return Set.of(patientId);
+    }
+    Map<String, String[]> queryParams = requestDetails.getParameters();
+    String[] patientIdValues = queryParams.get(RESOURCE_ID_FIELD);
+    if (patientIdValues != null && patientIdValues.length == 1) {
+      // Making sure we extract all patient IDs in case this is a comma delimited string
+      return getPatientIdsFromDelimitedString(patientIdValues[0]);
+    }
+    return Collections.emptySet();
   }
 
   private JsonArray createJsonArrayFromRequest(RequestDetailsReader request) {
@@ -360,21 +412,29 @@ public final class PatientFinderImp implements PatientFinder {
   private void processGet(BundleEntryComponent entryComponent, BundlePatientsBuilder builder)
       throws URISyntaxException {
     // Ignore body content and just look at request.
-    String patientId = findPatientId(entryComponent.getRequest());
-    builder.addPatient(PatientOp.READ, patientId);
+    Set<String> patientIds = findPatientIds(entryComponent.getRequest());
+    patientIds.forEach(patientId -> builder.addPatient(PatientOp.READ, patientId));
   }
 
   private void processPatch(BundleEntryComponent entryComponent, BundlePatientsBuilder builder)
       throws URISyntaxException {
 
     // Find patient id in request.url
-    String patientId = findPatientId(entryComponent.getRequest());
+    ImmutableSet<String> patientIds = findPatientIds(entryComponent.getRequest());
     String resourceType =
         new Reference(entryComponent.getResource().getId()).getReferenceElement().getResourceType();
     if (FhirUtil.isSameResourceType(resourceType, ResourceType.Patient)) {
-      builder.addPatient(PatientOp.UPDATE, patientId);
+      if (patientIds.size() > 1) {
+        ExceptionUtil.throwRuntimeExceptionAndLog(
+            logger,
+            String.format(
+                "Invalid Patch Request for Patient with multiple ids %s",
+                entryComponent.getRequest().getUrl()),
+            InvalidRequestException.class);
+      }
+      builder.addPatient(PatientOp.UPDATE, patientIds.iterator().next());
     } else {
-      builder.addReferencedPatients(Sets.newHashSet(patientId));
+      builder.addReferencedPatients(patientIds);
     }
     // Find patient ids in body
     if (!FhirUtil.isSameResourceType(
@@ -402,11 +462,19 @@ public final class PatientFinderImp implements PatientFinder {
   private void processPut(BundleEntryComponent entryComponent, BundlePatientsBuilder builder)
       throws URISyntaxException {
     Resource resource = entryComponent.getResource();
-    String patientId = findPatientId(entryComponent.getRequest());
+    Set<String> patientIds = findPatientIds(entryComponent.getRequest());
     if (FhirUtil.isSameResourceType(resource.fhirType(), ResourceType.Patient)) {
-      builder.addPatient(PatientOp.UPDATE, patientId);
+      if (patientIds.size() > 1) {
+        ExceptionUtil.throwRuntimeExceptionAndLog(
+            logger,
+            String.format(
+                "Invalid Put Request for Patient with multiple ids %s",
+                entryComponent.getRequest().getUrl()),
+            InvalidRequestException.class);
+      }
+      builder.addPatient(PatientOp.UPDATE, patientIds.iterator().next());
     } else {
-      builder.addReferencedPatients(Sets.newHashSet(patientId));
+      builder.addReferencedPatients(patientIds);
       addPatientReference(resource, builder);
     }
   }
@@ -423,11 +491,11 @@ public final class PatientFinderImp implements PatientFinder {
   private void processDelete(BundleEntryComponent entryComponent, BundlePatientsBuilder builder)
       throws URISyntaxException {
     // Ignore body content and just look at request.
-    String patientId = findPatientId(entryComponent.getRequest());
+    Set<String> patientIds = findPatientIds(entryComponent.getRequest());
     if (isPatientResourceType(entryComponent.getRequest())) {
-      builder.addDeletedPatients(ImmutableSet.of(patientId));
+      builder.addDeletedPatients(patientIds);
     } else {
-      builder.addReferencedPatients(ImmutableSet.of(patientId));
+      builder.addReferencedPatients(patientIds);
     }
   }
 
