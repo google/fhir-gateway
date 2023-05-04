@@ -13,3 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package com.google.fhir.gateway.interfaces;
+
+import com.google.fhir.gateway.BundleResources;
+import java.util.List;
+
+public interface ResourceFinder {
+
+  List<BundleResources> findResourcesInBundle(RequestDetailsReader request);
+}

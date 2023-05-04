@@ -37,8 +37,6 @@ class AllowedQueriesConfig {
 
     // Case in-sensitive Http request type allowed by the config.
     private String requestType;
-
-    private String methodType;
     private Map<String, String> queryParams;
     // If true, this means other parameters not listed in `queryParams` are allowed too.
     private boolean allowExtraParams;
@@ -50,8 +48,7 @@ class AllowedQueriesConfig {
     @Override
     public String toString() {
       String builder =
-          methodType
-              + " path="
+          "path="
               + path
               + " queryParams="
               + Arrays.toString(queryParams.entrySet().toArray())

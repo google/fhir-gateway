@@ -226,7 +226,10 @@ public class BearerAuthorizationInterceptor {
     }
     // Check the Bearer token to be a valid JWT with required claims.
 
-    requestDetailsReader = new RequestDetailsToReader(requestDetails);
+    AccessDecision allowedQueriesDecision = allowedQueriesChecker.checkAccess(requestDetailsReader);
+    if (allowedQueriesDecision.canAccess()) {
+      return allowedQueriesDecision;
+    }
     String authHeader = requestDetails.getHeader("Authorization");
     if (authHeader == null) {
       ExceptionUtil.throwRuntimeExceptionAndLog(
@@ -234,10 +237,6 @@ public class BearerAuthorizationInterceptor {
     }
     DecodedJWT decodedJwt = decodeAndVerifyBearerToken(authHeader);
     FhirContext fhirContext = server.getFhirContext();
-    AccessDecision allowedQueriesDecision = allowedQueriesChecker.checkAccess(requestDetailsReader);
-    if (allowedQueriesDecision.canAccess()) {
-      return allowedQueriesDecision;
-    }
     PatientFinderImp patientFinder = PatientFinderImp.getInstance(fhirContext);
     AccessChecker accessChecker =
         accessFactory.create(decodedJwt, fhirClient, fhirContext, patientFinder);
@@ -274,7 +273,6 @@ public class BearerAuthorizationInterceptor {
     AccessDecision outcome = checkAuthorization(requestDetails);
     outcome.preProcess(servletDetails);
     logger.debug("Authorized request path " + requestPath);
-    // TODO: Add DataAccessChecker here (preprocessing part)
     try {
       HttpResponse response = fhirClient.handleRequest(servletDetails);
       HttpUtil.validateResponseEntityExistsOrFail(response, requestPath);
