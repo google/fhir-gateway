@@ -174,8 +174,8 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
         // meta tags.
         // Disabling these for now - to test again after deployment of latest or newer server
         // versions
-        // urlStringBuilder.append(tagUrl);
-        // urlStringBuilder.append(ProxyConstants.CODE_URL_VALUE_SEPARATOR);
+        urlStringBuilder.append(tagUrl);
+        urlStringBuilder.append(ProxyConstants.CODE_URL_VALUE_SEPARATOR);
         urlStringBuilder.append(tagValue);
 
         if (i != len - 1) {
