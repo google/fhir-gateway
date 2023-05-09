@@ -116,13 +116,13 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
             .split(ProxyConstants.PARAM_VALUES_SEPARATOR));
 
     String[] prevTagFilters =
-        servletRequestDetails.getParameters().get(ProxyConstants.SEARCH_PARAM_TAG);
+        servletRequestDetails.getParameters().get(ProxyConstants.TAG_SEARCH_PARAM);
     if (prevTagFilters != null && prevTagFilters.length > 0) {
       Collections.addAll(paramValues, prevTagFilters);
     }
 
     servletRequestDetails.addParameter(
-        ProxyConstants.SEARCH_PARAM_TAG, paramValues.toArray(new String[0]));
+        ProxyConstants.TAG_SEARCH_PARAM, paramValues.toArray(new String[0]));
   }
 
   @Override
@@ -144,7 +144,7 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
     StringBuilder sb = new StringBuilder();
     Map<String, String[]> map = new HashMap<>();
 
-    sb.append(ProxyConstants.SEARCH_PARAM_TAG);
+    sb.append(ProxyConstants.TAG_SEARCH_PARAM);
     sb.append(ProxyConstants.Literals.EQUALS);
 
     addTags(ProxyConstants.LOCATION_TAG_URL, locationIds, map, sb);
@@ -162,7 +162,7 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
     int len = values.size();
     if (len > 0) {
       if (urlStringBuilder.length()
-          != (ProxyConstants.SEARCH_PARAM_TAG + ProxyConstants.Literals.EQUALS).length()) {
+          != (ProxyConstants.TAG_SEARCH_PARAM + ProxyConstants.Literals.EQUALS).length()) {
         urlStringBuilder.append(ProxyConstants.PARAM_VALUES_SEPARATOR);
       }
 
@@ -170,12 +170,8 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
 
       int i = 0;
       for (String tagValue : values) {
-        // Currently deployed HAPI FHIR Server does NOT support Code URLs when searching against
-        // meta tags.
-        // Disabling these for now - to test again after deployment of latest or newer server
-        // versions
-        // urlStringBuilder.append(tagUrl);
-        // urlStringBuilder.append(ProxyConstants.CODE_URL_VALUE_SEPARATOR);
+        urlStringBuilder.append(tagUrl);
+        urlStringBuilder.append(ProxyConstants.CODE_URL_VALUE_SEPARATOR);
         urlStringBuilder.append(tagValue);
 
         if (i != len - 1) {

@@ -26,7 +26,7 @@ public class ProxyConstants {
 
   public static final String ORGANISATION_TAG_URL = "http://smartregister.org/organisation-tag";
 
-  public static final String SEARCH_PARAM_TAG = "_tag";
+  public static final String TAG_SEARCH_PARAM = "_tag";
 
   public static final String PARAM_VALUES_SEPARATOR = ",";
 

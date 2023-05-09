@@ -29,7 +29,6 @@ import java.util.List;
 import java.util.Map;
 import org.apache.commons.lang3.StringUtils;
 import org.junit.Assert;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.junit.MockitoJUnitRunner;
@@ -46,7 +45,6 @@ public class OpenSRPSyncAccessDecisionTest {
   private OpenSRPSyncAccessDecision testInstance;
 
   @Test
-  @Ignore
   public void preprocessShouldAddAllFiltersWhenIdsForLocationsOrganisationsAndCareTeamsAreProvided()
       throws IOException {
 
@@ -94,7 +92,6 @@ public class OpenSRPSyncAccessDecisionTest {
   }
 
   @Test
-  @Ignore
   public void preProcessShouldAddLocationIdFiltersWhenUserIsAssignedToLocationsOnly()
       throws IOException {
     locationIds.add("locationid12");
@@ -126,7 +123,6 @@ public class OpenSRPSyncAccessDecisionTest {
   }
 
   @Test
-  @Ignore
   public void preProcessShouldAddCareTeamIdFiltersWhenUserIsAssignedToCareTeamsOnly()
       throws IOException {
     careTeamIds.add("careteamid1");
@@ -207,9 +203,10 @@ public class OpenSRPSyncAccessDecisionTest {
     for (String locationId : organisationIds) {
       Assert.assertFalse(requestDetails.getCompleteUrl().contains(locationId));
       Assert.assertFalse(requestDetails.getRequestPath().contains(locationId));
-      Assert.assertTrue(requestDetails.getParameters().size() > 0);
+      Assert.assertEquals(1, requestDetails.getParameters().size());
       Assert.assertTrue(
-          Arrays.asList(requestDetails.getParameters().get("_tag")).contains(locationId));
+          Arrays.asList(requestDetails.getParameters().get("_tag"))
+              .contains(ProxyConstants.ORGANISATION_TAG_URL + "|" + locationId));
     }
   }
 
@@ -263,12 +260,12 @@ public class OpenSRPSyncAccessDecisionTest {
 
     testInstance.preProcess(requestDetails);
 
-    Assert.assertNull(requestDetails.getParameters().get(ProxyConstants.SEARCH_PARAM_TAG));
+    Assert.assertNull(requestDetails.getParameters().get(ProxyConstants.TAG_SEARCH_PARAM));
   }
 
   @Test
   public void
-      preProcessShouldAddingFiltersWhenSearchResourceByIdsDoNotMatchSyncFilterIgnoredResources() {
+      preProcessShouldAddFiltersWhenSearchResourceByIdsDoNotMatchSyncFilterIgnoredResources() {
     organisationIds.add("organizationid1");
     organisationIds.add("organizationid2");
     testInstance = createOpenSRPSyncAccessDecisionTestInstance();
@@ -294,10 +291,12 @@ public class OpenSRPSyncAccessDecisionTest {
     testInstance.preProcess(requestDetails);
 
     String[] searchParamArrays =
-        requestDetails.getParameters().get(ProxyConstants.SEARCH_PARAM_TAG);
+        requestDetails.getParameters().get(ProxyConstants.TAG_SEARCH_PARAM);
     Assert.assertNotNull(searchParamArrays);
     for (int i = 0; i < searchParamArrays.length; i++) {
-      Assert.assertTrue(organisationIds.contains(searchParamArrays[i]));
+      Assert.assertTrue(
+          organisationIds.contains(
+              searchParamArrays[i].replace(ProxyConstants.ORGANISATION_TAG_URL + "|", "")));
     }
   }
 
