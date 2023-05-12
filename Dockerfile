@@ -16,7 +16,7 @@
 
 # Image for building and running tests against the source code of
 # the FHIR Gateway.
-FROM maven:3.8.5-openjdk-11 as build
+FROM maven:3.8.5-openjdk-17-slim as build
 
 RUN apt-get update && apt-get install -y nodejs npm
 RUN npm cache clean -f && npm install -g n && n stable
@@ -38,10 +38,11 @@ RUN mvn --batch-mode package -Pstandalone-app -Dlicense.skip=true
 
 
 # Image for FHIR Gateway binary with configuration knobs as environment vars.
-FROM eclipse-temurin:11-jdk-focal as main
+FROM eclipse-temurin:17-jdk-focal as main
 
-COPY --from=build /app/exec/target/exec-0.1.1.jar /
+COPY --from=build /app/exec/target/fhir-gateway-exec.jar /
 COPY resources/hapi_page_url_allowed_queries.json resources/hapi_page_url_allowed_queries.json
+COPY resources/hapi_sync_filter_ignored_queries.json resources/hapi_sync_filter_ignored_queries.json
 
 ENV PROXY_PORT=8080
 ENV TOKEN_ISSUER="http://localhost/auth/realms/test"
@@ -54,4 +55,4 @@ ENV BACKEND_TYPE="HAPI"
 ENV ACCESS_CHECKER="list"
 ENV RUN_MODE="PROD"
 
-ENTRYPOINT java -jar exec-0.1.1.jar --server.port=${PROXY_PORT}
+ENTRYPOINT java -jar fhir-gateway-exec.jar --server.port=${PROXY_PORT}

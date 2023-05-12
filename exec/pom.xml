@@ -21,7 +21,7 @@
   <parent>
     <groupId>com.google.fhir.gateway</groupId>
     <artifactId>fhir-gateway</artifactId>
-    <version>0.1.1</version>
+    <version>0.1.18-beta</version>
   </parent>
 
   <artifactId>exec</artifactId>
@@ -79,6 +79,9 @@
   </dependencies>
 
   <build>
+
+    <finalName>${project.parent.artifactId}-${project.artifactId}</finalName>
+
     <plugins>
       <!-- With this we can create a standalone executable JAR. -->
       <plugin>
