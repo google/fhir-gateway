@@ -27,6 +27,8 @@ import com.google.fhir.gateway.FhirUtil;
 import com.google.fhir.gateway.HttpFhirClient;
 import com.google.fhir.gateway.HttpUtil;
 import com.google.fhir.gateway.interfaces.AccessDecision;
+import com.google.fhir.gateway.interfaces.RequestDetailsReader;
+import com.google.fhir.gateway.interfaces.RequestMutation;
 import java.io.IOException;
 import java.util.Set;
 import org.apache.http.HttpResponse;
@@ -61,6 +63,11 @@ class AccessGrantedAndUpdateList implements AccessDecision {
     this.httpFhirClient = httpFhirClient;
     this.existPutPatients = existPutPatient;
     this.resourceTypeExpected = resourceTypeExpected;
+  }
+
+  @Override
+  public RequestMutation getRequestMutation(RequestDetailsReader requestDetailsReader) {
+    return null;
   }
 
   @Override

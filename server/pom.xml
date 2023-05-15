@@ -21,7 +21,7 @@
   <parent>
     <groupId>com.google.fhir.gateway</groupId>
     <artifactId>fhir-gateway</artifactId>
-    <version>0.1.18-beta</version>
+    <version>0.1.19-beta</version>
   </parent>
 
   <artifactId>server</artifactId>
@@ -69,6 +69,13 @@
       <groupId>org.springframework</groupId>
       <artifactId>spring-web</artifactId>
       <version>${spring.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework</groupId>
+      <artifactId>spring-test</artifactId>
+      <version>${spring.version}</version>
+      <scope>test</scope>
     </dependency>
 
     <!-- For GCP APIs -->

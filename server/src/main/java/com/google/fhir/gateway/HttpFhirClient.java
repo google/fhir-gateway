@@ -51,6 +51,7 @@ public abstract class HttpFhirClient {
           "date",
           "expires",
           "content-location",
+          "content-encoding",
           "etag",
           "location",
           "x-progress",
@@ -67,6 +68,7 @@ public abstract class HttpFhirClient {
   static final Set<String> REQUEST_HEADERS_TO_KEEP =
       Sets.newHashSet(
           "content-type",
+          "accept-encoding",
           "last-modified",
           "etag",
           "prefer",

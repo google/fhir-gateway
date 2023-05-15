@@ -39,6 +39,7 @@ import com.google.fhir.gateway.interfaces.AccessChecker;
 import com.google.fhir.gateway.interfaces.AccessCheckerFactory;
 import com.google.fhir.gateway.interfaces.AccessDecision;
 import com.google.fhir.gateway.interfaces.RequestDetailsReader;
+import com.google.fhir.gateway.interfaces.RequestMutation;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import java.io.IOException;
@@ -62,6 +63,7 @@ import org.apache.http.HttpStatus;
 import org.apache.http.util.EntityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.util.CollectionUtils;
 
 @Interceptor
 public class BearerAuthorizationInterceptor {
@@ -71,6 +73,10 @@ public class BearerAuthorizationInterceptor {
 
   private static final String DEFAULT_CONTENT_TYPE = "application/json; charset=UTF-8";
   private static final String BEARER_PREFIX = "Bearer ";
+
+  private static final String ACCEPT_ENCODING_HEADER = "Accept-Encoding";
+
+  private static final String GZIP_ENCODING_VALUE = "gzip";
 
   // See https://hl7.org/fhir/smart-app-launch/conformance.html#using-well-known
   @VisibleForTesting static final String WELL_KNOWN_CONF_PATH = ".well-known/smart-configuration";
@@ -271,6 +277,7 @@ public class BearerAuthorizationInterceptor {
       return false;
     }
     AccessDecision outcome = checkAuthorization(requestDetails);
+    mutateRequest(requestDetails, outcome);
     outcome.preProcess(servletDetails);
     logger.debug("Authorized request path " + requestPath);
     try {
@@ -302,7 +309,6 @@ public class BearerAuthorizationInterceptor {
         proxyResponse.addHeader(header.getName(), header.getValue());
       }
       // This should be called after adding headers.
-      // TODO handle non-text responses, e.g., gzip.
       // TODO verify DEFAULT_CONTENT_TYPE/CHARSET are compatible with `entity.getContentType()`.
       Writer writer =
           proxyResponse.getResponseWriter(
@@ -310,7 +316,7 @@ public class BearerAuthorizationInterceptor {
               response.getStatusLine().toString(),
               DEFAULT_CONTENT_TYPE,
               Constants.CHARSET_NAME_UTF8,
-              false);
+              sendGzippedResponse(servletDetails));
       Reader reader;
       if (content != null) {
         // We can read the entity body stream only once; in this case we have already done that.
@@ -329,6 +335,15 @@ public class BearerAuthorizationInterceptor {
 
     // The request processing stops here, hence returning false.
     return false;
+  }
+
+  private boolean sendGzippedResponse(ServletRequestDetails requestDetails) {
+    // we send gzipped encoded response to client only if they requested so
+    String acceptEncodingValue = requestDetails.getHeader(ACCEPT_ENCODING_HEADER.toLowerCase());
+    if (acceptEncodingValue == null) {
+      return false;
+    }
+    return GZIP_ENCODING_VALUE.equalsIgnoreCase(acceptEncodingValue);
   }
 
   /**
@@ -367,6 +382,7 @@ public class BearerAuthorizationInterceptor {
       // Handle any remaining characters that partially matched.
       writer.write(fhirStoreUrl.substring(0, numMatched));
     }
+    writer.close();
   }
 
   private void serveWellKnown(ServletRequestDetails request) {
@@ -386,10 +402,24 @@ public class BearerAuthorizationInterceptor {
               Constants.CHARSET_NAME_UTF8,
               false);
       writer.write(configJson);
+      writer.close();
     } catch (IOException e) {
       logger.error(
           String.format("Exception serving %s with error %s", request.getRequestPath(), e));
       ExceptionUtil.throwRuntimeExceptionAndLog(logger, e.getMessage(), e);
     }
+  }
+
+  @VisibleForTesting
+  void mutateRequest(RequestDetails requestDetails, AccessDecision accessDecision) {
+    RequestMutation mutation =
+        accessDecision.getRequestMutation(new RequestDetailsToReader(requestDetails));
+    if (mutation == null || CollectionUtils.isEmpty(mutation.getQueryParams())) {
+      return;
+    }
+
+    mutation
+        .getQueryParams()
+        .forEach((key, value) -> requestDetails.addParameter(key, value.toArray(new String[0])));
   }
 }

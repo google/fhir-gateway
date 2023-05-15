@@ -16,6 +16,7 @@
 package com.google.fhir.gateway;
 
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.arrayContainingInAnyOrder;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.mockito.ArgumentMatchers.any;
@@ -31,6 +32,7 @@ import ca.uhn.fhir.rest.server.RestfulServer;
 import ca.uhn.fhir.rest.server.exceptions.AuthenticationException;
 import ca.uhn.fhir.rest.server.exceptions.ForbiddenOperationException;
 import ca.uhn.fhir.rest.server.servlet.ServletRequestDetails;
+import ca.uhn.fhir.rest.server.servlet.ServletRestfulResponse;
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.JWTCreator;
 import com.auth0.jwt.algorithms.Algorithm;
@@ -42,6 +44,7 @@ import com.google.fhir.gateway.interfaces.AccessChecker;
 import com.google.fhir.gateway.interfaces.AccessDecision;
 import com.google.fhir.gateway.interfaces.NoOpAccessDecision;
 import com.google.fhir.gateway.interfaces.RequestDetailsReader;
+import com.google.fhir.gateway.interfaces.RequestMutation;
 import com.google.gson.Gson;
 import java.io.IOException;
 import java.io.StringWriter;
@@ -56,8 +59,11 @@ import java.security.KeyPairGenerator;
 import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
 import java.util.Base64;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
 import org.hl7.fhir.instance.model.api.IBaseResource;
@@ -71,6 +77,7 @@ import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnitRunner;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.mock.web.MockHttpServletResponse;
 
 @RunWith(MockitoJUnitRunner.class)
 public class BearerAuthorizationInterceptorTest {
@@ -351,5 +358,74 @@ public class BearerAuthorizationInterceptorTest {
     when(requestMock.getRequestPath()).thenReturn("Patient");
 
     testInstance.authorizeRequest(requestMock);
+  }
+
+  @Test
+  public void mutateRequest() {
+    ServletRequestDetails requestDetails = new ServletRequestDetails();
+    requestDetails.addParameter("param1", new String[] {"param1-value1"});
+    requestDetails.addParameter("param2", new String[] {"param2-value1"});
+
+    HashMap<String, List<String>> paramMutations = new HashMap<>();
+    paramMutations.put("param1", List.of("param1-value2"));
+    paramMutations.put("param3", List.of("param3-value1", "param3-value2"));
+    AccessDecision mutableAccessDecision =
+        new AccessDecision() {
+          public boolean canAccess() {
+            return true;
+          }
+
+          public void preProcess(ServletRequestDetails servletRequestDetails) {}
+
+          public RequestMutation getRequestMutation(RequestDetailsReader requestDetailsReader) {
+            return RequestMutation.builder().queryParams(paramMutations).build();
+          }
+
+          public String postProcess(HttpResponse response) throws IOException {
+            return null;
+          }
+        };
+
+    testInstance.mutateRequest(requestDetails, mutableAccessDecision);
+
+    assertThat(
+        requestDetails.getParameters().get("param1"), arrayContainingInAnyOrder("param1-value2"));
+    assertThat(
+        requestDetails.getParameters().get("param2"), arrayContainingInAnyOrder("param2-value1"));
+    assertThat(
+        requestDetails.getParameters().get("param3"),
+        arrayContainingInAnyOrder("param3-value2", "param3-value1"));
+  }
+
+  @Test
+  public void shouldSendGzippedResponseWhenRequested() throws IOException {
+    testInstance = createTestInstance(true, null);
+    String responseJson = "{\"resourceType\": \"Bundle\"}";
+    JWTCreator.Builder jwtBuilder = JWT.create().withIssuer(TOKEN_ISSUER);
+    when(requestMock.getHeader("Authorization")).thenReturn("Bearer " + signJwt(jwtBuilder));
+    when(requestMock.getHeader("Accept-Encoding".toLowerCase())).thenReturn("gzip");
+
+    // requestMock.getResponse() {@link ServletRequestDetails#getResponse()} is an abstraction HAPI
+    // provides to access the response object which is of type ServletRestfulResponse {@link
+    // ServletRestfulResponse}. Internally HAPI uses the HttpServletResponse {@link
+    // HttpServletResponse} object to perform any response related operations for this wrapper class
+    // ServletRestfulResponse. We have to perform mocking at two levels: one with
+    // requestMock.getResponse() because this is how we access the wrapper response object and write
+    // to it. We also need to perform a deeper level mock using requestMock.getServletResponse()
+    // {@link ServletRequestDetails#getServletResponse()} for the internal HAPI operations to be
+    // performed successfully. This complication arises from us mocking the request object. Had the
+    // object been not mocked, and set by a server we would not have needed to do this levels of
+    // mocks.
+    when(requestMock.getServer()).thenReturn(serverMock);
+    ServletRestfulResponse proxyResponseMock = new ServletRestfulResponse(requestMock);
+    when(requestMock.getResponse()).thenReturn(proxyResponseMock);
+    HttpServletResponse proxyServletResponseMock = new MockHttpServletResponse();
+    when(requestMock.getServletResponse()).thenReturn(proxyServletResponseMock);
+    TestUtil.setUpFhirResponseMock(fhirResponseMock, responseJson);
+
+    testInstance.authorizeRequest(requestMock);
+
+    assertThat(
+        proxyServletResponseMock.getHeader("Content-Encoding".toLowerCase()), equalTo("gzip"));
   }
 }

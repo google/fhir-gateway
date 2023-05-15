@@ -20,6 +20,8 @@ import ca.uhn.fhir.rest.server.servlet.ServletRequestDetails;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.fhir.gateway.ProxyConstants;
 import com.google.fhir.gateway.interfaces.AccessDecision;
+import com.google.fhir.gateway.interfaces.RequestDetailsReader;
+import com.google.fhir.gateway.interfaces.RequestMutation;
 import com.google.gson.Gson;
 import java.io.FileReader;
 import java.io.IOException;
@@ -96,6 +98,11 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
             servletRequestDetails, getSyncTags(locationIds, careTeamIds, organizationIds));
       }
     }
+  }
+
+  @Override
+  public RequestMutation getRequestMutation(RequestDetailsReader requestDetailsReader) {
+    return null;
   }
 
   /**

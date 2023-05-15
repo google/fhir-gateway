@@ -17,6 +17,7 @@ package com.google.fhir.gateway.interfaces;
 
 import ca.uhn.fhir.rest.server.servlet.ServletRequestDetails;
 import java.io.IOException;
+import javax.annotation.Nullable;
 import org.apache.http.HttpResponse;
 
 public interface AccessDecision {
@@ -27,6 +28,20 @@ public interface AccessDecision {
   boolean canAccess();
 
   void preProcess(ServletRequestDetails servletRequestDetails);
+
+  /**
+   * Allows the incoming request mutation based on the access decision.
+   *
+   * <p>Response is used to mutate the incoming request before executing the FHIR operation. We
+   * currently only support query parameters update for GET Http method. This is expected to be
+   * called after checking the access using @canAccess method. Mutating the request before checking
+   * access can have side effect of wrong access check.
+   *
+   * @param requestDetailsReader details about the resource and operation requested
+   * @return mutation to be applied on the incoming request or null if no mutation required
+   */
+  @Nullable
+  RequestMutation getRequestMutation(RequestDetailsReader requestDetailsReader);
 
   /**
    * Depending on the outcome of the FHIR operations, this does any post-processing operations that
