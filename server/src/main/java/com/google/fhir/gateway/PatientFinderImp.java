@@ -120,7 +120,6 @@ public final class PatientFinderImp implements PatientFinder {
     String[] patientResources = delimitedString.trim().split(",");
     Set<String> patients =
         Arrays.stream(patientResources)
-            .distinct()
             .map(
                 resource -> {
                   // Making sure that we extract the actual ID without any resource type or URL.
@@ -170,9 +169,7 @@ public final class PatientFinderImp implements PatientFinder {
       IIdType referenceElement = new Reference(resourceUri.getPath()).getReferenceElement();
       if (FhirUtil.isSameResourceType(referenceElement.getResourceType(), ResourceType.Patient)) {
         String patientId = FhirUtil.checkIdOrFail(referenceElement.getIdPart());
-        if (patientId != null) {
-          return ImmutableSet.of(patientId);
-        }
+        return ImmutableSet.of(patientId);
       }
 
       // Reference is not created for URLs without an ID as a path parameter, hence an explicit
@@ -233,7 +230,6 @@ public final class PatientFinderImp implements PatientFinder {
           logger,
           "Direct resource fetch is only supported for Patient; use search for " + resourceName,
           InvalidRequestException.class);
-      return null;
     }
     Map<String, String[]> queryParams = requestDetails.getParameters();
     Set<String> patientIds = checkParamsAndFindPatientIds(resourceName, queryParams);

@@ -26,7 +26,8 @@ public interface PatientFinder {
    * patient can be inferred from query parameters.
    *
    * @param requestDetails the request
-   * @return the ids of the patients that this query belongs to or null if it cannot be inferred.
+   * @return the ids of the patients that this query belongs to or an empty set if it cannot be
+   *     inferred.
    * @throws InvalidRequestException for various reasons when unexpected parameters or content are
    *     encountered. Callers are expected to deny access when this happens.
    */
