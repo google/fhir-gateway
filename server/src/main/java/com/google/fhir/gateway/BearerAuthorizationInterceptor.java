@@ -278,7 +278,6 @@ public class BearerAuthorizationInterceptor {
     }
     AccessDecision outcome = checkAuthorization(requestDetails);
     mutateRequest(requestDetails, outcome);
-    outcome.preProcess(servletDetails);
     logger.debug("Authorized request path " + requestPath);
     try {
       HttpResponse response = fhirClient.handleRequest(servletDetails);
@@ -335,6 +334,15 @@ public class BearerAuthorizationInterceptor {
 
     // The request processing stops here, hence returning false.
     return false;
+  }
+
+  private boolean sendGzippedResponse(ServletRequestDetails requestDetails) {
+    // we send gzipped encoded response to client only if they requested so
+    String acceptEncodingValue = requestDetails.getHeader(ACCEPT_ENCODING_HEADER.toLowerCase());
+    if (acceptEncodingValue == null) {
+      return false;
+    }
+    return GZIP_ENCODING_VALUE.equalsIgnoreCase(acceptEncodingValue);
   }
 
   private boolean sendGzippedResponse(ServletRequestDetails requestDetails) {
