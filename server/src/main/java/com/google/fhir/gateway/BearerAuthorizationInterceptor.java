@@ -278,6 +278,7 @@ public class BearerAuthorizationInterceptor {
     }
     AccessDecision outcome = checkAuthorization(requestDetails);
     mutateRequest(requestDetails, outcome);
+    outcome.preProcess(servletDetails);
     logger.debug("Authorized request path " + requestPath);
     try {
       HttpResponse response = fhirClient.handleRequest(servletDetails);
