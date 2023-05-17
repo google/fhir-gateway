@@ -346,15 +346,6 @@ public class BearerAuthorizationInterceptor {
     return GZIP_ENCODING_VALUE.equalsIgnoreCase(acceptEncodingValue);
   }
 
-  private boolean sendGzippedResponse(ServletRequestDetails requestDetails) {
-    // we send gzipped encoded response to client only if they requested so
-    String acceptEncodingValue = requestDetails.getHeader(ACCEPT_ENCODING_HEADER.toLowerCase());
-    if (acceptEncodingValue == null) {
-      return false;
-    }
-    return GZIP_ENCODING_VALUE.equalsIgnoreCase(acceptEncodingValue);
-  }
-
   /**
    * Reads the content from the FHIR store response `entity`, replaces any FHIR store URLs by the
    * corresponding proxy URLs, and write the modified response to the proxy response `writer`.
