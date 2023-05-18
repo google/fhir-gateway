@@ -19,6 +19,7 @@ import ca.uhn.fhir.rest.server.exceptions.InvalidRequestException;
 import com.google.fhir.gateway.BundlePatients;
 import java.util.Set;
 import org.hl7.fhir.r4.model.Bundle;
+import org.jetbrains.annotations.NotNull;
 
 public interface PatientFinder {
   /**
@@ -31,6 +32,7 @@ public interface PatientFinder {
    * @throws InvalidRequestException for various reasons when unexpected parameters or content are
    *     encountered. Callers are expected to deny access when this happens.
    */
+  @NotNull
   Set<String> findPatientsFromParams(RequestDetailsReader requestDetails);
 
   /**
