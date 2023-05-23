@@ -105,7 +105,13 @@ public abstract class HttpFhirClient {
   HttpResponse handleRequest(ServletRequestDetails request) throws IOException {
     String httpMethod = request.getServletRequest().getMethod();
     RequestBuilder builder = RequestBuilder.create(httpMethod);
-    setUri(builder, request.getRequestPath());
+    if (request.getRequestPath().equals("PractitionerDetails")) {
+      String uri = String.format("%s/%s", request.getFhirServerBase(), request.getRequestPath());
+      builder.setUri(uri);
+      logger.info("FHIR store resource is " + uri);
+    } else {
+      setUri(builder, request.getRequestPath());
+    }
     // TODO Check why this does not work Content-Type is application/x-www-form-urlencoded.
     byte[] requestContent = request.loadRequestContents();
     if (requestContent != null && requestContent.length > 0) {
