@@ -16,7 +16,6 @@
 package com.google.fhir.gateway.plugin;
 
 import static com.google.fhir.gateway.ProxyConstants.SYNC_STRATEGY;
-import static org.hl7.fhir.r4.model.Claim.CARE_TEAM;
 import static org.smartregister.utils.Constants.LOCATION;
 import static org.smartregister.utils.Constants.ORGANIZATION;
 
@@ -43,6 +42,7 @@ import org.hl7.fhir.r4.model.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.smartregister.model.practitioner.PractitionerDetails;
+import org.smartregister.utils.Constants;
 
 public class PermissionAccessChecker implements AccessChecker {
   private static final Logger logger = LoggerFactory.getLogger(PermissionAccessChecker.class);
@@ -331,18 +331,16 @@ public class PermissionAccessChecker implements AccessChecker {
       List<String> organizationIds = new ArrayList<>();
       List<String> locationIds = new ArrayList<>();
       if (syncStrategy.size() > 0) {
-        if (syncStrategy.contains(CARE_TEAM)) {
+        if (syncStrategy.contains(Constants.CARE_TEAM)) {
           careTeams =
               practitionerDetails != null
                       && practitionerDetails.getFhirPractitionerDetails() != null
                   ? practitionerDetails.getFhirPractitionerDetails().getCareTeams()
                   : Collections.singletonList(new CareTeam());
           for (CareTeam careTeam : careTeams) {
-            if (careTeam.getIdElement() != null
-                && careTeam.getIdElement().getIdPartAsLong() != null) {
-              careTeamIds.add(careTeam.getIdElement().getIdPartAsLong().toString());
+            if (careTeam.getIdElement() != null) {
+              careTeamIds.add(getResourceId(careTeam.getIdElement()));
             }
-            careTeamIds.add(careTeam.getId());
           }
         } else if (syncStrategy.contains(ORGANIZATION)) {
           organizations =
@@ -351,9 +349,8 @@ public class PermissionAccessChecker implements AccessChecker {
                   ? practitionerDetails.getFhirPractitionerDetails().getOrganizations()
                   : Collections.singletonList(new Organization());
           for (Organization organization : organizations) {
-            if (organization.getIdElement() != null
-                && organization.getIdElement().getIdPartAsLong() != null) {
-              organizationIds.add(organization.getIdElement().getIdPartAsLong().toString());
+            if (organization.getIdElement() != null) {
+              organizationIds.add(getResourceId(organization.getIdElement()));
             }
           }
         } else if (syncStrategy.contains(LOCATION)) {
@@ -363,9 +360,8 @@ public class PermissionAccessChecker implements AccessChecker {
                   ? practitionerDetails.getFhirPractitionerDetails().getLocations()
                   : Collections.singletonList(new Location());
           for (Location location : locations) {
-            if (location.getIdElement() != null
-                && location.getIdElement().getIdPartAsLong() != null) {
-              locationIds.add(location.getIdElement().getIdPartAsLong().toString());
+            if (location.getIdElement() != null) {
+              locationIds.add(getResourceId(location.getIdElement()));
             }
           }
         }
@@ -378,6 +374,14 @@ public class PermissionAccessChecker implements AccessChecker {
           locationIds,
           organizationIds,
           syncStrategy);
+    }
+
+    public String getResourceId(IdType idType) {
+      if (idType.isIdPartValidLong() && idType.getIdPartAsLong() != null) {
+        return idType.getIdPartAsLong().toString();
+      } else {
+        return idType.getIdPart();
+      }
     }
   }
 }
