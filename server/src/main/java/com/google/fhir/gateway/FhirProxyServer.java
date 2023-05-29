@@ -32,7 +32,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.cors.CorsConfiguration;
 
-@WebServlet("/*")
+@WebServlet(urlPatterns = {"/fhir/*"})
 public class FhirProxyServer extends RestfulServer {
 
   private static final Logger logger = LoggerFactory.getLogger(FhirProxyServer.class);
