@@ -20,11 +20,12 @@ import org.apache.http.entity.ContentType;
 
 public class ProxyConstants {
 
-  public static final String CARE_TEAM_TAG_URL = "http://smartregister.org/fhir/care-team-tag";
+  public static final String CARE_TEAM_TAG_URL = "https://smartregister.org/care-team-tag-id/";
 
-  public static final String LOCATION_TAG_URL = "http://smartregister.org/fhir/location-id";
+  public static final String LOCATION_TAG_URL = "https://smartregister.org/location-tag-id/";
 
-  public static final String ORGANISATION_TAG_URL = "http://smartregister.org/organisation-tag";
+  public static final String ORGANISATION_TAG_URL =
+      "https://smartregister.org/organisation-tag-id/";
 
   public static final String TAG_SEARCH_PARAM = "_tag";
 
