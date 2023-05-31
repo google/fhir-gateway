@@ -27,7 +27,7 @@
 
   <groupId>com.google.fhir.gateway</groupId>
   <artifactId>fhir-gateway</artifactId>
-  <version>0.1.22</version>
+  <version>0.1.23</version>
   <packaging>pom</packaging>
 
   <name>FHIR Information Gateway</name>
