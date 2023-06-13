@@ -78,6 +78,10 @@ public class BearerAuthorizationInterceptor {
 
   private static final String GZIP_ENCODING_VALUE = "gzip";
 
+  private boolean requestTriggeredOnce = Boolean.FALSE;
+
+  AccessDecision accessDecisionOutcome;
+
   // See https://hl7.org/fhir/smart-app-launch/conformance.html#using-well-known
   @VisibleForTesting static final String WELL_KNOWN_CONF_PATH = ".well-known/smart-configuration";
 

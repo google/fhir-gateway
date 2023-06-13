@@ -15,12 +15,17 @@
  */
 package com.google.fhir.gateway;
 
+import static com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES;
+
 import ca.uhn.fhir.rest.api.Constants;
 import ca.uhn.fhir.rest.server.servlet.ServletRequestDetails;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
+import com.google.gson.Gson;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -28,12 +33,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.apache.http.Header;
+import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.client.methods.RequestBuilder;
 import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.impl.client.HttpClients;
+import org.apache.http.util.EntityUtils;
+import org.hl7.fhir.r4.model.Patient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -105,26 +113,57 @@ public abstract class HttpFhirClient {
   HttpResponse handleRequest(ServletRequestDetails request) throws IOException {
     String httpMethod = request.getServletRequest().getMethod();
     RequestBuilder builder = RequestBuilder.create(httpMethod);
-    if (request.getRequestPath().equals("PractitionerDetails")) {
-      String uri = String.format("%s/%s", request.getFhirServerBase(), request.getRequestPath());
-      builder.setUri(uri);
-      logger.info("FHIR store resource is " + uri);
+    HttpResponse httpResponse;
+    if (request.getRequestPath().equals("PractitionerDetails")
+        || request.getRequestPath().equals("LocationHeirarchy")) {
+      //      String uri = String.format("%s/%s", request.getFhirServerBase(),
+      // request.getRequestPath());
+      //      builder.setUri(uri);
+      //      logger.info("FHIR store resource is " + uri);
+      setUri(builder, "Patient");
+      byte[] requestContent = request.loadRequestContents();
+      if (requestContent != null && requestContent.length > 0) {
+        String contentType = request.getHeader("Content-Type");
+        if (contentType == null) {
+          ExceptionUtil.throwRuntimeExceptionAndLog(
+              logger, "Content-Type header should be set for requests with body.");
+        }
+        builder.setEntity(new ByteArrayEntity(requestContent));
+      }
+      copyRequiredHeaders(request, builder);
+      copyParameters(request, builder);
+      httpResponse = sendRequest(builder);
+      HttpEntity entity = httpResponse.getEntity();
+      String responseString = EntityUtils.toString(entity, "UTF-8");
+      ObjectMapper objectMapper = new ObjectMapper();
+      //      Bundle patient = objectMapper.readValue(responseString, Bundle.class);
+      JsonNode rootNode = objectMapper.readTree(responseString);
+
+      objectMapper.configure(FAIL_ON_UNKNOWN_PROPERTIES, false);
+      //      Patient patientnode = objectMapper.treeToValue(rootNode, Patient.class);
+
+      Gson g = new Gson();
+      Patient p = g.fromJson(responseString, Patient.class);
+
+      System.out.println(responseString);
+      return httpResponse;
     } else {
       setUri(builder, request.getRequestPath());
-    }
-    // TODO Check why this does not work Content-Type is application/x-www-form-urlencoded.
-    byte[] requestContent = request.loadRequestContents();
-    if (requestContent != null && requestContent.length > 0) {
-      String contentType = request.getHeader("Content-Type");
-      if (contentType == null) {
-        ExceptionUtil.throwRuntimeExceptionAndLog(
-            logger, "Content-Type header should be set for requests with body.");
+
+      // TODO Check why this does not work Content-Type is application/x-www-form-urlencoded.
+      byte[] requestContent = request.loadRequestContents();
+      if (requestContent != null && requestContent.length > 0) {
+        String contentType = request.getHeader("Content-Type");
+        if (contentType == null) {
+          ExceptionUtil.throwRuntimeExceptionAndLog(
+              logger, "Content-Type header should be set for requests with body.");
+        }
+        builder.setEntity(new ByteArrayEntity(requestContent));
       }
-      builder.setEntity(new ByteArrayEntity(requestContent));
+      copyRequiredHeaders(request, builder);
+      copyParameters(request, builder);
+      return sendRequest(builder);
     }
-    copyRequiredHeaders(request, builder);
-    copyParameters(request, builder);
-    return sendRequest(builder);
   }
 
   public HttpResponse getResource(String resourcePath) throws IOException {
