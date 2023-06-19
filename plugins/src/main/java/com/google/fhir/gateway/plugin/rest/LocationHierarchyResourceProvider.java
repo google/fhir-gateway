@@ -36,8 +36,6 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController("/LocationHeirarchy")
 public class LocationHierarchyResourceProvider implements IResourceProvider {
 
-  //    @Autowired IFhirResourceDao<Location> locationIFhirResourceDao;
-
   private static final Logger logger =
       Logger.getLogger(LocationHierarchyResourceProvider.class.toString());
 
@@ -46,7 +44,7 @@ public class LocationHierarchyResourceProvider implements IResourceProvider {
     return LocationHierarchy.class;
   }
 
-  @GetMapping("/")
+  @GetMapping
   public LocationHierarchy getLocationHierarchy(
       @RequiredParam(name = IDENTIFIER) TokenParam identifier) {
 

@@ -364,6 +364,7 @@ public class BearerAuthorizationInterceptor {
     // proper URL parsing if we need to address edge cases in URL no-op changes. This string
     // matching can be done more efficiently if needed, but we should avoid loading the full
     // stream in memory.
+    System.out.println("inside replace and copy method");
     String fhirStoreUrl = fhirClient.getBaseUrl();
     int numMatched = 0;
     int n;
