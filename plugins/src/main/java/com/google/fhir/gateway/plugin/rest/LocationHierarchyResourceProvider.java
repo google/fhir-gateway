@@ -37,7 +37,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class LocationHierarchyResourceProvider implements IResourceProvider {
 
   private static final Logger logger =
-      Logger.getLogger(LocationHierarchyResourceProvider.class.toString());
+          Logger.getLogger(LocationHierarchyResourceProvider.class.toString());
 
   @Override
   public Class<? extends IBaseResource> getResourceType() {
@@ -46,88 +46,11 @@ public class LocationHierarchyResourceProvider implements IResourceProvider {
 
   @GetMapping
   public LocationHierarchy getLocationHierarchy(
-      @RequiredParam(name = IDENTIFIER) TokenParam identifier) {
-
-    //        SearchParameterMap paramMap = new SearchParameterMap();
-    //        paramMap.add(IDENTIFIER, identifier);
-
-    //        IBundleProvider locationBundle = locationIFhirResourceDao.search(paramMap);
-    IBundleProvider locationBundle = null;
-    //    try {
-    //      HttpUtils.sendGET("http://localhost:8090/fhir/Location?identifier=" + identifier);
-    //    } catch (IOException e) {
-    //      throw new RuntimeException(e);
-    //    }
-    List<IBaseResource> locations =
-        locationBundle != null
-            ? locationBundle.getResources(0, locationBundle.size())
-            : new ArrayList<>();
-    String locationId = EMPTY_STRING;
-    if (locations.size() > 0
-        && locations.get(0) != null
-        && locations.get(0).getIdElement() != null) {
-      locationId = locations.get(0).getIdElement().getIdPart();
-    }
-
-    LocationHierarchyTree locationHierarchyTree = new LocationHierarchyTree();
+          @RequiredParam(name = IDENTIFIER) TokenParam identifier) {
     LocationHierarchy locationHierarchy = new LocationHierarchy();
-    if (StringUtils.isNotBlank(locationId) && locations.size() > 0) {
-      logger.info("Building Location Hierarchy of Location Id : " + locationId);
-      locationHierarchyTree.buildTreeFromList(getLocationHierarchy(locationId, locations.get(0)));
-      StringType locationIdString = new StringType().setId(locationId).getIdElement();
-      locationHierarchy.setLocationId(locationIdString);
-      locationHierarchy.setId(LOCATION_RESOURCE + locationId);
-
-      locationHierarchy.setLocationHierarchyTree(locationHierarchyTree);
-    } else {
-      locationHierarchy.setId(LOCATION_RESOURCE_NOT_FOUND);
-    }
+    StringType id = new StringType();
+    id.setId("1");
+    locationHierarchy.setLocationId(id);
     return locationHierarchy;
   }
-
-  private List<Location> getLocationHierarchy(String locationId, IBaseResource parentLocation) {
-    return descendants(locationId, parentLocation);
-  }
-
-  public List<Location> descendants(String locationId, IBaseResource parentLocation) {
-
-    //        SearchParameterMap paramMap = new SearchParameterMap();
-    //        ReferenceAndListParam thePartOf = new ReferenceAndListParam();
-    //        ReferenceParam partOf = new ReferenceParam();
-    //        partOf.setValue(LOCATION + FORWARD_SLASH + locationId);
-    //        ReferenceOrListParam referenceOrListParam = new ReferenceOrListParam();
-    //        referenceOrListParam.add(partOf);
-    //        thePartOf.addValue(referenceOrListParam);
-    //        paramMap.add(PART_OF, thePartOf);
-
-    //        IBundleProvider childLocationBundle = locationIFhirResourceDao.search(paramMap);
-    IBundleProvider childLocationBundle = null;
-
-    //    try {
-    //      HttpUtils.sendGET(
-    //          "http://localhost:8090/fhir/Location?partof=" + LOCATION + FORWARD_SLASH +
-    // locationId);
-    //    } catch (IOException e) {
-    //      throw new RuntimeException(e);
-    //    }
-    List<Location> allLocations = new ArrayList<>();
-    if (parentLocation != null) {
-      allLocations.add((Location) parentLocation);
-    }
-    if (childLocationBundle != null) {
-      for (IBaseResource childLocation :
-          childLocationBundle.getResources(0, childLocationBundle.size())) {
-        Location childLocationEntity = (Location) childLocation;
-        allLocations.add(childLocationEntity);
-        allLocations.addAll(descendants(childLocation.getIdElement().getIdPart(), null));
-      }
-    }
-
-    return allLocations;
-  }
-
-  //    public void setLocationIFhirResourceDao(IFhirResourceDao<Location> locationIFhirResourceDao)
-  // {
-  //        this.locationIFhirResourceDao = locationIFhirResourceDao;
-  //    }
 }
