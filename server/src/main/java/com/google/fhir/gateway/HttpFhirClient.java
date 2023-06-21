@@ -129,8 +129,9 @@ public abstract class HttpFhirClient {
       System.out.println(responseString);
       return httpResponse;
     } else if (request.getRequestPath().contains("LocationHeirarchy")) {
-
-      setUri(builder, "Location?identifier="+request.getParameters().get("identifier"));
+      setUri(
+          builder,
+          "Location?identifier=" + request.getParameters().get("identifier")[0].toString());
       byte[] requestContent = request.loadRequestContents();
       if (requestContent != null && requestContent.length > 0) {
         String contentType = request.getHeader("Content-Type");

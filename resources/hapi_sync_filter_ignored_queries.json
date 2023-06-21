@@ -41,6 +41,20 @@
       "queryParams": {
         "_id": "ANY_VALUE"
       }
+    },
+    {
+      "path": "LocationHeirarchy/",
+      "methodType": "GET",
+      "queryParams": {
+        "identifier": "ANY_VALUE"
+      }
+    },
+    {
+      "path": "PractitionerDetails",
+      "methodType": "GET",
+      "queryParams": {
+        "keycloak-uuid": "ANY_VALUE"
+      }
     }
   ]
 }
