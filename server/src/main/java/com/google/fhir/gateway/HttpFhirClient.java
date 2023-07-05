@@ -123,12 +123,8 @@ public abstract class HttpFhirClient {
       copyRequiredHeaders(request, builder);
       copyParameters(request, builder);
       httpResponse = sendRequest(builder);
-      HttpEntity entity = httpResponse.getEntity();
-      String responseString = EntityUtils.toString(entity, "UTF-8");
-      JSONObject jsonObject = new JSONObject(responseString);
-      System.out.println(responseString);
       return httpResponse;
-    } else if (request.getRequestPath().contains("LocationHeirarchy")) {
+    } else if (request.getRequestPath().contains("LocationHierarchy")) {
       setUri(
           builder,
           "Location?identifier=" + request.getParameters().get("identifier")[0].toString());
@@ -144,10 +140,6 @@ public abstract class HttpFhirClient {
       copyRequiredHeaders(request, builder);
       copyParameters(request, builder);
       httpResponse = sendRequest(builder);
-      HttpEntity entity = httpResponse.getEntity();
-      String responseString = EntityUtils.toString(entity, "UTF-8");
-      JSONObject jsonObject = new JSONObject(responseString);
-      System.out.println(responseString);
       return httpResponse;
     } else {
       setUri(builder, request.getRequestPath());
