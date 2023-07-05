@@ -24,21 +24,27 @@ import com.google.common.collect.Sets;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.charset.Charset;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import org.apache.commons.lang3.SerializationUtils;
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.client.methods.RequestBuilder;
+import org.apache.http.client.utils.CloneUtils;
 import org.apache.http.entity.ByteArrayEntity;
+import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.util.StreamUtils;
 
 public abstract class HttpFhirClient {
 
@@ -123,6 +129,14 @@ public abstract class HttpFhirClient {
       copyRequiredHeaders(request, builder);
       copyParameters(request, builder);
       httpResponse = sendRequest(builder);
+      HttpEntity entity = httpResponse.getEntity();
+
+      String responseString = StreamUtils.copyToString(entity.getContent(), Charset.forName("UTF-8"));
+      httpResponse.setEntity(new StringEntity(responseString));//Need this to reinstate the entity content
+
+      JSONObject jsonObject = new JSONObject(responseString);
+      System.out.println(responseString);
+
       return httpResponse;
     } else if (request.getRequestPath().contains("LocationHierarchy")) {
       setUri(
@@ -140,6 +154,14 @@ public abstract class HttpFhirClient {
       copyRequiredHeaders(request, builder);
       copyParameters(request, builder);
       httpResponse = sendRequest(builder);
+      HttpEntity entity = httpResponse.getEntity();
+
+      String responseString = StreamUtils.copyToString(entity.getContent(), Charset.forName("UTF-8"));
+      httpResponse.setEntity(new StringEntity(responseString));//Need this to reinstate the entity content
+
+      JSONObject jsonObject = new JSONObject(responseString);
+      System.out.println(responseString);
+
       return httpResponse;
     } else {
       setUri(builder, request.getRequestPath());
