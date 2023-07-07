@@ -174,9 +174,8 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
    */
   private String postProcessModeListEntries(HttpResponse response) throws IOException {
 
-    String resultContent = null;
-    IBaseResource responseResource =
-        fhirR4JsonParser.parseResource((new BasicResponseHandler().handleResponse(response)));
+    String resultContent = new BasicResponseHandler().handleResponse(response);
+    IBaseResource responseResource = fhirR4JsonParser.parseResource(resultContent);
 
     if (responseResource instanceof ListResource && ((ListResource) responseResource).hasEntry()) {
 
