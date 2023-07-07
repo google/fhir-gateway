@@ -17,7 +17,6 @@ package com.google.fhir.gateway;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
-import ca.uhn.fhir.rest.server.servlet.ServletRequestDetails;
 import com.google.common.base.Preconditions;
 import com.google.common.io.CharStreams;
 import com.google.fhir.gateway.interfaces.AccessDecision;
@@ -101,7 +100,4 @@ public class CapabilityPostProcessor implements AccessDecision {
         .setCode(RestfulSecurityService.OAUTH.toCode());
     security.setDescription(SECURITY_DESCRIPTION);
   }
-
-  @Override
-  public void preProcess(ServletRequestDetails servletRequestDetails) {}
 }
