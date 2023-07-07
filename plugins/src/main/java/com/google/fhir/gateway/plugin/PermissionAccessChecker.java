@@ -339,7 +339,7 @@ public class PermissionAccessChecker implements AccessChecker {
                   : Collections.singletonList(new CareTeam());
           for (CareTeam careTeam : careTeams) {
             if (careTeam.getIdElement() != null) {
-              careTeamIds.add(getResourceId(careTeam.getIdElement()));
+              careTeamIds.add(careTeam.getIdElement().getIdPart());
             }
           }
         } else if (syncStrategy.contains(ORGANIZATION)) {
@@ -350,7 +350,7 @@ public class PermissionAccessChecker implements AccessChecker {
                   : Collections.singletonList(new Organization());
           for (Organization organization : organizations) {
             if (organization.getIdElement() != null) {
-              organizationIds.add(getResourceId(organization.getIdElement()));
+              organizationIds.add(organization.getIdElement().getIdPart());
             }
           }
         } else if (syncStrategy.contains(LOCATION)) {
@@ -361,7 +361,7 @@ public class PermissionAccessChecker implements AccessChecker {
                   : Collections.singletonList(new Location());
           for (Location location : locations) {
             if (location.getIdElement() != null) {
-              locationIds.add(getResourceId(location.getIdElement()));
+              locationIds.add(location.getIdElement().getIdPart());
             }
           }
         }
@@ -374,14 +374,6 @@ public class PermissionAccessChecker implements AccessChecker {
           locationIds,
           organizationIds,
           syncStrategy);
-    }
-
-    public String getResourceId(IdType idType) {
-      if (idType.isIdPartValidLong() && idType.getIdPartAsLong() != null) {
-        return idType.getIdPartAsLong().toString();
-      } else {
-        return idType.getIdPart();
-      }
     }
   }
 }
