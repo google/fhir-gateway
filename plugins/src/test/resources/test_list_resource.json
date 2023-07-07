@@ -1,0 +1,35 @@
+{
+  "resourceType": "List",
+  "id": "proxy-test-list-id",
+  "identifier": [
+    {
+      "use": "official",
+      "value": "proxy-test-list-id"
+    }
+  ],
+  "status": "current",
+  "mode": "working",
+  "title": "Proxy Test List",
+  "code": {
+    "coding": [
+      {
+        "system": "http://ona.io",
+        "code": "supply-chain",
+        "display": "Proxy Test List"
+      }
+    ],
+    "text": "My Proxy Test List"
+  },
+  "entry": [
+    {
+      "item": {
+        "reference": "Group/proxy-list-entry-id-1"
+      }
+    },
+    {
+      "item": {
+        "reference": "Group/proxy-list-entry-id-2"
+      }
+    }
+  ]
+}

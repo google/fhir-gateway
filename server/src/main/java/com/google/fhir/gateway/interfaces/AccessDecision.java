@@ -56,5 +56,6 @@ public interface AccessDecision {
    *     reads the response; otherwise null. Note that we should try to avoid reading the whole
    *     content in memory whenever it is not needed for post-processing.
    */
-  String postProcess(HttpResponse response) throws IOException;
+  String postProcess(RequestDetailsReader requestDetailsReader, HttpResponse response)
+      throws IOException;
 }

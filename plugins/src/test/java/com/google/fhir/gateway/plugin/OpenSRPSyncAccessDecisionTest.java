@@ -15,22 +15,39 @@
  */
 package com.google.fhir.gateway.plugin;
 
+import static com.google.fhir.gateway.plugin.PermissionAccessChecker.Factory.PROXY_TO_ENV;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+
+import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.rest.api.RequestTypeEnum;
 import ca.uhn.fhir.rest.api.RestOperationTypeEnum;
+import ca.uhn.fhir.rest.client.api.IGenericClient;
+import ca.uhn.fhir.rest.gclient.ITransaction;
+import ca.uhn.fhir.rest.gclient.ITransactionTyped;
 import ca.uhn.fhir.rest.server.servlet.ServletRequestDetails;
 import com.google.common.collect.Maps;
 import com.google.common.io.Resources;
+import com.google.fhir.gateway.HttpFhirClient;
 import com.google.fhir.gateway.ProxyConstants;
+import com.google.fhir.gateway.interfaces.RequestDetailsReader;
 import java.io.IOException;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.http.HttpResponse;
+import org.hl7.fhir.r4.model.Bundle;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.Answers;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnitRunner;
 
 @RunWith(MockitoJUnitRunner.class)
@@ -43,6 +60,8 @@ public class OpenSRPSyncAccessDecisionTest {
   private List<String> organisationIds = new ArrayList<>();
 
   private OpenSRPSyncAccessDecision testInstance;
+
+  @Mock private HttpFhirClient httpFhirClientMock;
 
   @Test
   public void preprocessShouldAddAllFiltersWhenIdsForLocationsOrganisationsAndCareTeamsAreProvided()
@@ -298,6 +317,84 @@ public class OpenSRPSyncAccessDecisionTest {
           organisationIds.contains(
               searchParamArrays[i].replace(ProxyConstants.ORGANISATION_TAG_URL + "|", "")));
     }
+  }
+
+  @Test
+  public void testPostProcessWithListModeHeaderShouldFetchListEntriesBundle() throws IOException {
+    locationIds.add("Location-1");
+    testInstance = Mockito.spy(createOpenSRPSyncAccessDecisionTestInstance());
+
+    FhirContext fhirR4Context = mock(FhirContext.class);
+    IGenericClient iGenericClient = mock(IGenericClient.class);
+    ITransaction iTransaction = mock(ITransaction.class);
+    ITransactionTyped<Bundle> iClientExecutable = mock(ITransactionTyped.class);
+
+    Mockito.when(fhirR4Context.newRestfulGenericClient(System.getenv(PROXY_TO_ENV)))
+        .thenReturn(iGenericClient);
+    Mockito.when(iGenericClient.transaction()).thenReturn(iTransaction);
+    Mockito.when(iTransaction.withBundle(any(Bundle.class))).thenReturn(iClientExecutable);
+
+    Bundle resultBundle = new Bundle();
+    resultBundle.setType(Bundle.BundleType.BATCHRESPONSE);
+    resultBundle.setId("bundle-result-id");
+
+    Mockito.when(iClientExecutable.execute()).thenReturn(resultBundle);
+
+    ArgumentCaptor<Bundle> bundleArgumentCaptor = ArgumentCaptor.forClass(Bundle.class);
+
+    testInstance.setFhirR4Context(fhirR4Context);
+
+    RequestDetailsReader requestDetailsSpy = Mockito.mock(RequestDetailsReader.class);
+
+    Mockito.when(requestDetailsSpy.getHeader(OpenSRPSyncAccessDecision.Constants.FHIR_GATEWAY_MODE))
+        .thenReturn(OpenSRPSyncAccessDecision.Constants.LIST_ENTRIES);
+
+    URL listUrl = Resources.getResource("test_list_resource.json");
+    String testListJson = Resources.toString(listUrl, StandardCharsets.UTF_8);
+
+    HttpResponse fhirResponseMock = Mockito.mock(HttpResponse.class, Answers.RETURNS_DEEP_STUBS);
+
+    TestUtil.setUpFhirResponseMock(fhirResponseMock, testListJson);
+
+    String resultContent = testInstance.postProcess(requestDetailsSpy, fhirResponseMock);
+
+    Mockito.verify(iTransaction).withBundle(bundleArgumentCaptor.capture());
+    Bundle requestBundle = bundleArgumentCaptor.getValue();
+
+    // Verify modified request to the server
+    Assert.assertNotNull(requestBundle);
+    Assert.assertEquals(Bundle.BundleType.BATCH, requestBundle.getType());
+    List<Bundle.BundleEntryComponent> requestBundleEntries = requestBundle.getEntry();
+    Assert.assertEquals(2, requestBundleEntries.size());
+
+    Assert.assertEquals(Bundle.HTTPVerb.GET, requestBundleEntries.get(0).getRequest().getMethod());
+    Assert.assertEquals(
+        "Group/proxy-list-entry-id-1", requestBundleEntries.get(0).getRequest().getUrl());
+
+    Assert.assertEquals(Bundle.HTTPVerb.GET, requestBundleEntries.get(1).getRequest().getMethod());
+    Assert.assertEquals(
+        "Group/proxy-list-entry-id-2", requestBundleEntries.get(1).getRequest().getUrl());
+
+    // Verify returned result content from the server request
+    Assert.assertNotNull(resultContent);
+    Assert.assertEquals(
+        "{\"resourceType\":\"Bundle\",\"id\":\"bundle-result-id\",\"type\":\"batch-response\"}",
+        resultContent);
+  }
+
+  @Test
+  public void testPostProcessWithoutListModeHeaderShouldShouldReturnNull() throws IOException {
+    testInstance = createOpenSRPSyncAccessDecisionTestInstance();
+
+    RequestDetailsReader requestDetailsSpy = Mockito.mock(RequestDetailsReader.class);
+    Mockito.when(requestDetailsSpy.getHeader(OpenSRPSyncAccessDecision.Constants.FHIR_GATEWAY_MODE))
+        .thenReturn("");
+
+    String resultContent =
+        testInstance.postProcess(requestDetailsSpy, Mockito.mock(HttpResponse.class));
+
+    // Verify no special Post-Processing happened
+    Assert.assertNull(resultContent);
   }
 
   private OpenSRPSyncAccessDecision createOpenSRPSyncAccessDecisionTestInstance() {

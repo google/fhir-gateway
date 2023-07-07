@@ -15,7 +15,12 @@
  */
 package com.google.fhir.gateway.plugin;
 
+import static com.google.fhir.gateway.plugin.PermissionAccessChecker.Factory.PROXY_TO_ENV;
+
+import ca.uhn.fhir.context.FhirContext;
+import ca.uhn.fhir.parser.IParser;
 import ca.uhn.fhir.rest.api.RequestTypeEnum;
+import ca.uhn.fhir.rest.client.api.IGenericClient;
 import ca.uhn.fhir.rest.server.servlet.ServletRequestDetails;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.fhir.gateway.ProxyConstants;
@@ -36,7 +41,11 @@ import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.http.HttpResponse;
+import org.apache.http.impl.client.BasicResponseHandler;
 import org.apache.http.util.TextUtils;
+import org.hl7.fhir.instance.model.api.IBaseResource;
+import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.ListResource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -56,6 +65,10 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
 
   private final List<String> organizationIds;
   private IgnoredResourcesConfig config;
+  private Gson gson = new Gson();
+
+  private FhirContext fhirR4Context = FhirContext.forR4();
+  private IParser fhirR4JsonParser = fhirR4Context.newJsonParser();
 
   public OpenSRPSyncAccessDecision(
       String applicationId,
@@ -133,8 +146,58 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
   }
 
   @Override
-  public String postProcess(HttpResponse response) throws IOException {
-    return null;
+  public String postProcess(RequestDetailsReader request, HttpResponse response)
+      throws IOException {
+
+    String resultContent = null;
+    String listMode = request.getHeader(Constants.FHIR_GATEWAY_MODE);
+
+    switch (listMode) {
+      case Constants.LIST_ENTRIES:
+        resultContent = postProcessModeListEntries(response);
+      default:
+        break;
+    }
+    return resultContent;
+  }
+
+  /**
+   * Generates a Bundle result from making a batch search request with the contained entries in the
+   * List as parameters
+   *
+   * @param response HTTPResponse
+   * @return String content of the result Bundle
+   */
+  private String postProcessModeListEntries(HttpResponse response) throws IOException {
+
+    String resultContent = null;
+    IBaseResource responseResource =
+        fhirR4JsonParser.parseResource((new BasicResponseHandler().handleResponse(response)));
+
+    if (responseResource instanceof ListResource && ((ListResource) responseResource).hasEntry()) {
+
+      Bundle requestBundle = new Bundle();
+      requestBundle.setType(Bundle.BundleType.BATCH);
+      Bundle.BundleEntryComponent bundleEntryComponent;
+
+      for (ListResource.ListEntryComponent listEntryComponent :
+          ((ListResource) responseResource).getEntry()) {
+
+        bundleEntryComponent = new Bundle.BundleEntryComponent();
+        bundleEntryComponent.setRequest(
+            new Bundle.BundleEntryRequestComponent()
+                .setMethod(Bundle.HTTPVerb.GET)
+                .setUrl(listEntryComponent.getItem().getReference()));
+
+        requestBundle.addEntry(bundleEntryComponent);
+      }
+
+      Bundle responseBundle =
+          createFhirClientForR4().transaction().withBundle(requestBundle).execute();
+
+      resultContent = fhirR4JsonParser.encodeResourceToString(responseBundle);
+    }
+    return resultContent;
   }
 
   /**
@@ -214,7 +277,6 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
   protected IgnoredResourcesConfig getIgnoredResourcesConfigFileConfiguration(String configFile) {
     if (configFile != null && !configFile.isEmpty()) {
       try {
-        Gson gson = new Gson();
         config = gson.fromJson(new FileReader(configFile), IgnoredResourcesConfig.class);
         if (config == null || config.entries == null) {
           throw new IllegalArgumentException("A map with a single `entries` array expected!");
@@ -286,6 +348,10 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
     return false;
   }
 
+  private IGenericClient createFhirClientForR4() {
+    return fhirR4Context.newRestfulGenericClient(System.getenv(PROXY_TO_ENV));
+  }
+
   @VisibleForTesting
   protected void setSkippedResourcesConfig(IgnoredResourcesConfig config) {
     this.config = config;
@@ -307,5 +373,20 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
           + Arrays.toString(queryParams.entrySet().toArray())
           + '}';
     }
+  }
+
+  @VisibleForTesting
+  protected void setFhirR4Context(FhirContext fhirR4Context) {
+    this.fhirR4Context = fhirR4Context;
+  }
+
+  @VisibleForTesting
+  protected void setFhirR4JsonParser(IParser fhirR4JsonParser) {
+    this.fhirR4JsonParser = fhirR4JsonParser;
+  }
+
+  public static final class Constants {
+    public static final String FHIR_GATEWAY_MODE = "fhir-gateway-mode";
+    public static final String LIST_ENTRIES = "list-entries";
   }
 }
