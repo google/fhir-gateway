@@ -15,7 +15,6 @@
  */
 package com.google.fhir.gateway.interfaces;
 
-import ca.uhn.fhir.rest.server.servlet.ServletRequestDetails;
 import java.io.IOException;
 import javax.annotation.Nullable;
 import org.apache.http.HttpResponse;
@@ -26,8 +25,6 @@ public interface AccessDecision {
    * @return true iff access was granted.
    */
   boolean canAccess();
-
-  void preProcess(ServletRequestDetails servletRequestDetails);
 
   /**
    * Allows the incoming request mutation based on the access decision.

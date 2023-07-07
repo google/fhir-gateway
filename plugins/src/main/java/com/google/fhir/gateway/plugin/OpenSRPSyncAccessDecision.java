@@ -21,7 +21,6 @@ import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
 import ca.uhn.fhir.rest.api.RequestTypeEnum;
 import ca.uhn.fhir.rest.client.api.IGenericClient;
-import ca.uhn.fhir.rest.server.servlet.ServletRequestDetails;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.fhir.gateway.ProxyConstants;
 import com.google.fhir.gateway.interfaces.AccessDecision;
@@ -92,12 +91,15 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
   }
 
   @Override
-  public void preProcess(ServletRequestDetails servletRequestDetails) {
+  public RequestMutation getRequestMutation(RequestDetailsReader requestDetailsReader) {
+
+    RequestMutation requestMutation = null;
+
     // TODO: Disable access for a user who adds tags to organisations, locations or care teams that
     // they do not have access to
     //  This does not bar access to anyone who uses their own sync tags to circumvent
     //  the filter. The aim of this feature based on scoping was to pre-filter the data for the user
-    if (isSyncUrl(servletRequestDetails)) {
+    if (isSyncUrl(requestDetailsReader)) {
       // This prevents access to a user who has no location/organisation/team assigned to them
       if (locationIds.size() == 0 && careTeamIds.size() == 0 && organizationIds.size() == 0) {
         locationIds.add(
@@ -105,28 +107,31 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
       }
 
       // Skip app-wide global resource requests
-      if (!shouldSkipDataFiltering(servletRequestDetails)) {
+      if (!shouldSkipDataFiltering(requestDetailsReader)) {
 
-        addSyncFilters(
-            servletRequestDetails, getSyncTags(locationIds, careTeamIds, organizationIds));
+        List<String> syncFilterParameterValues =
+            addSyncFilters(
+                requestDetailsReader, getSyncTags(locationIds, careTeamIds, organizationIds));
+        requestMutation =
+            RequestMutation.builder()
+                .queryParams(Map.of(ProxyConstants.TAG_SEARCH_PARAM, syncFilterParameterValues))
+                .build();
       }
     }
-  }
 
-  @Override
-  public RequestMutation getRequestMutation(RequestDetailsReader requestDetailsReader) {
-    return null;
+    return requestMutation;
   }
 
   /**
-   * Adds filters to the {@link ServletRequestDetails} for the _tag property to allow filtering by
+   * Adds filters to the {@link RequestDetailsReader} for the _tag property to allow filtering by
    * specific code-url-values that match specific locations, teams or organisations
    *
-   * @param servletRequestDetails
+   * @param requestDetailsReader
    * @param syncTags
+   * @return the extra query Parameter values
    */
-  private void addSyncFilters(
-      ServletRequestDetails servletRequestDetails, Pair<String, Map<String, String[]>> syncTags) {
+  private List<String> addSyncFilters(
+      RequestDetailsReader requestDetailsReader, Pair<String, Map<String, String[]>> syncTags) {
     List<String> paramValues = new ArrayList<>();
     Collections.addAll(
         paramValues,
@@ -136,13 +141,12 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
             .split(ProxyConstants.PARAM_VALUES_SEPARATOR));
 
     String[] prevTagFilters =
-        servletRequestDetails.getParameters().get(ProxyConstants.TAG_SEARCH_PARAM);
+        requestDetailsReader.getParameters().get(ProxyConstants.TAG_SEARCH_PARAM);
     if (prevTagFilters != null && prevTagFilters.length > 0) {
       Collections.addAll(paramValues, prevTagFilters);
     }
 
-    servletRequestDetails.addParameter(
-        ProxyConstants.TAG_SEARCH_PARAM, paramValues.toArray(new String[0]));
+    return paramValues;
   }
 
   @Override
@@ -252,12 +256,12 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
     }
   }
 
-  private boolean isSyncUrl(ServletRequestDetails servletRequestDetails) {
-    if (servletRequestDetails.getRequestType() == RequestTypeEnum.GET
-        && !TextUtils.isEmpty(servletRequestDetails.getResourceName())) {
-      String requestPath = servletRequestDetails.getRequestPath();
+  private boolean isSyncUrl(RequestDetailsReader requestDetailsReader) {
+    if (requestDetailsReader.getRequestType() == RequestTypeEnum.GET
+        && !TextUtils.isEmpty(requestDetailsReader.getResourceName())) {
+      String requestPath = requestDetailsReader.getRequestPath();
       return isResourceTypeRequest(
-          requestPath.replace(servletRequestDetails.getFhirServerBase(), ""));
+          requestPath.replace(requestDetailsReader.getFhirServerBase(), ""));
     }
 
     return false;
@@ -305,23 +309,23 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
    * This method checks the request to ensure the path, request type and parameters match values in
    * the hapi_sync_filter_ignored_queries configuration
    */
-  private boolean shouldSkipDataFiltering(ServletRequestDetails servletRequestDetails) {
+  private boolean shouldSkipDataFiltering(RequestDetailsReader requestDetailsReader) {
     if (config == null) return false;
 
     for (IgnoredResourcesConfig entry : config.entries) {
 
-      if (!entry.getPath().equals(servletRequestDetails.getRequestPath())) {
+      if (!entry.getPath().equals(requestDetailsReader.getRequestPath())) {
         continue;
       }
 
       if (entry.getMethodType() != null
-          && !entry.getMethodType().equals(servletRequestDetails.getRequestType().name())) {
+          && !entry.getMethodType().equals(requestDetailsReader.getRequestType().name())) {
         continue;
       }
 
       for (Map.Entry<String, Object> expectedParam : entry.getQueryParams().entrySet()) {
         String[] actualQueryValue =
-            servletRequestDetails.getParameters().get(expectedParam.getKey());
+            requestDetailsReader.getParameters().get(expectedParam.getKey());
 
         if (actualQueryValue == null) {
           return true;
@@ -357,6 +361,11 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
     this.config = config;
   }
 
+  @VisibleForTesting
+  protected void setFhirR4Context(FhirContext fhirR4Context) {
+    this.fhirR4Context = fhirR4Context;
+  }
+
   class IgnoredResourcesConfig {
     @Getter List<IgnoredResourcesConfig> entries;
     @Getter private String path;
@@ -373,16 +382,6 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
           + Arrays.toString(queryParams.entrySet().toArray())
           + '}';
     }
-  }
-
-  @VisibleForTesting
-  protected void setFhirR4Context(FhirContext fhirR4Context) {
-    this.fhirR4Context = fhirR4Context;
-  }
-
-  @VisibleForTesting
-  protected void setFhirR4JsonParser(IParser fhirR4JsonParser) {
-    this.fhirR4JsonParser = fhirR4JsonParser;
   }
 
   public static final class Constants {

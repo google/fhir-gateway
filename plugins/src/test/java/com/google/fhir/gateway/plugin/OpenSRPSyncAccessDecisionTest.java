@@ -22,15 +22,16 @@ import static org.mockito.Mockito.mock;
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.rest.api.RequestTypeEnum;
 import ca.uhn.fhir.rest.api.RestOperationTypeEnum;
+import ca.uhn.fhir.rest.api.server.RequestDetails;
 import ca.uhn.fhir.rest.client.api.IGenericClient;
 import ca.uhn.fhir.rest.gclient.ITransaction;
 import ca.uhn.fhir.rest.gclient.ITransactionTyped;
 import ca.uhn.fhir.rest.server.servlet.ServletRequestDetails;
 import com.google.common.collect.Maps;
 import com.google.common.io.Resources;
-import com.google.fhir.gateway.HttpFhirClient;
 import com.google.fhir.gateway.ProxyConstants;
 import com.google.fhir.gateway.interfaces.RequestDetailsReader;
+import com.google.fhir.gateway.interfaces.RequestMutation;
 import java.io.IOException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
@@ -46,7 +47,6 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Answers;
 import org.mockito.ArgumentCaptor;
-import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnitRunner;
 
@@ -61,15 +61,13 @@ public class OpenSRPSyncAccessDecisionTest {
 
   private OpenSRPSyncAccessDecision testInstance;
 
-  @Mock private HttpFhirClient httpFhirClientMock;
-
   @Test
   public void preprocessShouldAddAllFiltersWhenIdsForLocationsOrganisationsAndCareTeamsAreProvided()
       throws IOException {
 
     testInstance = createOpenSRPSyncAccessDecisionTestInstance();
 
-    ServletRequestDetails requestDetails = new ServletRequestDetails();
+    RequestDetails requestDetails = new ServletRequestDetails();
     requestDetails.setRequestType(RequestTypeEnum.GET);
     requestDetails.setRestOperationType(RestOperationTypeEnum.SEARCH_TYPE);
     requestDetails.setResourceName("Patient");
@@ -78,7 +76,8 @@ public class OpenSRPSyncAccessDecisionTest {
     requestDetails.setRequestPath("Patient");
 
     // Call the method under testing
-    testInstance.preProcess(requestDetails);
+    RequestMutation mutatedRequest =
+        testInstance.getRequestMutation(new TestRequestDetailsToReader(requestDetails));
 
     List<String> allIds = new ArrayList<>();
     allIds.addAll(locationIds);
@@ -89,7 +88,9 @@ public class OpenSRPSyncAccessDecisionTest {
       Assert.assertFalse(requestDetails.getCompleteUrl().contains(locationId));
       Assert.assertFalse(requestDetails.getRequestPath().contains(locationId));
       Assert.assertTrue(
-          Arrays.asList(requestDetails.getParameters().get("_tag"))
+          mutatedRequest
+              .getQueryParams()
+              .get("_tag")
               .contains(ProxyConstants.LOCATION_TAG_URL + "|" + locationId));
     }
 
@@ -97,7 +98,9 @@ public class OpenSRPSyncAccessDecisionTest {
       Assert.assertFalse(requestDetails.getCompleteUrl().contains(careTeamId));
       Assert.assertFalse(requestDetails.getRequestPath().contains(careTeamId));
       Assert.assertTrue(
-          Arrays.asList(requestDetails.getParameters().get("_tag"))
+          mutatedRequest
+              .getQueryParams()
+              .get("_tag")
               .contains(ProxyConstants.CARE_TEAM_TAG_URL + "|" + careTeamId));
     }
 
@@ -105,7 +108,9 @@ public class OpenSRPSyncAccessDecisionTest {
       Assert.assertFalse(requestDetails.getCompleteUrl().contains(organisationId));
       Assert.assertFalse(requestDetails.getRequestPath().contains(organisationId));
       Assert.assertTrue(
-          Arrays.asList(requestDetails.getParameters().get("_tag"))
+          mutatedRequest
+              .getQueryParams()
+              .get("_tag")
               .contains(ProxyConstants.ORGANISATION_TAG_URL + "|" + organisationId));
     }
   }
@@ -117,7 +122,7 @@ public class OpenSRPSyncAccessDecisionTest {
     locationIds.add("locationid2");
     testInstance = createOpenSRPSyncAccessDecisionTestInstance();
 
-    ServletRequestDetails requestDetails = new ServletRequestDetails();
+    RequestDetails requestDetails = new ServletRequestDetails();
     requestDetails.setRequestType(RequestTypeEnum.GET);
     requestDetails.setRestOperationType(RestOperationTypeEnum.SEARCH_TYPE);
     requestDetails.setResourceName("Patient");
@@ -125,17 +130,20 @@ public class OpenSRPSyncAccessDecisionTest {
     requestDetails.setCompleteUrl("https://smartregister.org/fhir/Patient");
     requestDetails.setRequestPath("Patient");
 
-    testInstance.preProcess(requestDetails);
+    RequestMutation mutatedRequest =
+        testInstance.getRequestMutation(new TestRequestDetailsToReader(requestDetails));
 
     for (String locationId : locationIds) {
       Assert.assertFalse(requestDetails.getCompleteUrl().contains(locationId));
       Assert.assertFalse(requestDetails.getRequestPath().contains(locationId));
       Assert.assertTrue(
-          Arrays.asList(requestDetails.getParameters().get("_tag"))
+          mutatedRequest
+              .getQueryParams()
+              .get("_tag")
               .contains(ProxyConstants.LOCATION_TAG_URL + "|" + locationId));
     }
 
-    for (String param : requestDetails.getParameters().get("_tag")) {
+    for (String param : mutatedRequest.getQueryParams().get("_tag")) {
       Assert.assertFalse(param.contains(ProxyConstants.CARE_TEAM_TAG_URL));
       Assert.assertFalse(param.contains(ProxyConstants.ORGANISATION_TAG_URL));
     }
@@ -148,7 +156,7 @@ public class OpenSRPSyncAccessDecisionTest {
     careTeamIds.add("careteamid2");
     testInstance = createOpenSRPSyncAccessDecisionTestInstance();
 
-    ServletRequestDetails requestDetails = new ServletRequestDetails();
+    RequestDetails requestDetails = new ServletRequestDetails();
     requestDetails.setRequestType(RequestTypeEnum.GET);
     requestDetails.setRestOperationType(RestOperationTypeEnum.SEARCH_TYPE);
     requestDetails.setResourceName("Patient");
@@ -156,17 +164,20 @@ public class OpenSRPSyncAccessDecisionTest {
     requestDetails.setCompleteUrl("https://smartregister.org/fhir/Patient");
     requestDetails.setRequestPath("Patient");
 
-    testInstance.preProcess(requestDetails);
+    RequestMutation mutatedRequest =
+        testInstance.getRequestMutation(new TestRequestDetailsToReader(requestDetails));
 
     for (String locationId : careTeamIds) {
       Assert.assertFalse(requestDetails.getCompleteUrl().contains(locationId));
       Assert.assertFalse(requestDetails.getRequestPath().contains(locationId));
       Assert.assertTrue(
-          Arrays.asList(requestDetails.getParameters().get("_tag"))
+          mutatedRequest
+              .getQueryParams()
+              .get("_tag")
               .contains(ProxyConstants.CARE_TEAM_TAG_URL + "|" + locationId));
     }
 
-    for (String param : requestDetails.getParameters().get("_tag")) {
+    for (String param : mutatedRequest.getQueryParams().get("_tag")) {
       Assert.assertFalse(param.contains(ProxyConstants.LOCATION_TAG_URL));
       Assert.assertFalse(param.contains(ProxyConstants.ORGANISATION_TAG_URL));
     }
@@ -179,7 +190,7 @@ public class OpenSRPSyncAccessDecisionTest {
     organisationIds.add("organizationid2");
     testInstance = createOpenSRPSyncAccessDecisionTestInstance();
 
-    ServletRequestDetails requestDetails = new ServletRequestDetails();
+    RequestDetails requestDetails = new ServletRequestDetails();
     requestDetails.setRequestType(RequestTypeEnum.GET);
     requestDetails.setRestOperationType(RestOperationTypeEnum.SEARCH_TYPE);
     requestDetails.setResourceName("Patient");
@@ -187,17 +198,20 @@ public class OpenSRPSyncAccessDecisionTest {
     requestDetails.setCompleteUrl("https://smartregister.org/fhir/Patient");
     requestDetails.setRequestPath("Patient");
 
-    testInstance.preProcess(requestDetails);
+    RequestMutation mutatedRequest =
+        testInstance.getRequestMutation(new TestRequestDetailsToReader(requestDetails));
 
     for (String locationId : careTeamIds) {
       Assert.assertFalse(requestDetails.getCompleteUrl().contains(locationId));
       Assert.assertFalse(requestDetails.getRequestPath().contains(locationId));
       Assert.assertTrue(
-          Arrays.asList(requestDetails.getParameters().get("_tag"))
+          mutatedRequest
+              .getQueryParams()
+              .get("_tag")
               .contains(ProxyConstants.ORGANISATION_TAG_URL + "|" + locationId));
     }
 
-    for (String param : requestDetails.getParameters().get("_tag")) {
+    for (String param : mutatedRequest.getQueryParams().get("_tag")) {
       Assert.assertFalse(param.contains(ProxyConstants.LOCATION_TAG_URL));
       Assert.assertFalse(param.contains(ProxyConstants.CARE_TEAM_TAG_URL));
     }
@@ -209,7 +223,7 @@ public class OpenSRPSyncAccessDecisionTest {
     organisationIds.add("organizationid2");
     testInstance = createOpenSRPSyncAccessDecisionTestInstance();
 
-    ServletRequestDetails requestDetails = new ServletRequestDetails();
+    RequestDetails requestDetails = new ServletRequestDetails();
     requestDetails.setRequestType(RequestTypeEnum.GET);
     requestDetails.setRestOperationType(RestOperationTypeEnum.SEARCH_TYPE);
     requestDetails.setResourceName("Patient");
@@ -217,14 +231,17 @@ public class OpenSRPSyncAccessDecisionTest {
     requestDetails.setCompleteUrl("https://smartregister.org/fhir/Patient");
     requestDetails.setRequestPath("Patient");
 
-    testInstance.preProcess(requestDetails);
+    RequestMutation mutatedRequest =
+        testInstance.getRequestMutation(new TestRequestDetailsToReader(requestDetails));
 
     for (String locationId : organisationIds) {
       Assert.assertFalse(requestDetails.getCompleteUrl().contains(locationId));
       Assert.assertFalse(requestDetails.getRequestPath().contains(locationId));
-      Assert.assertEquals(1, requestDetails.getParameters().size());
+      Assert.assertEquals(1, mutatedRequest.getQueryParams().size());
       Assert.assertTrue(
-          Arrays.asList(requestDetails.getParameters().get("_tag"))
+          mutatedRequest
+              .getQueryParams()
+              .get("_tag")
               .contains(ProxyConstants.ORGANISATION_TAG_URL + "|" + locationId));
     }
   }
@@ -235,7 +252,7 @@ public class OpenSRPSyncAccessDecisionTest {
     organisationIds.add("organizationid2");
     testInstance = createOpenSRPSyncAccessDecisionTestInstance();
 
-    ServletRequestDetails requestDetails = new ServletRequestDetails();
+    RequestDetails requestDetails = new ServletRequestDetails();
     requestDetails.setRequestType(RequestTypeEnum.GET);
     requestDetails.setRestOperationType(RestOperationTypeEnum.SEARCH_TYPE);
     requestDetails.setResourceName("Questionnaire");
@@ -243,7 +260,8 @@ public class OpenSRPSyncAccessDecisionTest {
     requestDetails.setCompleteUrl("https://smartregister.org/fhir/Questionnaire");
     requestDetails.setRequestPath("Questionnaire");
 
-    testInstance.preProcess(requestDetails);
+    RequestMutation mutatedRequest =
+        testInstance.getRequestMutation(new TestRequestDetailsToReader(requestDetails));
 
     for (String locationId : organisationIds) {
       Assert.assertFalse(requestDetails.getCompleteUrl().contains(locationId));
@@ -259,7 +277,7 @@ public class OpenSRPSyncAccessDecisionTest {
     organisationIds.add("organizationid2");
     testInstance = createOpenSRPSyncAccessDecisionTestInstance();
 
-    ServletRequestDetails requestDetails = new ServletRequestDetails();
+    RequestDetails requestDetails = new ServletRequestDetails();
     requestDetails.setRequestType(RequestTypeEnum.GET);
     requestDetails.setRestOperationType(RestOperationTypeEnum.SEARCH_TYPE);
     requestDetails.setResourceName("StructureMap");
@@ -277,7 +295,8 @@ public class OpenSRPSyncAccessDecisionTest {
     params.put("_id", new String[] {StringUtils.join(queryStringParamValues, ",")});
     requestDetails.setParameters(params);
 
-    testInstance.preProcess(requestDetails);
+    RequestMutation mutatedRequest =
+        testInstance.getRequestMutation(new TestRequestDetailsToReader(requestDetails));
 
     Assert.assertNull(requestDetails.getParameters().get(ProxyConstants.TAG_SEARCH_PARAM));
   }
@@ -289,7 +308,7 @@ public class OpenSRPSyncAccessDecisionTest {
     organisationIds.add("organizationid2");
     testInstance = createOpenSRPSyncAccessDecisionTestInstance();
 
-    ServletRequestDetails requestDetails = new ServletRequestDetails();
+    RequestDetails requestDetails = new ServletRequestDetails();
     requestDetails.setRequestType(RequestTypeEnum.GET);
     requestDetails.setRestOperationType(RestOperationTypeEnum.SEARCH_TYPE);
     requestDetails.setResourceName("StructureMap");
@@ -307,15 +326,16 @@ public class OpenSRPSyncAccessDecisionTest {
     params.put("_id", new String[] {StringUtils.join(queryStringParamValues, ",")});
     requestDetails.setParameters(params);
 
-    testInstance.preProcess(requestDetails);
+    RequestMutation mutatedRequest =
+        testInstance.getRequestMutation(new TestRequestDetailsToReader(requestDetails));
 
-    String[] searchParamArrays =
-        requestDetails.getParameters().get(ProxyConstants.TAG_SEARCH_PARAM);
+    List<String> searchParamArrays =
+        mutatedRequest.getQueryParams().get(ProxyConstants.TAG_SEARCH_PARAM);
     Assert.assertNotNull(searchParamArrays);
-    for (int i = 0; i < searchParamArrays.length; i++) {
+    for (int i = 0; i < mutatedRequest.getQueryParams().size(); i++) {
       Assert.assertTrue(
           organisationIds.contains(
-              searchParamArrays[i].replace(ProxyConstants.ORGANISATION_TAG_URL + "|", "")));
+              searchParamArrays.get(i).replace(ProxyConstants.ORGANISATION_TAG_URL + "|", "")));
     }
   }
 
