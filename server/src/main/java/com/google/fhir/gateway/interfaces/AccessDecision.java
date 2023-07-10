@@ -48,10 +48,11 @@ public interface AccessDecision {
    * <p>An example of this is when a new patient is created as the result of the query and that
    * patient ID should be added to some access lists.
    *
+   * @param request the client to server request details
    * @param response the response returned from the FHIR store
    * @return the response entity content (with any post-processing modifications needed) if this
    *     reads the response; otherwise null. Note that we should try to avoid reading the whole
    *     content in memory whenever it is not needed for post-processing.
    */
-  String postProcess(HttpResponse response) throws IOException;
+  String postProcess(RequestDetailsReader request, HttpResponse response) throws IOException;
 }
