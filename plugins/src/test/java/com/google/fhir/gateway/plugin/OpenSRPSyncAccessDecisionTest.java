@@ -42,6 +42,7 @@ import java.util.Map;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.http.HttpResponse;
 import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.ListResource;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -415,6 +416,81 @@ public class OpenSRPSyncAccessDecisionTest {
 
     // Verify no special Post-Processing happened
     Assert.assertNull(resultContent);
+  }
+
+  @Test
+  public void testPostProcessWithListModeHeaderSearchByTagShouldFetchListEntriesBundle()
+      throws IOException {
+    locationIds.add("Location-1");
+    testInstance = Mockito.spy(createOpenSRPSyncAccessDecisionTestInstance());
+
+    FhirContext fhirR4Context = mock(FhirContext.class);
+    IGenericClient iGenericClient = mock(IGenericClient.class);
+    ITransaction iTransaction = mock(ITransaction.class);
+    ITransactionTyped<Bundle> iClientExecutable = mock(ITransactionTyped.class);
+
+    Mockito.when(fhirR4Context.newRestfulGenericClient(System.getenv(PROXY_TO_ENV)))
+        .thenReturn(iGenericClient);
+    Mockito.when(iGenericClient.transaction()).thenReturn(iTransaction);
+    Mockito.when(iTransaction.withBundle(any(Bundle.class))).thenReturn(iClientExecutable);
+
+    Bundle resultBundle = new Bundle();
+    resultBundle.setType(Bundle.BundleType.BATCHRESPONSE);
+    resultBundle.setId("bundle-result-id");
+
+    Mockito.when(iClientExecutable.execute()).thenReturn(resultBundle);
+
+    ArgumentCaptor<Bundle> bundleArgumentCaptor = ArgumentCaptor.forClass(Bundle.class);
+
+    testInstance.setFhirR4Context(fhirR4Context);
+
+    RequestDetailsReader requestDetailsSpy = Mockito.mock(RequestDetailsReader.class);
+
+    Mockito.when(requestDetailsSpy.getHeader(OpenSRPSyncAccessDecision.Constants.FHIR_GATEWAY_MODE))
+        .thenReturn(OpenSRPSyncAccessDecision.Constants.LIST_ENTRIES);
+
+    URL listUrl = Resources.getResource("test_list_resource.json");
+    String testListJson = Resources.toString(listUrl, StandardCharsets.UTF_8);
+
+    FhirContext realFhirContext = FhirContext.forR4();
+    ListResource listResource =
+        (ListResource) realFhirContext.newJsonParser().parseResource(testListJson);
+
+    Bundle bundle = new Bundle();
+    Bundle.BundleEntryComponent bundleEntryComponent = new Bundle.BundleEntryComponent();
+    bundleEntryComponent.setResource(listResource);
+    bundle.setType(Bundle.BundleType.BATCHRESPONSE);
+    bundle.setEntry(Arrays.asList(bundleEntryComponent));
+
+    HttpResponse fhirResponseMock = Mockito.mock(HttpResponse.class, Answers.RETURNS_DEEP_STUBS);
+
+    TestUtil.setUpFhirResponseMock(
+        fhirResponseMock, realFhirContext.newJsonParser().encodeResourceToString(bundle));
+
+    String resultContent = testInstance.postProcess(requestDetailsSpy, fhirResponseMock);
+
+    Mockito.verify(iTransaction).withBundle(bundleArgumentCaptor.capture());
+    Bundle requestBundle = bundleArgumentCaptor.getValue();
+
+    // Verify modified request to the server
+    Assert.assertNotNull(requestBundle);
+    Assert.assertEquals(Bundle.BundleType.BATCH, requestBundle.getType());
+    List<Bundle.BundleEntryComponent> requestBundleEntries = requestBundle.getEntry();
+    Assert.assertEquals(2, requestBundleEntries.size());
+
+    Assert.assertEquals(Bundle.HTTPVerb.GET, requestBundleEntries.get(0).getRequest().getMethod());
+    Assert.assertEquals(
+        "Group/proxy-list-entry-id-1", requestBundleEntries.get(0).getRequest().getUrl());
+
+    Assert.assertEquals(Bundle.HTTPVerb.GET, requestBundleEntries.get(1).getRequest().getMethod());
+    Assert.assertEquals(
+        "Group/proxy-list-entry-id-2", requestBundleEntries.get(1).getRequest().getUrl());
+
+    // Verify returned result content from the server request
+    Assert.assertNotNull(resultContent);
+    Assert.assertEquals(
+        "{\"resourceType\":\"Bundle\",\"id\":\"bundle-result-id\",\"type\":\"batch-response\"}",
+        resultContent);
   }
 
   private OpenSRPSyncAccessDecision createOpenSRPSyncAccessDecisionTestInstance() {
