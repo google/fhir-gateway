@@ -21,7 +21,9 @@ import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
 import ca.uhn.fhir.rest.api.RequestTypeEnum;
 import ca.uhn.fhir.rest.client.api.IGenericClient;
+import ca.uhn.fhir.rest.server.exceptions.ForbiddenOperationException;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.fhir.gateway.ExceptionUtil;
 import com.google.fhir.gateway.ProxyConstants;
 import com.google.fhir.gateway.interfaces.AccessDecision;
 import com.google.fhir.gateway.interfaces.RequestDetailsReader;
@@ -47,6 +49,8 @@ import org.apache.http.util.TextUtils;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.ListResource;
+import org.hl7.fhir.r4.model.OperationOutcome;
+import org.hl7.fhir.r4.model.Resource;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -108,6 +112,16 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
       if (locationIds.size() == 0 && careTeamIds.size() == 0 && organizationIds.size() == 0) {
         locationIds.add(
             "CR1bAeGgaYqIpsNkG0iidfE5WVb5BJV1yltmL4YFp3o6mxj3iJPhKh4k9ROhlyZveFC8298lYzft8SIy8yMNLl5GVWQXNRr1sSeBkP2McfFZjbMYyrxlNFOJgqvtccDKKYSwBiLHq2By5tRupHcmpIIghV7Hp39KgF4iBDNqIGMKhgOIieQwt5BRih5FgnwdHrdlK9ix");
+
+        ForbiddenOperationException forbiddenOperationException =
+            new ForbiddenOperationException(
+                "User un-authorized to "
+                    + requestDetailsReader.getRequestType()
+                    + " /"
+                    + requestDetailsReader.getRequestPath()
+                    + ". Gateway Sync Strategy NOT configured.");
+        ExceptionUtil.throwRuntimeExceptionAndLog(
+            logger, forbiddenOperationException.getMessage(), forbiddenOperationException);
       }
 
       // Skip app-wide global resource requests
@@ -159,7 +173,7 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
       throws IOException {
 
     String resultContent = null;
-    Bundle resultContentBundle = null;
+    Resource resultContentBundle;
     String gatewayMode = request.getHeader(Constants.FHIR_GATEWAY_MODE);
 
     if (!TextUtils.isBlank(gatewayMode)) {
@@ -171,8 +185,15 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
         case Constants.LIST_ENTRIES:
           resultContentBundle = postProcessModeListEntries(responseResource);
           break;
+
         default:
-          break;
+          String exceptionMessage =
+              "The FHIR Gateway Mode header is configured with an un-recognized value of \'"
+                  + gatewayMode
+                  + '\'';
+          OperationOutcome operationOutcome = createOperationOutcome(exceptionMessage);
+
+          resultContentBundle = operationOutcome;
       }
 
       if (resultContentBundle != null)
@@ -180,6 +201,18 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
     }
 
     return resultContent;
+  }
+
+  @NotNull
+  private static OperationOutcome createOperationOutcome(String exception) {
+    OperationOutcome operationOutcome = new OperationOutcome();
+    OperationOutcome.OperationOutcomeIssueComponent operationOutcomeIssueComponent =
+        new OperationOutcome.OperationOutcomeIssueComponent();
+    operationOutcomeIssueComponent.setSeverity(OperationOutcome.IssueSeverity.ERROR);
+    operationOutcomeIssueComponent.setCode(OperationOutcome.IssueType.PROCESSING);
+    operationOutcomeIssueComponent.setDiagnostics(exception);
+    operationOutcome.setIssue(Arrays.asList(operationOutcomeIssueComponent));
+    return operationOutcome;
   }
 
   @NotNull

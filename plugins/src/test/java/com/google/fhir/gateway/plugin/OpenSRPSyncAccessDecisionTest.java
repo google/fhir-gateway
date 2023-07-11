@@ -43,6 +43,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.http.HttpResponse;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.ListResource;
+import org.junit.After;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -63,8 +64,11 @@ public class OpenSRPSyncAccessDecisionTest {
   private OpenSRPSyncAccessDecision testInstance;
 
   @Test
-  public void preprocessShouldAddAllFiltersWhenIdsForLocationsOrganisationsAndCareTeamsAreProvided()
-      throws IOException {
+  public void
+      preprocessShouldAddAllFiltersWhenIdsForLocationsOrganisationsAndCareTeamsAreProvided() {
+    locationIds.addAll(Arrays.asList("my-location-id", "my-location-id2"));
+    careTeamIds.add("my-careteam-id");
+    organisationIds.add("my-organization-id");
 
     testInstance = createOpenSRPSyncAccessDecisionTestInstance();
 
@@ -267,7 +271,7 @@ public class OpenSRPSyncAccessDecisionTest {
     for (String locationId : organisationIds) {
       Assert.assertFalse(requestDetails.getCompleteUrl().contains(locationId));
       Assert.assertFalse(requestDetails.getRequestPath().contains(locationId));
-      Assert.assertTrue(requestDetails.getParameters().size() == 0);
+      Assert.assertNull(mutatedRequest);
     }
   }
 
@@ -299,7 +303,7 @@ public class OpenSRPSyncAccessDecisionTest {
     RequestMutation mutatedRequest =
         testInstance.getRequestMutation(new TestRequestDetailsToReader(requestDetails));
 
-    Assert.assertNull(requestDetails.getParameters().get(ProxyConstants.TAG_SEARCH_PARAM));
+    Assert.assertNull(mutatedRequest);
   }
 
   @Test
@@ -338,6 +342,22 @@ public class OpenSRPSyncAccessDecisionTest {
           organisationIds.contains(
               searchParamArrays.get(i).replace(ProxyConstants.ORGANISATION_TAG_URL + "|", "")));
     }
+  }
+
+  @Test(expected = RuntimeException.class)
+  public void preprocessShouldThrowRuntimeExceptionWhenNoSyncStrategyFilterIsProvided() {
+    testInstance = createOpenSRPSyncAccessDecisionTestInstance();
+
+    RequestDetails requestDetails = new ServletRequestDetails();
+    requestDetails.setRequestType(RequestTypeEnum.GET);
+    requestDetails.setRestOperationType(RestOperationTypeEnum.SEARCH_TYPE);
+    requestDetails.setResourceName("Patient");
+    requestDetails.setRequestPath("Patient");
+    requestDetails.setFhirServerBase("https://smartregister.org/fhir");
+    requestDetails.setCompleteUrl("https://smartregister.org/fhir/Patient");
+
+    // Call the method under testing
+    testInstance.getRequestMutation(new TestRequestDetailsToReader(requestDetails));
   }
 
   @Test
@@ -491,6 +511,13 @@ public class OpenSRPSyncAccessDecisionTest {
     Assert.assertEquals(
         "{\"resourceType\":\"Bundle\",\"id\":\"bundle-result-id\",\"type\":\"batch-response\"}",
         resultContent);
+  }
+
+  @After
+  public void cleanUp() {
+    locationIds.clear();
+    careTeamIds.clear();
+    organisationIds.clear();
   }
 
   private OpenSRPSyncAccessDecision createOpenSRPSyncAccessDecisionTestInstance() {
