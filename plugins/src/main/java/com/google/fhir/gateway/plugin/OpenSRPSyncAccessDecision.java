@@ -41,6 +41,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import lombok.Getter;
 import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.http.HttpResponse;
@@ -101,17 +102,8 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
   public RequestMutation getRequestMutation(RequestDetailsReader requestDetailsReader) {
 
     RequestMutation requestMutation = null;
-
-    // TODO: Disable access for a user who adds tags to organisations, locations or care teams that
-    // they do not have access to
-    //  This does not bar access to anyone who uses their own sync tags to circumvent
-    //  the filter. The aim of this feature based on scoping was to pre-filter the data for the user
     if (isSyncUrl(requestDetailsReader)) {
-      // This prevents access to a user who has no location/organisation/team assigned to them by
-      // assigning a non-existent search tag param and value
-      if (locationIds.size() == 0 && careTeamIds.size() == 0 && organizationIds.size() == 0) {
-        locationIds.add(
-            "CR1bAeGgaYqIpsNkG0iidfE5WVb5BJV1yltmL4YFp3o6mxj3iJPhKh4k9ROhlyZveFC8298lYzft8SIy8yMNLl5GVWQXNRr1sSeBkP2McfFZjbMYyrxlNFOJgqvtccDKKYSwBiLHq2By5tRupHcmpIIghV7Hp39KgF4iBDNqIGMKhgOIieQwt5BRih5FgnwdHrdlK9ix");
+      if (locationIds.isEmpty() && careTeamIds.isEmpty() && organizationIds.isEmpty()) {
 
         ForbiddenOperationException forbiddenOperationException =
             new ForbiddenOperationException(
@@ -119,7 +111,7 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
                     + requestDetailsReader.getRequestType()
                     + " /"
                     + requestDetailsReader.getRequestPath()
-                    + ". Gateway Sync Strategy NOT configured.");
+                    + ". User assignment or sync strategy not configured correctly");
         ExceptionUtil.throwRuntimeExceptionAndLog(
             logger, forbiddenOperationException.getMessage(), forbiddenOperationException);
       }
@@ -176,7 +168,7 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
     Resource resultContentBundle;
     String gatewayMode = request.getHeader(Constants.FHIR_GATEWAY_MODE);
 
-    if (!TextUtils.isBlank(gatewayMode)) {
+    if (StringUtils.isNotBlank(gatewayMode)) {
 
       resultContent = new BasicResponseHandler().handleResponse(response);
       IBaseResource responseResource = fhirR4JsonParser.parseResource(resultContent);
