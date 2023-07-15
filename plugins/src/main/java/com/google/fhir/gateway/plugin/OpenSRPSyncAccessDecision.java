@@ -118,10 +118,8 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
 
       // Skip app-wide global resource requests
       if (!shouldSkipDataFiltering(requestDetailsReader)) {
-
         List<String> syncFilterParameterValues =
-            addSyncFilters(
-                requestDetailsReader, getSyncTags(locationIds, careTeamIds, organizationIds));
+            addSyncFilters(getSyncTags(locationIds, careTeamIds, organizationIds));
         requestMutation =
             RequestMutation.builder()
                 .queryParams(Map.of(ProxyConstants.TAG_SEARCH_PARAM, syncFilterParameterValues))
@@ -136,12 +134,10 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
    * Adds filters to the {@link RequestDetailsReader} for the _tag property to allow filtering by
    * specific code-url-values that match specific locations, teams or organisations
    *
-   * @param requestDetailsReader
    * @param syncTags
    * @return the extra query Parameter values
    */
-  private List<String> addSyncFilters(
-      RequestDetailsReader requestDetailsReader, Pair<String, Map<String, String[]>> syncTags) {
+  private List<String> addSyncFilters(Pair<String, Map<String, String[]>> syncTags) {
     List<String> paramValues = new ArrayList<>();
     Collections.addAll(
         paramValues,
@@ -149,13 +145,6 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
             .getKey()
             .substring(LENGTH_OF_SEARCH_PARAM_AND_EQUALS)
             .split(ProxyConstants.PARAM_VALUES_SEPARATOR));
-
-    String[] prevTagFilters =
-        requestDetailsReader.getParameters().get(ProxyConstants.TAG_SEARCH_PARAM);
-    if (prevTagFilters != null && prevTagFilters.length > 0) {
-      Collections.addAll(paramValues, prevTagFilters);
-    }
-
     return paramValues;
   }
 
