@@ -33,7 +33,7 @@ import org.smartregister.model.location.LocationHierarchyTree;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-@RestController("/LocationHeirarchy")
+@RestController("/LocationHierarchy")
 public class LocationHierarchyResourceProvider implements IResourceProvider {
 
   private static final Logger logger =
