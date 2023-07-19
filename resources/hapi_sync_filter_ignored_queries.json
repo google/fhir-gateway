@@ -43,7 +43,7 @@
       }
     },
     {
-      "path": "LocationHeirarchy/",
+      "path": "LocationHierarchy/",
       "methodType": "GET",
       "queryParams": {
         "identifier": "ANY_VALUE"

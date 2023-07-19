@@ -15,35 +15,43 @@
  */
 package com.google.fhir.gateway;
 
+import static org.smartregister.utils.Constants.EMPTY_STRING;
+
+import ca.uhn.fhir.context.FhirContext;
+import ca.uhn.fhir.parser.IParser;
 import ca.uhn.fhir.rest.api.Constants;
 import ca.uhn.fhir.rest.server.servlet.ServletRequestDetails;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
-import java.io.IOException;
+import com.google.gson.Gson;
+import java.io.*;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.Charset;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
-import org.apache.commons.lang3.SerializationUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.client.methods.RequestBuilder;
-import org.apache.http.client.utils.CloneUtils;
 import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.HttpClients;
-import org.apache.http.util.EntityUtils;
+import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.CareTeam;
+import org.hl7.fhir.r4.model.Practitioner;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.smartregister.model.practitioner.FhirPractitionerDetails;
+import org.smartregister.model.practitioner.PractitionerDetails;
 import org.springframework.util.StreamUtils;
 
 public abstract class HttpFhirClient {
@@ -116,7 +124,10 @@ public abstract class HttpFhirClient {
     RequestBuilder builder = RequestBuilder.create(httpMethod);
     HttpResponse httpResponse;
     if (request.getRequestPath().contains("PractitionerDetails")) {
-      setUri(builder, "Patient");
+      setUri(
+          builder,
+          "Practitioner?identifier=" + request.getParameters().get("keycloak-uuid")[0].toString());
+
       byte[] requestContent = request.loadRequestContents();
       if (requestContent != null && requestContent.length > 0) {
         String contentType = request.getHeader("Content-Type");
@@ -127,17 +138,60 @@ public abstract class HttpFhirClient {
         builder.setEntity(new ByteArrayEntity(requestContent));
       }
       copyRequiredHeaders(request, builder);
-      copyParameters(request, builder);
+      //      copyParameters(request, builder);
       httpResponse = sendRequest(builder);
       HttpEntity entity = httpResponse.getEntity();
 
-      String responseString = StreamUtils.copyToString(entity.getContent(), Charset.forName("UTF-8"));
-      httpResponse.setEntity(new StringEntity(responseString));//Need this to reinstate the entity content
+      String responseString =
+          StreamUtils.copyToString(entity.getContent(), Charset.forName("UTF-8"));
+      httpResponse.setEntity(
+          new StringEntity(responseString)); // Need this to reinstate the entity content
 
-      JSONObject jsonObject = new JSONObject(responseString);
-      System.out.println(responseString);
+      // Create a FHIR context
+      FhirContext ctx = FhirContext.forR4();
+      IParser parser = ctx.newJsonParser();
+      Bundle practitionerBundle = parser.parseResource(Bundle.class, responseString);
+      List<Bundle.BundleEntryComponent> practitionersEntries =
+          practitionerBundle != null ? practitionerBundle.getEntry() : new ArrayList<>();
+      Practitioner practitioner =
+          practitionersEntries != null && practitionersEntries.size() > 0
+              ? (Practitioner) practitionersEntries.get(0).getResource()
+              : null;
+      String practitionerId = EMPTY_STRING;
+      if (practitioner.getIdElement() != null && practitioner.getIdElement().getIdPart() != null) {
+        practitionerId = practitioner.getIdElement().getIdPart();
+      }
+      List<Bundle.BundleEntryComponent> careTeamBundleEntryComponentList;
+      List<CareTeam> careTeams = new ArrayList<>();
 
+      if (StringUtils.isNotBlank(practitionerId)) {
+        logger.info("Searching for care teams for practitioner with id: " + practitionerId);
+        careTeamBundleEntryComponentList = getCareTeams(practitionerId);
+        careTeams = mapToCareTeams(careTeamBundleEntryComponentList);
+      }
+      PractitionerDetails practitionerDetails = new PractitionerDetails();
+      FhirPractitionerDetails fhirPractitionerDetails = new FhirPractitionerDetails();
+      practitionerDetails.setId(practitionerId);
+      fhirPractitionerDetails.setId(practitionerId);
+      fhirPractitionerDetails.setCareTeams(careTeams);
+      practitionerDetails.setFhirPractitionerDetails(fhirPractitionerDetails);
+      Gson gson = new Gson();
+      String practitionerDetailsJson = gson.toJson(practitionerDetails);
+      //      ObjectMapper objectMapper = new ObjectMapper();
+      // String practitionerDetailsJson = objectMapper.writeValueAsString(fhirPractitionerDetails);
+//      InputStream inputStream = objectToInputStream(practitionerDetails);
+//      String responseStringAA = StreamUtils.copyToString(inputStream, Charset.forName("UTF-8"));
+//      httpResponse.setEntity(
+//          new StringEntity(responseStringAA)); // Need this to reinstate the entity content
+
+      System.out.println(practitionerDetailsJson);
+
+      //
+      //
+            httpResponse.setEntity(
+                    new StringEntity(practitionerDetailsJson));
       return httpResponse;
+
     } else if (request.getRequestPath().contains("LocationHierarchy")) {
       setUri(
           builder,
@@ -152,12 +206,14 @@ public abstract class HttpFhirClient {
         builder.setEntity(new ByteArrayEntity(requestContent));
       }
       copyRequiredHeaders(request, builder);
-      copyParameters(request, builder);
+      //      copyParameters(request, builder);
       httpResponse = sendRequest(builder);
       HttpEntity entity = httpResponse.getEntity();
 
-      String responseString = StreamUtils.copyToString(entity.getContent(), Charset.forName("UTF-8"));
-      httpResponse.setEntity(new StringEntity(responseString));//Need this to reinstate the entity content
+      String responseString =
+          StreamUtils.copyToString(entity.getContent(), Charset.forName("UTF-8"));
+      httpResponse.setEntity(
+          new StringEntity(responseString)); // Need this to reinstate the entity content
 
       JSONObject jsonObject = new JSONObject(responseString);
       System.out.println(responseString);
@@ -250,5 +306,55 @@ public abstract class HttpFhirClient {
         builder.addParameter(entry.getKey(), val);
       }
     }
+  }
+
+  private List<Bundle.BundleEntryComponent> getCareTeams(String practitionerId) throws IOException {
+    String httpMethod = "GET";
+    RequestBuilder builder = RequestBuilder.create(httpMethod);
+    HttpResponse httpResponse;
+    setUri(builder, "CareTeam?participant=" + practitionerId);
+
+    //      copyRequiredHeaders(request, builder);
+    //      copyParameters(request, builder);
+    httpResponse = sendRequest(builder);
+    HttpEntity entity = httpResponse.getEntity();
+
+    String responseString = StreamUtils.copyToString(entity.getContent(), Charset.forName("UTF-8"));
+    httpResponse.setEntity(
+        new StringEntity(responseString)); // Need this to reinstate the entity content
+    FhirContext ctx = FhirContext.forR4();
+    IParser parser = ctx.newJsonParser();
+    Bundle careTeamBundle = parser.parseResource(Bundle.class, responseString);
+    List<Bundle.BundleEntryComponent> careTeamEntries =
+        careTeamBundle != null ? careTeamBundle.getEntry() : new ArrayList<>();
+    return careTeamEntries;
+  }
+
+  private List<CareTeam> mapToCareTeams(List<Bundle.BundleEntryComponent> careTeamEntries) {
+    List<CareTeam> careTeamList = new ArrayList<>();
+    CareTeam careTeamObject;
+    for (Bundle.BundleEntryComponent careTeamEntryComponent : careTeamEntries) {
+      careTeamObject = (CareTeam) careTeamEntryComponent.getResource();
+      careTeamList.add(careTeamObject);
+    }
+    return careTeamList;
+  }
+
+  public final InputStream objectToInputStream(PractitionerDetails practitionerDetails) {
+    try {
+      ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+      ObjectOutputStream objectOutputStream = new ObjectOutputStream(byteArrayOutputStream);
+
+      objectOutputStream.writeObject(practitionerDetails);
+
+      objectOutputStream.flush();
+      objectOutputStream.close();
+
+      return new ByteArrayInputStream(byteArrayOutputStream.toByteArray());
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+
+    return null;
   }
 }

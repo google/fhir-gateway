@@ -18,18 +18,12 @@ package com.google.fhir.gateway.plugin.rest;
 import static org.smartregister.utils.Constants.*;
 
 import ca.uhn.fhir.rest.annotation.RequiredParam;
-import ca.uhn.fhir.rest.api.server.IBundleProvider;
 import ca.uhn.fhir.rest.param.TokenParam;
 import ca.uhn.fhir.rest.server.IResourceProvider;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.logging.Logger;
-import org.apache.commons.lang3.StringUtils;
 import org.hl7.fhir.instance.model.api.IBaseResource;
-import org.hl7.fhir.r4.model.Location;
 import org.hl7.fhir.r4.model.StringType;
 import org.smartregister.model.location.LocationHierarchy;
-import org.smartregister.model.location.LocationHierarchyTree;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -37,7 +31,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class LocationHierarchyResourceProvider implements IResourceProvider {
 
   private static final Logger logger =
-          Logger.getLogger(LocationHierarchyResourceProvider.class.toString());
+      Logger.getLogger(LocationHierarchyResourceProvider.class.toString());
 
   @Override
   public Class<? extends IBaseResource> getResourceType() {
@@ -46,7 +40,7 @@ public class LocationHierarchyResourceProvider implements IResourceProvider {
 
   @GetMapping
   public LocationHierarchy getLocationHierarchy(
-          @RequiredParam(name = IDENTIFIER) TokenParam identifier) {
+      @RequiredParam(name = IDENTIFIER) TokenParam identifier) {
     LocationHierarchy locationHierarchy = new LocationHierarchy();
     StringType id = new StringType();
     id.setId("1");
