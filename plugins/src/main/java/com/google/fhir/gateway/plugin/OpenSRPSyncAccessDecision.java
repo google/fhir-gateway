@@ -21,7 +21,9 @@ import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
 import ca.uhn.fhir.rest.api.RequestTypeEnum;
 import ca.uhn.fhir.rest.client.api.IGenericClient;
+import ca.uhn.fhir.rest.server.exceptions.ForbiddenOperationException;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.fhir.gateway.ExceptionUtil;
 import com.google.fhir.gateway.ProxyConstants;
 import com.google.fhir.gateway.interfaces.AccessDecision;
 import com.google.fhir.gateway.interfaces.RequestDetailsReader;
@@ -35,8 +37,11 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import lombok.Getter;
 import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.http.HttpResponse;
@@ -45,6 +50,9 @@ import org.apache.http.util.TextUtils;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.ListResource;
+import org.hl7.fhir.r4.model.OperationOutcome;
+import org.hl7.fhir.r4.model.Resource;
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -94,24 +102,24 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
   public RequestMutation getRequestMutation(RequestDetailsReader requestDetailsReader) {
 
     RequestMutation requestMutation = null;
-
-    // TODO: Disable access for a user who adds tags to organisations, locations or care teams that
-    // they do not have access to
-    //  This does not bar access to anyone who uses their own sync tags to circumvent
-    //  the filter. The aim of this feature based on scoping was to pre-filter the data for the user
     if (isSyncUrl(requestDetailsReader)) {
-      // This prevents access to a user who has no location/organisation/team assigned to them
-      if (locationIds.size() == 0 && careTeamIds.size() == 0 && organizationIds.size() == 0) {
-        locationIds.add(
-            "CR1bAeGgaYqIpsNkG0iidfE5WVb5BJV1yltmL4YFp3o6mxj3iJPhKh4k9ROhlyZveFC8298lYzft8SIy8yMNLl5GVWQXNRr1sSeBkP2McfFZjbMYyrxlNFOJgqvtccDKKYSwBiLHq2By5tRupHcmpIIghV7Hp39KgF4iBDNqIGMKhgOIieQwt5BRih5FgnwdHrdlK9ix");
+      if (locationIds.isEmpty() && careTeamIds.isEmpty() && organizationIds.isEmpty()) {
+
+        ForbiddenOperationException forbiddenOperationException =
+            new ForbiddenOperationException(
+                "User un-authorized to "
+                    + requestDetailsReader.getRequestType()
+                    + " /"
+                    + requestDetailsReader.getRequestPath()
+                    + ". User assignment or sync strategy not configured correctly");
+        ExceptionUtil.throwRuntimeExceptionAndLog(
+            logger, forbiddenOperationException.getMessage(), forbiddenOperationException);
       }
 
       // Skip app-wide global resource requests
       if (!shouldSkipDataFiltering(requestDetailsReader)) {
-
         List<String> syncFilterParameterValues =
-            addSyncFilters(
-                requestDetailsReader, getSyncTags(locationIds, careTeamIds, organizationIds));
+            addSyncFilters(getSyncTags(locationIds, careTeamIds, organizationIds));
         requestMutation =
             RequestMutation.builder()
                 .queryParams(Map.of(ProxyConstants.TAG_SEARCH_PARAM, syncFilterParameterValues))
@@ -126,12 +134,10 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
    * Adds filters to the {@link RequestDetailsReader} for the _tag property to allow filtering by
    * specific code-url-values that match specific locations, teams or organisations
    *
-   * @param requestDetailsReader
    * @param syncTags
    * @return the extra query Parameter values
    */
-  private List<String> addSyncFilters(
-      RequestDetailsReader requestDetailsReader, Pair<String, Map<String, String[]>> syncTags) {
+  private List<String> addSyncFilters(Pair<String, Map<String, String[]>> syncTags) {
     List<String> paramValues = new ArrayList<>();
     Collections.addAll(
         paramValues,
@@ -139,68 +145,126 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
             .getKey()
             .substring(LENGTH_OF_SEARCH_PARAM_AND_EQUALS)
             .split(ProxyConstants.PARAM_VALUES_SEPARATOR));
-
-    String[] prevTagFilters =
-        requestDetailsReader.getParameters().get(ProxyConstants.TAG_SEARCH_PARAM);
-    if (prevTagFilters != null && prevTagFilters.length > 0) {
-      Collections.addAll(paramValues, prevTagFilters);
-    }
-
     return paramValues;
   }
 
+  /** NOTE: Always return a null whenever you want to skip post-processing */
   @Override
   public String postProcess(RequestDetailsReader request, HttpResponse response)
       throws IOException {
 
     String resultContent = null;
-    String listMode = request.getHeader(Constants.FHIR_GATEWAY_MODE);
+    Resource resultContentBundle;
+    String gatewayMode = request.getHeader(Constants.FHIR_GATEWAY_MODE);
 
-    switch (listMode) {
-      case Constants.LIST_ENTRIES:
-        resultContent = postProcessModeListEntries(response);
-      default:
-        break;
+    if (StringUtils.isNotBlank(gatewayMode)) {
+
+      resultContent = new BasicResponseHandler().handleResponse(response);
+      IBaseResource responseResource = fhirR4JsonParser.parseResource(resultContent);
+
+      switch (gatewayMode) {
+        case Constants.LIST_ENTRIES:
+          resultContentBundle = postProcessModeListEntries(responseResource);
+          break;
+
+        default:
+          String exceptionMessage =
+              "The FHIR Gateway Mode header is configured with an un-recognized value of \'"
+                  + gatewayMode
+                  + '\'';
+          OperationOutcome operationOutcome = createOperationOutcome(exceptionMessage);
+
+          resultContentBundle = operationOutcome;
+      }
+
+      if (resultContentBundle != null)
+        resultContent = fhirR4JsonParser.encodeResourceToString(resultContentBundle);
     }
+
     return resultContent;
+  }
+
+  @NotNull
+  private static OperationOutcome createOperationOutcome(String exception) {
+    OperationOutcome operationOutcome = new OperationOutcome();
+    OperationOutcome.OperationOutcomeIssueComponent operationOutcomeIssueComponent =
+        new OperationOutcome.OperationOutcomeIssueComponent();
+    operationOutcomeIssueComponent.setSeverity(OperationOutcome.IssueSeverity.ERROR);
+    operationOutcomeIssueComponent.setCode(OperationOutcome.IssueType.PROCESSING);
+    operationOutcomeIssueComponent.setDiagnostics(exception);
+    operationOutcome.setIssue(Arrays.asList(operationOutcomeIssueComponent));
+    return operationOutcome;
+  }
+
+  @NotNull
+  private static Bundle processListEntriesGatewayModeByListResource(
+      ListResource responseListResource) {
+    Bundle requestBundle = new Bundle();
+    requestBundle.setType(Bundle.BundleType.BATCH);
+
+    for (ListResource.ListEntryComponent listEntryComponent : responseListResource.getEntry()) {
+      requestBundle.addEntry(
+          createBundleEntryComponent(
+              Bundle.HTTPVerb.GET, listEntryComponent.getItem().getReference(), null));
+    }
+    return requestBundle;
+  }
+
+  private Bundle processListEntriesGatewayModeByBundle(IBaseResource responseResource) {
+    Bundle requestBundle = new Bundle();
+    requestBundle.setType(Bundle.BundleType.BATCH);
+
+    List<Bundle.BundleEntryComponent> bundleEntryComponentList =
+        ((Bundle) responseResource)
+            .getEntry().stream()
+                .filter(it -> it.getResource() instanceof ListResource)
+                .flatMap(
+                    bundleEntryComponent ->
+                        ((ListResource) bundleEntryComponent.getResource()).getEntry().stream())
+                .map(
+                    listEntryComponent ->
+                        createBundleEntryComponent(
+                            Bundle.HTTPVerb.GET, listEntryComponent.getItem().getReference(), null))
+                .collect(Collectors.toList());
+
+    return requestBundle.setEntry(bundleEntryComponentList);
+  }
+
+  @NotNull
+  private static Bundle.BundleEntryComponent createBundleEntryComponent(
+      Bundle.HTTPVerb method, String requestPath, @Nullable String condition) {
+
+    Bundle.BundleEntryComponent bundleEntryComponent = new Bundle.BundleEntryComponent();
+    bundleEntryComponent.setRequest(
+        new Bundle.BundleEntryRequestComponent()
+            .setMethod(method)
+            .setUrl(requestPath)
+            .setIfMatch(condition));
+
+    return bundleEntryComponent;
   }
 
   /**
    * Generates a Bundle result from making a batch search request with the contained entries in the
    * List as parameters
    *
-   * @param response HTTPResponse
+   * @param responseResource FHIR Resource result returned byt the HTTPResponse
    * @return String content of the result Bundle
    */
-  private String postProcessModeListEntries(HttpResponse response) throws IOException {
+  private Bundle postProcessModeListEntries(IBaseResource responseResource) {
 
-    String resultContent = new BasicResponseHandler().handleResponse(response);
-    IBaseResource responseResource = fhirR4JsonParser.parseResource(resultContent);
+    Bundle requestBundle = null;
 
     if (responseResource instanceof ListResource && ((ListResource) responseResource).hasEntry()) {
 
-      Bundle requestBundle = new Bundle();
-      requestBundle.setType(Bundle.BundleType.BATCH);
-      Bundle.BundleEntryComponent bundleEntryComponent;
+      requestBundle = processListEntriesGatewayModeByListResource((ListResource) responseResource);
 
-      for (ListResource.ListEntryComponent listEntryComponent :
-          ((ListResource) responseResource).getEntry()) {
+    } else if (responseResource instanceof Bundle) {
 
-        bundleEntryComponent = new Bundle.BundleEntryComponent();
-        bundleEntryComponent.setRequest(
-            new Bundle.BundleEntryRequestComponent()
-                .setMethod(Bundle.HTTPVerb.GET)
-                .setUrl(listEntryComponent.getItem().getReference()));
-
-        requestBundle.addEntry(bundleEntryComponent);
-      }
-
-      Bundle responseBundle =
-          createFhirClientForR4().transaction().withBundle(requestBundle).execute();
-
-      resultContent = fhirR4JsonParser.encodeResourceToString(responseBundle);
+      requestBundle = processListEntriesGatewayModeByBundle(responseResource);
     }
-    return resultContent;
+
+    return createFhirClientForR4().transaction().withBundle(requestBundle).execute();
   }
 
   /**
