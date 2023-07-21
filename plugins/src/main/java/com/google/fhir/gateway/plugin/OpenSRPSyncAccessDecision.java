@@ -62,7 +62,7 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
   public static final String MATCHES_ANY_VALUE = "ANY_VALUE";
   private static final Logger logger = LoggerFactory.getLogger(OpenSRPSyncAccessDecision.class);
   private static final int LENGTH_OF_SEARCH_PARAM_AND_EQUALS = 5;
-  private final List<String> syncStrategy;
+  private final String syncStrategy;
   private final String applicationId;
   private final boolean accessGranted;
 
@@ -83,7 +83,7 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
       List<String> locationIds,
       List<String> careTeamIds,
       List<String> organizationIds,
-      List<String> syncStrategy) {
+      String syncStrategy) {
     this.applicationId = applicationId;
     this.accessGranted = accessGranted;
     this.careTeamIds = careTeamIds;

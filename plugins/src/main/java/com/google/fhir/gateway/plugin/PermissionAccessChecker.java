@@ -16,8 +16,6 @@
 package com.google.fhir.gateway.plugin;
 
 import static com.google.fhir.gateway.ProxyConstants.SYNC_STRATEGY;
-import static org.smartregister.utils.Constants.LOCATION;
-import static org.smartregister.utils.Constants.ORGANIZATION;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.model.api.IQueryParameterType;
@@ -33,11 +31,11 @@ import com.google.fhir.gateway.*;
 import com.google.fhir.gateway.interfaces.*;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import java.util.*;
 import java.util.stream.Collectors;
 import javax.inject.Named;
+import org.apache.commons.lang3.StringUtils;
 import org.hl7.fhir.r4.model.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -56,7 +54,7 @@ public class PermissionAccessChecker implements AccessChecker {
 
   private final List<String> organizationIds;
 
-  private final List<String> syncStrategy;
+  private final String syncStrategy;
 
   private PermissionAccessChecker(
       List<String> userRoles,
@@ -65,7 +63,7 @@ public class PermissionAccessChecker implements AccessChecker {
       List<String> careTeamIds,
       List<String> locationIds,
       List<String> organizationIds,
-      List<String> syncStrategy) {
+      String syncStrategy) {
     Preconditions.checkNotNull(userRoles);
     Preconditions.checkNotNull(resourceFinder);
     Preconditions.checkNotNull(applicationId);
@@ -257,21 +255,18 @@ public class PermissionAccessChecker implements AccessChecker {
       return binary;
     }
 
-    private List<String> findSyncStrategy(Binary binary) {
+    private String findSyncStrategy(Binary binary) {
       byte[] bytes =
           binary != null && binary.getDataElement() != null
               ? Base64.getDecoder().decode(binary.getDataElement().getValueAsString())
               : null;
-      List<String> syncStrategy = new ArrayList<>();
+      String syncStrategy = Constants.EMPTY_STRING;
       if (bytes != null) {
         String json = new String(bytes);
         JsonObject jsonObject = new Gson().fromJson(json, JsonObject.class);
         JsonArray jsonArray = jsonObject.getAsJsonArray(SYNC_STRATEGY);
-        if (jsonArray != null) {
-          for (JsonElement jsonElement : jsonArray) {
-            syncStrategy.add(jsonElement.getAsString());
-          }
-        }
+        if (jsonArray != null && !jsonArray.isEmpty())
+          syncStrategy = jsonArray.get(0).getAsString();
       }
       return syncStrategy;
     }
@@ -322,7 +317,7 @@ public class PermissionAccessChecker implements AccessChecker {
       Composition composition = readCompositionResource(applicationId);
       String binaryResourceReference = getBinaryResourceReference(composition);
       Binary binary = findApplicationConfigBinaryResource(binaryResourceReference);
-      List<String> syncStrategy = findSyncStrategy(binary);
+      String syncStrategy = findSyncStrategy(binary);
       PractitionerDetails practitionerDetails = readPractitionerDetails(jwt.getSubject());
       List<CareTeam> careTeams;
       List<Organization> organizations;
@@ -330,8 +325,8 @@ public class PermissionAccessChecker implements AccessChecker {
       List<String> careTeamIds = new ArrayList<>();
       List<String> organizationIds = new ArrayList<>();
       List<String> locationIds = new ArrayList<>();
-      if (syncStrategy.size() > 0) {
-        if (syncStrategy.contains(Constants.CARE_TEAM)) {
+      if (StringUtils.isNotBlank(syncStrategy)) {
+        if (syncStrategy.equals(Constants.CARE_TEAM)) {
           careTeams =
               practitionerDetails != null
                       && practitionerDetails.getFhirPractitionerDetails() != null
@@ -342,7 +337,7 @@ public class PermissionAccessChecker implements AccessChecker {
               careTeamIds.add(careTeam.getIdElement().getIdPart());
             }
           }
-        } else if (syncStrategy.contains(ORGANIZATION)) {
+        } else if (syncStrategy.equals(Constants.ORGANIZATION)) {
           organizations =
               practitionerDetails != null
                       && practitionerDetails.getFhirPractitionerDetails() != null
@@ -353,7 +348,7 @@ public class PermissionAccessChecker implements AccessChecker {
               organizationIds.add(organization.getIdElement().getIdPart());
             }
           }
-        } else if (syncStrategy.contains(LOCATION)) {
+        } else if (syncStrategy.equals(Constants.LOCATION)) {
           locations =
               practitionerDetails != null
                       && practitionerDetails.getFhirPractitionerDetails() != null
