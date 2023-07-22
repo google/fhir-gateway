@@ -21,7 +21,7 @@
   <parent>
     <groupId>com.google.fhir.gateway</groupId>
     <artifactId>fhir-gateway</artifactId>
-    <version>0.1.26</version>
+    <version>0.1.27</version>
   </parent>
 
   <artifactId>server</artifactId>

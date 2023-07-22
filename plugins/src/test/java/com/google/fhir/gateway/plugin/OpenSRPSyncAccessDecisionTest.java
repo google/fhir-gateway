@@ -15,7 +15,6 @@
  */
 package com.google.fhir.gateway.plugin;
 
-import static com.google.fhir.gateway.plugin.PermissionAccessChecker.Factory.PROXY_TO_ENV;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 
@@ -60,6 +59,8 @@ public class OpenSRPSyncAccessDecisionTest {
   private List<String> careTeamIds = new ArrayList<>();
 
   private List<String> organisationIds = new ArrayList<>();
+
+  private List<String> userRoles = new ArrayList<>();
 
   private OpenSRPSyncAccessDecision testInstance;
 
@@ -369,9 +370,9 @@ public class OpenSRPSyncAccessDecisionTest {
     IGenericClient iGenericClient = mock(IGenericClient.class);
     ITransaction iTransaction = mock(ITransaction.class);
     ITransactionTyped<Bundle> iClientExecutable = mock(ITransactionTyped.class);
+    testInstance.setFhirR4Client(iGenericClient);
+    testInstance.setFhirR4Context(fhirR4Context);
 
-    Mockito.when(fhirR4Context.newRestfulGenericClient(System.getenv(PROXY_TO_ENV)))
-        .thenReturn(iGenericClient);
     Mockito.when(iGenericClient.transaction()).thenReturn(iTransaction);
     Mockito.when(iTransaction.withBundle(any(Bundle.class))).thenReturn(iClientExecutable);
 
@@ -449,8 +450,6 @@ public class OpenSRPSyncAccessDecisionTest {
     ITransaction iTransaction = mock(ITransaction.class);
     ITransactionTyped<Bundle> iClientExecutable = mock(ITransactionTyped.class);
 
-    Mockito.when(fhirR4Context.newRestfulGenericClient(System.getenv(PROXY_TO_ENV)))
-        .thenReturn(iGenericClient);
     Mockito.when(iGenericClient.transaction()).thenReturn(iTransaction);
     Mockito.when(iTransaction.withBundle(any(Bundle.class))).thenReturn(iClientExecutable);
 
@@ -487,6 +486,8 @@ public class OpenSRPSyncAccessDecisionTest {
     TestUtil.setUpFhirResponseMock(
         fhirResponseMock, realFhirContext.newJsonParser().encodeResourceToString(bundle));
 
+    testInstance.setFhirR4Client(iGenericClient);
+    testInstance.setFhirR4Context(fhirR4Context);
     String resultContent = testInstance.postProcess(requestDetailsSpy, fhirResponseMock);
 
     Mockito.verify(iTransaction).withBundle(bundleArgumentCaptor.capture());
@@ -523,7 +524,14 @@ public class OpenSRPSyncAccessDecisionTest {
   private OpenSRPSyncAccessDecision createOpenSRPSyncAccessDecisionTestInstance() {
     OpenSRPSyncAccessDecision accessDecision =
         new OpenSRPSyncAccessDecision(
-            "sample-application-id", true, locationIds, careTeamIds, organisationIds, null);
+            "sample-keycloak-id",
+            "sample-application-id",
+            true,
+            locationIds,
+            careTeamIds,
+            organisationIds,
+            null,
+            userRoles);
 
     URL configFileUrl = Resources.getResource("hapi_sync_filter_ignored_queries.json");
     OpenSRPSyncAccessDecision.IgnoredResourcesConfig skippedDataFilterConfig =

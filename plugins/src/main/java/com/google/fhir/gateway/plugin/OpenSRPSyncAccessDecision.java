@@ -15,8 +15,6 @@
  */
 package com.google.fhir.gateway.plugin;
 
-import static com.google.fhir.gateway.plugin.PermissionAccessChecker.Factory.PROXY_TO_ENV;
-
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
 import ca.uhn.fhir.rest.api.RequestTypeEnum;
@@ -65,32 +63,46 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
   private final String syncStrategy;
   private final String applicationId;
   private final boolean accessGranted;
-
   private final List<String> careTeamIds;
-
   private final List<String> locationIds;
-
   private final List<String> organizationIds;
+  private final List<String> roles;
   private IgnoredResourcesConfig config;
+  private String keycloakUUID;
   private Gson gson = new Gson();
-
   private FhirContext fhirR4Context = FhirContext.forR4();
   private IParser fhirR4JsonParser = fhirR4Context.newJsonParser();
+  private IGenericClient fhirR4Client;
+
+  private OpenSRPHelper openSRPHelper;
 
   public OpenSRPSyncAccessDecision(
+      String keycloakUUID,
       String applicationId,
       boolean accessGranted,
       List<String> locationIds,
       List<String> careTeamIds,
       List<String> organizationIds,
-      String syncStrategy) {
+      String syncStrategy,
+      List<String> roles) {
+    this.keycloakUUID = keycloakUUID;
     this.applicationId = applicationId;
     this.accessGranted = accessGranted;
     this.careTeamIds = careTeamIds;
     this.locationIds = locationIds;
     this.organizationIds = organizationIds;
     this.syncStrategy = syncStrategy;
-    config = getSkippedResourcesConfigs();
+    this.config = getSkippedResourcesConfigs();
+    this.roles = roles;
+    try {
+      setFhirR4Client(
+          fhirR4Context.newRestfulGenericClient(
+              System.getenv(PermissionAccessChecker.Factory.PROXY_TO_ENV)));
+    } catch (NullPointerException e) {
+      logger.error(e.getMessage());
+    }
+
+    this.openSRPHelper = new OpenSRPHelper(fhirR4Client);
   }
 
   @Override
@@ -181,7 +193,19 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
         resultContent = fhirR4JsonParser.encodeResourceToString(resultContentBundle);
     }
 
+    if (includeAttributedPractitioners(request.getRequestPath())) {
+      Bundle practitionerDetailsBundle =
+          this.openSRPHelper.getSupervisorPractitionerDetailsByKeycloakId(keycloakUUID);
+      resultContent = fhirR4JsonParser.encodeResourceToString(practitionerDetailsBundle);
+    }
+
     return resultContent;
+  }
+
+  private boolean includeAttributedPractitioners(String requestPath) {
+    return Constants.SYNC_STRATEGY_LOCATION.equalsIgnoreCase(syncStrategy)
+        && roles.contains(Constants.ROLE_SUPERVISOR)
+        && Constants.ENDPOINT_PRACTITIONER_DETAILS.equals(requestPath);
   }
 
   @NotNull
@@ -264,7 +288,7 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
       requestBundle = processListEntriesGatewayModeByBundle(responseResource);
     }
 
-    return createFhirClientForR4().transaction().withBundle(requestBundle).execute();
+    return fhirR4Client.transaction().withBundle(requestBundle).execute();
   }
 
   /**
@@ -415,10 +439,6 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
     return false;
   }
 
-  private IGenericClient createFhirClientForR4() {
-    return fhirR4Context.newRestfulGenericClient(System.getenv(PROXY_TO_ENV));
-  }
-
   @VisibleForTesting
   protected void setSkippedResourcesConfig(IgnoredResourcesConfig config) {
     this.config = config;
@@ -427,6 +447,11 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
   @VisibleForTesting
   protected void setFhirR4Context(FhirContext fhirR4Context) {
     this.fhirR4Context = fhirR4Context;
+  }
+
+  @VisibleForTesting
+  public void setFhirR4Client(IGenericClient fhirR4Client) {
+    this.fhirR4Client = fhirR4Client;
   }
 
   class IgnoredResourcesConfig {
@@ -450,5 +475,8 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
   public static final class Constants {
     public static final String FHIR_GATEWAY_MODE = "fhir-gateway-mode";
     public static final String LIST_ENTRIES = "list-entries";
+    public static final String ROLE_SUPERVISOR = "SUPERVISOR";
+    public static final String ENDPOINT_PRACTITIONER_DETAILS = "practitioner-details";
+    public static final String SYNC_STRATEGY_LOCATION = "Location";
   }
 }

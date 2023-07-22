@@ -46,17 +46,10 @@ public class PermissionAccessChecker implements AccessChecker {
   private static final Logger logger = LoggerFactory.getLogger(PermissionAccessChecker.class);
   private final ResourceFinder resourceFinder;
   private final List<String> userRoles;
-  private final String applicationId;
-
-  private final List<String> careTeamIds;
-
-  private final List<String> locationIds;
-
-  private final List<String> organizationIds;
-
-  private final String syncStrategy;
+  private OpenSRPSyncAccessDecision openSRPSyncAccessDecision;
 
   private PermissionAccessChecker(
+      String keycloakUUID,
       List<String> userRoles,
       ResourceFinderImp resourceFinder,
       String applicationId,
@@ -73,11 +66,16 @@ public class PermissionAccessChecker implements AccessChecker {
     Preconditions.checkNotNull(syncStrategy);
     this.resourceFinder = resourceFinder;
     this.userRoles = userRoles;
-    this.applicationId = applicationId;
-    this.careTeamIds = careTeamIds;
-    this.organizationIds = organizationIds;
-    this.locationIds = locationIds;
-    this.syncStrategy = syncStrategy;
+    this.openSRPSyncAccessDecision =
+        new OpenSRPSyncAccessDecision(
+            keycloakUUID,
+            applicationId,
+            true,
+            locationIds,
+            careTeamIds,
+            organizationIds,
+            syncStrategy,
+            userRoles);
   }
 
   @Override
@@ -125,10 +123,7 @@ public class PermissionAccessChecker implements AccessChecker {
   }
 
   private AccessDecision getAccessDecision(boolean userHasRole) {
-    return userHasRole
-        ? new OpenSRPSyncAccessDecision(
-            applicationId, true, locationIds, careTeamIds, organizationIds, syncStrategy)
-        : NoOpAccessDecision.accessDenied();
+    return userHasRole ? openSRPSyncAccessDecision : NoOpAccessDecision.accessDenied();
   }
 
   private AccessDecision processPost(boolean userHasRole) {
@@ -362,6 +357,7 @@ public class PermissionAccessChecker implements AccessChecker {
         }
       }
       return new PermissionAccessChecker(
+          jwt.getSubject(),
           userRoles,
           ResourceFinderImp.getInstance(fhirContext),
           applicationId,
