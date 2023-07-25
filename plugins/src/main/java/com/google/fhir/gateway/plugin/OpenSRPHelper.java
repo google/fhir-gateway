@@ -12,9 +12,17 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.apache.commons.lang3.StringUtils;
-import org.hl7.fhir.instance.model.api.IBaseResource;
-import org.hl7.fhir.r4.model.*;
+import org.hl7.fhir.r4.model.BaseResource;
+import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.CareTeam;
+import org.hl7.fhir.r4.model.Enumerations;
+import org.hl7.fhir.r4.model.Group;
+import org.hl7.fhir.r4.model.Identifier;
+import org.hl7.fhir.r4.model.Location;
+import org.hl7.fhir.r4.model.Organization;
+import org.hl7.fhir.r4.model.OrganizationAffiliation;
+import org.hl7.fhir.r4.model.Practitioner;
+import org.hl7.fhir.r4.model.PractitionerRole;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.smartregister.model.location.LocationHierarchy;
@@ -43,16 +51,11 @@ public class OpenSRPHelper {
     PractitionerDetails practitionerDetails = new PractitionerDetails();
 
     logger.info("Searching for practitioner with identifier: " + keycloakUUID);
-    IBaseResource practitioner = getPractitionerByIdentifier(keycloakUUID);
-    String practitionerId = EMPTY_STRING;
+    Practitioner practitioner = getPractitionerByIdentifier(keycloakUUID);
 
-    if (practitioner.getIdElement() != null && practitioner.getIdElement().getIdPart() != null) {
-      practitionerId = practitioner.getIdElement().getIdPart();
-    }
+    if (practitioner != null) {
 
-    if (StringUtils.isNotBlank(practitionerId)) {
-
-      practitionerDetails = getPractitionerDetailsByPractitionerId(practitionerId);
+      practitionerDetails = getPractitionerDetailsByPractitioner(practitioner);
 
     } else {
       logger.error("Practitioner with KC identifier: " + keycloakUUID + " not found");
@@ -66,16 +69,11 @@ public class OpenSRPHelper {
     Bundle bundle = new Bundle();
 
     logger.info("Searching for practitioner with identifier: " + keycloakUUID);
-    IBaseResource practitioner = getPractitionerByIdentifier(keycloakUUID);
-    String practitionerId = EMPTY_STRING;
+    Practitioner practitioner = getPractitionerByIdentifier(keycloakUUID);
 
-    if (practitioner.getIdElement() != null && practitioner.getIdElement().getIdPart() != null) {
-      practitionerId = practitioner.getIdElement().getIdPart();
-    }
+    if (practitioner != null) {
 
-    if (StringUtils.isNotBlank(practitionerId)) {
-
-      bundle = getAttributedPractitionerDetailsByPractitionerId(practitionerId);
+      bundle = getAttributedPractitionerDetailsByPractitioner(practitioner);
 
     } else {
       logger.error("Practitioner with KC identifier: " + keycloakUUID + " not found");
@@ -84,11 +82,10 @@ public class OpenSRPHelper {
     return bundle;
   }
 
-  private Bundle getAttributedPractitionerDetailsByPractitionerId(String practitionerId) {
+  private Bundle getAttributedPractitionerDetailsByPractitioner(Practitioner practitioner) {
     Bundle responseBundle = new Bundle();
-    List<String> attributedPractitionerIds = new ArrayList<>();
-    PractitionerDetails practitionerDetails =
-        getPractitionerDetailsByPractitionerId(practitionerId);
+    List<Practitioner> attributedPractitioners = new ArrayList<>();
+    PractitionerDetails practitionerDetails = getPractitionerDetailsByPractitioner(practitioner);
 
     List<CareTeam> careTeamList = practitionerDetails.getFhirPractitionerDetails().getCareTeams();
     // Get other guys.
@@ -125,7 +122,7 @@ public class OpenSRPHelper {
 
     for (CareTeam careTeam : careTeamList) {
       // Add current supervisor practitioners
-      attributedPractitionerIds.addAll(
+      attributedPractitioners.addAll(
           careTeam.getParticipant().stream()
               .filter(
                   it ->
@@ -133,16 +130,19 @@ public class OpenSRPHelper {
                           && it.getMember()
                               .getReference()
                               .startsWith(Enumerations.ResourceType.PRACTITIONER.toCode()))
-              .map(it -> getReferenceIDPart(it.getMember().getReference()))
+              .map(
+                  it ->
+                      getPractitionerByIdentifier(
+                          getReferenceIDPart(it.getMember().getReference())))
               .collect(Collectors.toList()));
     }
 
     List<Bundle.BundleEntryComponent> bundleEntryComponentList = new ArrayList<>();
 
-    for (String attributedPractitionerId : attributedPractitionerIds) {
+    for (Practitioner attributedPractitioner : attributedPractitioners) {
       bundleEntryComponentList.add(
           new Bundle.BundleEntryComponent()
-              .setResource(getPractitionerDetailsByPractitionerId(attributedPractitionerId)));
+              .setResource(getPractitionerDetailsByPractitioner(attributedPractitioner)));
     }
 
     responseBundle.setEntry(bundleEntryComponentList);
@@ -173,18 +173,25 @@ public class OpenSRPHelper {
         .collect(Collectors.toList());
   }
 
-  private PractitionerDetails getPractitionerDetailsByPractitionerId(String practitionerId) {
+  private String getPractitionerIdentifier(Practitioner practitioner) {
+    String practitionerId = EMPTY_STRING;
+    if (practitioner.getIdElement() != null && practitioner.getIdElement().getIdPart() != null) {
+      practitionerId = practitioner.getIdElement().getIdPart();
+    }
+    return practitionerId;
+  }
+
+  private PractitionerDetails getPractitionerDetailsByPractitioner(Practitioner practitioner) {
 
     PractitionerDetails practitionerDetails = new PractitionerDetails();
     FhirPractitionerDetails fhirPractitionerDetails = new FhirPractitionerDetails();
+    String practitionerId = getPractitionerIdentifier(practitioner);
 
-    logger.info("Searching for care teams for practitioner with id: " + practitionerId);
+    logger.info("Searching for care teams for practitioner with id: " + practitioner);
     Bundle careTeams = getCareTeams(practitionerId);
     List<CareTeam> careTeamsList = mapBundleToCareTeams(careTeams);
     fhirPractitionerDetails.setCareTeams(careTeamsList);
-
-    StringType practitionerIdString = new StringType(practitionerId);
-    fhirPractitionerDetails.setPractitionerId(practitionerIdString);
+    fhirPractitionerDetails.setPractitioner(practitioner);
 
     logger.info("Searching for Organizations tied with CareTeams: ");
     List<String> careTeamManagingOrganizationIds =
@@ -196,7 +203,7 @@ public class OpenSRPHelper {
     List<Organization> managingOrganizationTeams =
         mapBundleToOrganizations(careTeamManagingOrganizations);
 
-    logger.info("Searching for organizations of practitioner with id: " + practitionerId);
+    logger.info("Searching for organizations of practitioner with id: " + practitioner);
 
     List<PractitionerRole> practitionerRoleList =
         getPractitionerRolesByPractitionerId(practitionerId);
@@ -223,7 +230,7 @@ public class OpenSRPHelper {
 
     List<Group> groupsList = mapBundleToGroups(groupsBundle);
     fhirPractitionerDetails.setGroups(groupsList);
-    fhirPractitionerDetails.setId(practitionerIdString.getValue());
+    fhirPractitionerDetails.setId(practitionerId);
 
     logger.info("Searching for locations by organizations");
 
