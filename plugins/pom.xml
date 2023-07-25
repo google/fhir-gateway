@@ -23,7 +23,7 @@
     implementations do not have to do this; they can redeclare those deps. -->
     <groupId>com.google.fhir.gateway</groupId>
     <artifactId>fhir-gateway</artifactId>
-    <version>0.1.27</version>
+    <version>0.1.28</version>
   </parent>
 
   <artifactId>plugins</artifactId>
@@ -53,7 +53,7 @@
     <dependency>
       <groupId>org.smartregister</groupId>
       <artifactId>fhir-common-utils</artifactId>
-      <version>0.0.6-SNAPSHOT</version>
+      <version>0.0.7-SNAPSHOT</version>
       <scope>compile</scope>
     </dependency>
   </dependencies>
