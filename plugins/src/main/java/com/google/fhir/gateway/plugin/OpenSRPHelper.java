@@ -5,6 +5,7 @@ import static org.smartregister.utils.Constants.EMPTY_STRING;
 import ca.uhn.fhir.rest.client.api.IGenericClient;
 import ca.uhn.fhir.rest.gclient.ReferenceClientParam;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -93,7 +94,7 @@ public class OpenSRPHelper {
     List<String> careTeamManagingOrganizationIds =
         getManagingOrganizationsOfCareTeamIds(careTeamList);
     List<String> supervisorCareTeamOrganizationLocationIds =
-        getLocationIdentifiersByOrganizationIds(careTeamManagingOrganizationIds);
+        getOrganizationAffiliationsByOrganizationIds(careTeamManagingOrganizationIds);
     List<String> officialLocationIds =
         getOfficialLocationIdentifiersByLocationIds(supervisorCareTeamOrganizationLocationIds);
     List<LocationHierarchy> locationHierarchies =
@@ -110,14 +111,19 @@ public class OpenSRPHelper {
             .collect(Collectors.toList());
     List<String> attributedLocationsList =
         parentChildrenList.stream()
-            .flatMap(parentChildren -> parentChildren.children().stream())
-            .map(it -> it.getName())
+            .flatMap(parentChildren -> parentChildren.getChildIdentifiers().stream())
+            .map(it -> getReferenceIDPart(it.toString()))
             .collect(Collectors.toList());
     List<String> attributedOrganizationIds =
         getOrganizationIdsByLocationIds(attributedLocationsList);
 
     // Get care teams by organization Ids
     List<CareTeam> attributedCareTeams = getCareTeamsByOrganizationIds(attributedOrganizationIds);
+
+    for (CareTeam careTeam : careTeamList) {
+      attributedCareTeams.removeIf(it -> it.getId().equals(careTeam.getId()));
+    }
+
     careTeamList.addAll(attributedCareTeams);
 
     for (CareTeam careTeam : careTeamList) {
@@ -170,6 +176,7 @@ public class OpenSRPHelper {
                     ((OrganizationAffiliation) bundleEntryComponent.getResource())
                         .getOrganization()
                         .getReference()))
+        .distinct()
         .collect(Collectors.toList());
   }
 
@@ -191,7 +198,7 @@ public class OpenSRPHelper {
     Bundle careTeams = getCareTeams(practitionerId);
     List<CareTeam> careTeamsList = mapBundleToCareTeams(careTeams);
     fhirPractitionerDetails.setCareTeams(careTeamsList);
-    fhirPractitionerDetails.setPractitioner(practitioner);
+    fhirPractitionerDetails.setPractitioners(Arrays.asList(practitioner));
 
     logger.info("Searching for Organizations tied with CareTeams: ");
     List<String> careTeamManagingOrganizationIds =
@@ -222,7 +229,6 @@ public class OpenSRPHelper {
             .collect(Collectors.toList());
 
     fhirPractitionerDetails.setOrganizations(bothOrganizations);
-
     fhirPractitionerDetails.setPractitionerRoles(practitionerRoleList);
 
     Bundle groupsBundle = getGroupsAssignedToPractitioner(practitionerId);
@@ -234,12 +240,20 @@ public class OpenSRPHelper {
 
     logger.info("Searching for locations by organizations");
 
-    List<String> locationIds =
-        getLocationIdentifiersByOrganizationIds(
+    Bundle organizationAffiliationsBundle =
+        getOrganizationAffiliationsByOrganizationIdsBundle(
             Stream.concat(
                     careTeamManagingOrganizationIds.stream(), practitionerOrganizationIds.stream())
                 .distinct()
                 .collect(Collectors.toList()));
+
+    List<OrganizationAffiliation> organizationAffiliations =
+        mapBundleToOrganizationAffiliation(organizationAffiliationsBundle);
+
+    fhirPractitionerDetails.setOrganizationAffiliations(organizationAffiliations);
+
+    List<String> locationIds =
+        getLocationIdentifiersByOrganizationAffiliations(organizationAffiliations);
 
     List<String> locationsIdentifiers =
         getOfficialLocationIdentifiersByLocationIds(
@@ -412,25 +426,39 @@ public class OpenSRPHelper {
         .collect(Collectors.toList());
   }
 
-  private List<String> getLocationIdentifiersByOrganizationIds(List<String> organizationIds) {
+  private List<String> getOrganizationAffiliationsByOrganizationIds(List<String> organizationIds) {
     if (organizationIds == null || organizationIds.isEmpty()) {
       return new ArrayList<>();
     }
+    Bundle organizationAffiliationsBundle =
+        getOrganizationAffiliationsByOrganizationIdsBundle(organizationIds);
+    List<OrganizationAffiliation> organizationAffiliations =
+        mapBundleToOrganizationAffiliation(organizationAffiliationsBundle);
+    return getLocationIdentifiersByOrganizationAffiliations(organizationAffiliations);
+  }
 
-    Bundle locationsBundle =
-        getFhirClientForR4()
+  private Bundle getOrganizationAffiliationsByOrganizationIdsBundle(List<String> organizationIds) {
+    return organizationIds.isEmpty()
+        ? EMPTY_BUNDLE
+        : getFhirClientForR4()
             .search()
             .forResource(OrganizationAffiliation.class)
             .where(OrganizationAffiliation.PRIMARY_ORGANIZATION.hasAnyOfIds(organizationIds))
             .returnBundle(Bundle.class)
             .execute();
+  }
 
-    return locationsBundle.getEntry().stream()
+  private List<String> getLocationIdentifiersByOrganizationAffiliations(
+      List<OrganizationAffiliation> organizationAffiliations) {
+
+    return organizationAffiliations.stream()
         .map(
-            bundleEntryComponent ->
+            organizationAffiliation ->
                 getReferenceIDPart(
-                    ((OrganizationAffiliation) bundleEntryComponent.getResource())
-                        .getLocation().stream().findFirst().get().getReference()))
+                    organizationAffiliation.getLocation().stream()
+                        .findFirst()
+                        .get()
+                        .getReference()))
         .collect(Collectors.toList());
   }
 
@@ -452,9 +480,6 @@ public class OpenSRPHelper {
   private List<PractitionerRole> mapBundleToPractitionerRolesWithOrganization(
       Bundle practitionerRoles) {
     return practitionerRoles.getEntry().stream()
-        .filter(
-            bundleEntryComponent ->
-                ((PractitionerRole) bundleEntryComponent.getResource()).hasOrganization())
         .map(it -> (PractitionerRole) it.getResource())
         .collect(Collectors.toList());
   }
@@ -462,6 +487,13 @@ public class OpenSRPHelper {
   private List<Group> mapBundleToGroups(Bundle groupsBundle) {
     return groupsBundle.getEntry().stream()
         .map(bundleEntryComponent -> (Group) bundleEntryComponent.getResource())
+        .collect(Collectors.toList());
+  }
+
+  private List<OrganizationAffiliation> mapBundleToOrganizationAffiliation(
+      Bundle organizationAffiliationBundle) {
+    return organizationAffiliationBundle.getEntry().stream()
+        .map(bundleEntryComponent -> (OrganizationAffiliation) bundleEntryComponent.getResource())
         .collect(Collectors.toList());
   }
 
