@@ -360,6 +360,13 @@ public class BearerAuthorizationInterceptor {
     // matching can be done more efficiently if needed, but we should avoid loading the full
     // stream in memory.
     String fhirStoreUrl = fhirClient.getBaseUrl();
+
+    logger.error(
+        "######################## --- replaceAndCopyResponse --- ###########################");
+    logger.error(
+        String.format("Replacing Base URL %s with Proxy Base %s", fhirStoreUrl, proxyBase));
+    logger.error("###################################################");
+
     int numMatched = 0;
     int n;
     while ((n = entityContentReader.read()) >= 0) {

@@ -17,6 +17,7 @@ package com.google.fhir.gateway;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.rest.api.Constants;
+import ca.uhn.fhir.rest.server.ApacheProxyAddressStrategy;
 import ca.uhn.fhir.rest.server.RestfulServer;
 import ca.uhn.fhir.rest.server.interceptor.CorsInterceptor;
 import com.google.fhir.gateway.GenericFhirClient.GenericFhirClientBuilder;
@@ -108,6 +109,21 @@ public class FhirProxyServer extends RestfulServer {
     } catch (IOException e) {
       ExceptionUtil.throwRuntimeExceptionAndLog(logger, "IOException while initializing", e);
     }
+
+    logger.error(
+        "######################## --- initialize BEFORE Setting Address Strategy ---"
+            + " ###########################");
+    logger.error(
+        String.format("Current Address Strategy class %s", this.getServerAddressStrategy()));
+    logger.error("###################################################\n");
+
+    setServerAddressStrategy(new ApacheProxyAddressStrategy(true));
+
+    logger.error(
+        "######################## --- initialize AFTER Setting Address Strategy ---"
+            + " ###########################");
+    logger.error(String.format("New Address Strategy class %s", this.getServerAddressStrategy()));
+    logger.error("###################################################\n");
   }
 
   private HttpFhirClient chooseHttpFhirClient(String backendType, String fhirStore)
