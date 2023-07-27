@@ -110,20 +110,7 @@ public class FhirProxyServer extends RestfulServer {
       ExceptionUtil.throwRuntimeExceptionAndLog(logger, "IOException while initializing", e);
     }
 
-    logger.error(
-        "######################## --- initialize BEFORE Setting Address Strategy ---"
-            + " ###########################");
-    logger.error(
-        String.format("Current Address Strategy class %s", this.getServerAddressStrategy()));
-    logger.error("###################################################\n");
-
     setServerAddressStrategy(new ApacheProxyAddressStrategy(true));
-
-    logger.error(
-        "######################## --- initialize AFTER Setting Address Strategy ---"
-            + " ###########################");
-    logger.error(String.format("New Address Strategy class %s", this.getServerAddressStrategy()));
-    logger.error("###################################################\n");
   }
 
   private HttpFhirClient chooseHttpFhirClient(String backendType, String fhirStore)
