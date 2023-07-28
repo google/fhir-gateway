@@ -316,7 +316,6 @@ public class PermissionAccessChecker implements AccessChecker {
       PractitionerDetails practitionerDetails = readPractitionerDetails(jwt.getSubject());
       List<CareTeam> careTeams;
       List<Organization> organizations;
-      List<Location> locations;
       List<String> careTeamIds = new ArrayList<>();
       List<String> organizationIds = new ArrayList<>();
       List<String> locationIds = new ArrayList<>();
@@ -344,16 +343,12 @@ public class PermissionAccessChecker implements AccessChecker {
             }
           }
         } else if (syncStrategy.equals(Constants.LOCATION)) {
-          locations =
+          locationIds =
               practitionerDetails != null
                       && practitionerDetails.getFhirPractitionerDetails() != null
-                  ? practitionerDetails.getFhirPractitionerDetails().getLocations()
-                  : Collections.singletonList(new Location());
-          for (Location location : locations) {
-            if (location.getIdElement() != null) {
-              locationIds.add(location.getIdElement().getIdPart());
-            }
-          }
+                  ? OpenSRPHelper.getAttributedLocations(
+                      practitionerDetails.getFhirPractitionerDetails().getLocationHierarchyList())
+                  : locationIds;
         }
       }
       return new PermissionAccessChecker(

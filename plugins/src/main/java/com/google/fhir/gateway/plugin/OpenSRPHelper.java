@@ -4,15 +4,14 @@ import static org.smartregister.utils.Constants.EMPTY_STRING;
 
 import ca.uhn.fhir.rest.client.api.IGenericClient;
 import ca.uhn.fhir.rest.gclient.ReferenceClientParam;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Set;
+import com.google.fhir.gateway.ProxyConstants;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.commons.lang3.StringUtils;
 import org.hl7.fhir.r4.model.BaseResource;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.CareTeam;
@@ -24,6 +23,7 @@ import org.hl7.fhir.r4.model.Organization;
 import org.hl7.fhir.r4.model.OrganizationAffiliation;
 import org.hl7.fhir.r4.model.Practitioner;
 import org.hl7.fhir.r4.model.PractitionerRole;
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.smartregister.model.location.LocationHierarchy;
@@ -99,21 +99,7 @@ public class OpenSRPHelper {
         getOfficialLocationIdentifiersByLocationIds(supervisorCareTeamOrganizationLocationIds);
     List<LocationHierarchy> locationHierarchies =
         getLocationsHierarchyByOfficialLocationIdentifiers(officialLocationIds);
-    List<ParentChildrenMap> parentChildrenList =
-        locationHierarchies.stream()
-            .flatMap(
-                locationHierarchy ->
-                    locationHierarchy
-                        .getLocationHierarchyTree()
-                        .getLocationsHierarchy()
-                        .getParentChildren()
-                        .stream())
-            .collect(Collectors.toList());
-    List<String> attributedLocationsList =
-        parentChildrenList.stream()
-            .flatMap(parentChildren -> parentChildren.getChildIdentifiers().stream())
-            .map(it -> getReferenceIDPart(it.toString()))
-            .collect(Collectors.toList());
+    List<String> attributedLocationsList = getAttributedLocations(locationHierarchies);
     List<String> attributedOrganizationIds =
         getOrganizationIdsByLocationIds(attributedLocationsList);
 
@@ -154,6 +140,26 @@ public class OpenSRPHelper {
     responseBundle.setEntry(bundleEntryComponentList);
     responseBundle.setTotal(bundleEntryComponentList.size());
     return responseBundle;
+  }
+
+  @NotNull
+  public static List<String> getAttributedLocations(List<LocationHierarchy> locationHierarchies) {
+    List<ParentChildrenMap> parentChildrenList =
+        locationHierarchies.stream()
+            .flatMap(
+                locationHierarchy ->
+                    locationHierarchy
+                        .getLocationHierarchyTree()
+                        .getLocationsHierarchy()
+                        .getParentChildren()
+                        .stream())
+            .collect(Collectors.toList());
+    List<String> attributedLocationsList =
+        parentChildrenList.stream()
+            .flatMap(parentChildren -> parentChildren.getChildIdentifiers().stream())
+            .map(it -> getReferenceIDPart(it.toString()))
+            .collect(Collectors.toList());
+    return attributedLocationsList;
   }
 
   private List<String> getOrganizationIdsByLocationIds(List<String> attributedLocationsList) {
@@ -373,7 +379,7 @@ public class OpenSRPHelper {
         .execute();
   }
 
-  private String getReferenceIDPart(String reference) {
+  private static String getReferenceIDPart(String reference) {
     return reference.substring(reference.indexOf(Constants.FORWARD_SLASH) + 1);
   }
 
@@ -512,5 +518,15 @@ public class OpenSRPHelper {
     return bundle.getEntry().stream()
         .map(it -> ((LocationHierarchy) it.getResource()))
         .collect(Collectors.toList());
+  }
+
+  public static String createSearchTagValues(Map.Entry<String, String[]> entry) {
+    return entry.getKey()
+        + ProxyConstants.CODE_URL_VALUE_SEPARATOR
+        + StringUtils.join(
+            entry.getValue(),
+            ProxyConstants.PARAM_VALUES_SEPARATOR
+                + entry.getKey()
+                + ProxyConstants.CODE_URL_VALUE_SEPARATOR);
   }
 }

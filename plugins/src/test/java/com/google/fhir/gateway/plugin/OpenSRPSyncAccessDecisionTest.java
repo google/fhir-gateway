@@ -90,35 +90,50 @@ public class OpenSRPSyncAccessDecisionTest {
     allIds.addAll(organisationIds);
     allIds.addAll(careTeamIds);
 
+    List<String> locationTagToValuesList = new ArrayList<>();
+
     for (String locationId : locationIds) {
       Assert.assertFalse(requestDetails.getCompleteUrl().contains(locationId));
       Assert.assertFalse(requestDetails.getRequestPath().contains(locationId));
-      Assert.assertTrue(
-          mutatedRequest
-              .getQueryParams()
-              .get("_tag")
-              .contains(ProxyConstants.LOCATION_TAG_URL + "|" + locationId));
+
+      locationTagToValuesList.add(ProxyConstants.LOCATION_TAG_URL + "|" + locationId);
     }
+
+    Assert.assertTrue(
+        mutatedRequest
+            .getQueryParams()
+            .get("_tag")
+            .get(0)
+            .contains(StringUtils.join(locationTagToValuesList, ",")));
+
+    List<String> careteamTagToValuesList = new ArrayList<>();
 
     for (String careTeamId : careTeamIds) {
       Assert.assertFalse(requestDetails.getCompleteUrl().contains(careTeamId));
       Assert.assertFalse(requestDetails.getRequestPath().contains(careTeamId));
-      Assert.assertTrue(
-          mutatedRequest
-              .getQueryParams()
-              .get("_tag")
-              .contains(ProxyConstants.CARE_TEAM_TAG_URL + "|" + careTeamId));
+      careteamTagToValuesList.add(ProxyConstants.LOCATION_TAG_URL + "|" + careTeamId);
     }
+
+    Assert.assertTrue(
+        mutatedRequest
+            .getQueryParams()
+            .get("_tag")
+            .get(0)
+            .contains(StringUtils.join(locationTagToValuesList, ",")));
 
     for (String organisationId : organisationIds) {
       Assert.assertFalse(requestDetails.getCompleteUrl().contains(organisationId));
       Assert.assertFalse(requestDetails.getRequestPath().contains(organisationId));
-      Assert.assertTrue(
-          mutatedRequest
-              .getQueryParams()
-              .get("_tag")
-              .contains(ProxyConstants.ORGANISATION_TAG_URL + "|" + organisationId));
     }
+
+    Assert.assertTrue(
+        mutatedRequest
+            .getQueryParams()
+            .get("_tag")
+            .get(0)
+            .contains(
+                StringUtils.join(
+                    organisationIds, "," + ProxyConstants.ORGANISATION_TAG_URL + "|")));
   }
 
   @Test
@@ -142,12 +157,13 @@ public class OpenSRPSyncAccessDecisionTest {
     for (String locationId : locationIds) {
       Assert.assertFalse(requestDetails.getCompleteUrl().contains(locationId));
       Assert.assertFalse(requestDetails.getRequestPath().contains(locationId));
-      Assert.assertTrue(
-          mutatedRequest
-              .getQueryParams()
-              .get("_tag")
-              .contains(ProxyConstants.LOCATION_TAG_URL + "|" + locationId));
     }
+    Assert.assertTrue(
+        mutatedRequest
+            .getQueryParams()
+            .get("_tag")
+            .get(0)
+            .contains(StringUtils.join(locationIds, "," + ProxyConstants.LOCATION_TAG_URL + "|")));
 
     for (String param : mutatedRequest.getQueryParams().get("_tag")) {
       Assert.assertFalse(param.contains(ProxyConstants.CARE_TEAM_TAG_URL));
@@ -176,12 +192,14 @@ public class OpenSRPSyncAccessDecisionTest {
     for (String locationId : careTeamIds) {
       Assert.assertFalse(requestDetails.getCompleteUrl().contains(locationId));
       Assert.assertFalse(requestDetails.getRequestPath().contains(locationId));
-      Assert.assertTrue(
-          mutatedRequest
-              .getQueryParams()
-              .get("_tag")
-              .contains(ProxyConstants.CARE_TEAM_TAG_URL + "|" + locationId));
     }
+
+    Assert.assertTrue(
+        mutatedRequest
+            .getQueryParams()
+            .get("_tag")
+            .get(0)
+            .contains(StringUtils.join(careTeamIds, "," + ProxyConstants.CARE_TEAM_TAG_URL + "|")));
 
     for (String param : mutatedRequest.getQueryParams().get("_tag")) {
       Assert.assertFalse(param.contains(ProxyConstants.LOCATION_TAG_URL));
@@ -244,12 +262,15 @@ public class OpenSRPSyncAccessDecisionTest {
       Assert.assertFalse(requestDetails.getCompleteUrl().contains(locationId));
       Assert.assertFalse(requestDetails.getRequestPath().contains(locationId));
       Assert.assertEquals(1, mutatedRequest.getQueryParams().size());
-      Assert.assertTrue(
-          mutatedRequest
-              .getQueryParams()
-              .get("_tag")
-              .contains(ProxyConstants.ORGANISATION_TAG_URL + "|" + locationId));
     }
+    Assert.assertTrue(
+        mutatedRequest
+            .getQueryParams()
+            .get("_tag")
+            .get(0)
+            .contains(
+                StringUtils.join(
+                    organisationIds, "," + ProxyConstants.ORGANISATION_TAG_URL + "|")));
   }
 
   @Test
@@ -338,11 +359,13 @@ public class OpenSRPSyncAccessDecisionTest {
     List<String> searchParamArrays =
         mutatedRequest.getQueryParams().get(ProxyConstants.TAG_SEARCH_PARAM);
     Assert.assertNotNull(searchParamArrays);
-    for (int i = 0; i < mutatedRequest.getQueryParams().size(); i++) {
-      Assert.assertTrue(
-          organisationIds.contains(
-              searchParamArrays.get(i).replace(ProxyConstants.ORGANISATION_TAG_URL + "|", "")));
-    }
+
+    Assert.assertTrue(
+        searchParamArrays
+            .get(0)
+            .contains(
+                StringUtils.join(
+                    organisationIds, "," + ProxyConstants.ORGANISATION_TAG_URL + "|")));
   }
 
   @Test(expected = RuntimeException.class)

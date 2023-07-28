@@ -31,7 +31,6 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -40,8 +39,6 @@ import javax.annotation.Nullable;
 import lombok.Getter;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.tuple.ImmutablePair;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.http.HttpResponse;
 import org.apache.http.impl.client.BasicResponseHandler;
 import org.apache.http.util.TextUtils;
@@ -134,7 +131,10 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
             addSyncFilters(getSyncTags(locationIds, careTeamIds, organizationIds));
         requestMutation =
             RequestMutation.builder()
-                .queryParams(Map.of(ProxyConstants.TAG_SEARCH_PARAM, syncFilterParameterValues))
+                .queryParams(
+                    Map.of(
+                        ProxyConstants.TAG_SEARCH_PARAM,
+                        Arrays.asList(StringUtils.join(syncFilterParameterValues, ","))))
                 .build();
       }
     }
@@ -149,14 +149,13 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
    * @param syncTags
    * @return the extra query Parameter values
    */
-  private List<String> addSyncFilters(Pair<String, Map<String, String[]>> syncTags) {
+  private List<String> addSyncFilters(Map<String, String[]> syncTags) {
     List<String> paramValues = new ArrayList<>();
-    Collections.addAll(
-        paramValues,
-        syncTags
-            .getKey()
-            .substring(LENGTH_OF_SEARCH_PARAM_AND_EQUALS)
-            .split(ProxyConstants.PARAM_VALUES_SEPARATOR));
+
+    for (var entry : syncTags.entrySet()) {
+      paramValues.add(OpenSRPHelper.createSearchTagValues(entry));
+    }
+
     return paramValues;
   }
 
@@ -300,7 +299,7 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
    * @param organizationIds
    * @return Pair of URL to [Code.url, [Code.Value]] map. The URL is complete url
    */
-  private Pair<String, Map<String, String[]>> getSyncTags(
+  private Map<String, String[]> getSyncTags(
       List<String> locationIds, List<String> careTeamIds, List<String> organizationIds) {
     StringBuilder sb = new StringBuilder();
     Map<String, String[]> map = new HashMap<>();
@@ -312,7 +311,7 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
     addTags(ProxyConstants.ORGANISATION_TAG_URL, organizationIds, map, sb);
     addTags(ProxyConstants.CARE_TEAM_TAG_URL, careTeamIds, map, sb);
 
-    return new ImmutablePair<>(sb.toString(), map);
+    return map;
   }
 
   private void addTags(
