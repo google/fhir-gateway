@@ -38,46 +38,46 @@ public class OpenSRPHelper {
   public static final String PRACTITIONER_GROUP_CODE = "405623001";
   public static final String HTTP_SNOMED_INFO_SCT = "http://snomed.info/sct";
   public static final Bundle EMPTY_BUNDLE = new Bundle();
-  private IGenericClient r4FHIRClient;
+  private IGenericClient r4FhirClient;
 
   public OpenSRPHelper(IGenericClient fhirClient) {
-    this.r4FHIRClient = fhirClient;
+    this.r4FhirClient = fhirClient;
   }
 
   private IGenericClient getFhirClientForR4() {
-    return r4FHIRClient;
+    return r4FhirClient;
   }
 
-  public PractitionerDetails getPractitionerDetailsByKeycloakId(String keycloakUUID) {
+  public PractitionerDetails getPractitionerDetailsByKeycloakId(String keycloakUuid) {
     PractitionerDetails practitionerDetails = new PractitionerDetails();
 
-    logger.info("Searching for practitioner with identifier: " + keycloakUUID);
-    Practitioner practitioner = getPractitionerByIdentifier(keycloakUUID);
+    logger.info("Searching for practitioner with identifier: " + keycloakUuid);
+    Practitioner practitioner = getPractitionerByIdentifier(keycloakUuid);
 
     if (practitioner != null) {
 
       practitionerDetails = getPractitionerDetailsByPractitioner(practitioner);
 
     } else {
-      logger.error("Practitioner with KC identifier: " + keycloakUUID + " not found");
+      logger.error("Practitioner with KC identifier: " + keycloakUuid + " not found");
       practitionerDetails.setId(Constants.PRACTITIONER_NOT_FOUND);
     }
 
     return practitionerDetails;
   }
 
-  public Bundle getSupervisorPractitionerDetailsByKeycloakId(String keycloakUUID) {
+  public Bundle getSupervisorPractitionerDetailsByKeycloakId(String keycloakUuid) {
     Bundle bundle = new Bundle();
 
-    logger.info("Searching for practitioner with identifier: " + keycloakUUID);
-    Practitioner practitioner = getPractitionerByIdentifier(keycloakUUID);
+    logger.info("Searching for practitioner with identifier: " + keycloakUuid);
+    Practitioner practitioner = getPractitionerByIdentifier(keycloakUuid);
 
     if (practitioner != null) {
 
       bundle = getAttributedPractitionerDetailsByPractitioner(practitioner);
 
     } else {
-      logger.error("Practitioner with KC identifier: " + keycloakUUID + " not found");
+      logger.error("Practitioner with KC identifier: " + keycloakUuid + " not found");
     }
 
     return bundle;
