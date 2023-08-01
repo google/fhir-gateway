@@ -338,8 +338,7 @@ public class PermissionAccessChecker implements AccessChecker {
                   ? practitionerDetails.getFhirPractitionerDetails().getCareTeams()
                   : Collections.singletonList(new CareTeam());
           for (CareTeam careTeam : careTeams) {
-            if (careTeam.getIdElement() != null
-                && careTeam.getIdElement().getIdPart() != null) {
+            if (careTeam.getIdElement() != null && careTeam.getIdElement().getIdPart() != null) {
               careTeamIds.add(careTeam.getIdElement().getIdPart());
             }
             careTeamIds.add(careTeam.getId());
@@ -363,8 +362,7 @@ public class PermissionAccessChecker implements AccessChecker {
                   ? practitionerDetails.getFhirPractitionerDetails().getLocations()
                   : Collections.singletonList(new Location());
           for (Location location : locations) {
-            if (location.getIdElement() != null
-                && location.getIdElement().getIdPart() != null) {
+            if (location.getIdElement() != null && location.getIdElement().getIdPart() != null) {
               locationIds.add(location.getIdElement().getIdPart());
             }
           }

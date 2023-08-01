@@ -15,25 +15,23 @@
  */
 package com.google.fhir.gateway;
 
-import static org.smartregister.utils.Constants.EMPTY_STRING;
+import static org.smartregister.utils.Constants.*;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
 import ca.uhn.fhir.rest.api.Constants;
+import ca.uhn.fhir.rest.param.*;
 import ca.uhn.fhir.rest.server.servlet.ServletRequestDetails;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
-import com.google.gson.Gson;
 import java.io.*;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.Charset;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
+import java.util.stream.Collectors;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
@@ -44,12 +42,13 @@ import org.apache.http.client.methods.RequestBuilder;
 import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.HttpClients;
-import org.hl7.fhir.r4.model.Bundle;
-import org.hl7.fhir.r4.model.CareTeam;
-import org.hl7.fhir.r4.model.Practitioner;
+import org.hl7.fhir.instance.model.api.IBaseResource;
+import org.hl7.fhir.r4.model.*;
+import org.jetbrains.annotations.NotNull;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.smartregister.model.location.LocationHierarchy;
 import org.smartregister.model.practitioner.FhirPractitionerDetails;
 import org.smartregister.model.practitioner.PractitionerDetails;
 import org.springframework.util.StreamUtils;
@@ -108,6 +107,9 @@ public abstract class HttpFhirClient {
 
   protected abstract Header getAuthHeader();
 
+  private FhirContext fhirR4Context = FhirContext.forR4();
+  private IParser fhirR4JsonParser = fhirR4Context.newJsonParser().setPrettyPrint(true);
+
   private void setUri(RequestBuilder builder, String resourcePath) {
     try {
       URI uri = getUriForResource(resourcePath);
@@ -164,32 +166,74 @@ public abstract class HttpFhirClient {
       List<Bundle.BundleEntryComponent> careTeamBundleEntryComponentList;
       List<CareTeam> careTeams = new ArrayList<>();
 
+      List<Bundle.BundleEntryComponent> managingOrganizationBundleEntryComponentList;
+      List<Organization> managingOrganizations = new ArrayList<>();
+
       if (StringUtils.isNotBlank(practitionerId)) {
         logger.info("Searching for care teams for practitioner with id: " + practitionerId);
         careTeamBundleEntryComponentList = getCareTeams(practitionerId);
         careTeams = mapToCareTeams(careTeamBundleEntryComponentList);
       }
+
+      if (careTeams.size() == 0) {
+
+        logger.info("Searching for Organizations tied with CareTeams: ");
+        managingOrganizationBundleEntryComponentList =
+            getManagingOrganizationsOfCareTeams(careTeams);
+        managingOrganizations = mapToOrganization(managingOrganizationBundleEntryComponentList);
+      }
+
+      logger.info("Searching for organizations of practitioner with id: " + practitionerId);
+      List<Bundle.BundleEntryComponent> organizationBundleEntryComponentList =
+          getOrganizationsOfPractitioner(practitionerId);
+      logger.info("Organizations are fetched");
+      List<Organization> teams = mapToOrganization(organizationBundleEntryComponentList);
+
+      List<Organization> bothOrganizations;
+      // Add items from Lists into Set
+      Set<Organization> set = new LinkedHashSet<>(managingOrganizations);
+      set.addAll(teams);
+      bothOrganizations = new ArrayList<>(set);
+
+      List<Bundle.BundleEntryComponent> practitionerRolesBundleEntryList =
+          getPractitionerRolesOfPractitioner(practitionerId);
+      logger.info("Practitioner Roles are fetched");
+      List<PractitionerRole> practitionerRoles =
+          mapToPractitionerRoles(practitionerRolesBundleEntryList);
+
+      List<Bundle.BundleEntryComponent> groupsBundleEntryList =
+          getGroupsAssignedToAPractitioner(practitionerId);
+      logger.info("Groups are fetched");
+      List<Group> groups = mapToGroups(groupsBundleEntryList);
+
+      logger.info("Searching for locations by organizations");
+      List<String> locationsIdReferences = getLocationIdentifiersByOrganizations(bothOrganizations);
+      List<String> locationIds = getLocationIdsFromReferences(locationsIdReferences);
+      List<String> locationsIdentifiers = getLocationIdentifiersByIds(locationIds);
+      logger.info("Searching for location hierarchy list by locations identifiers");
+      //      List<LocationHierarchy> locationHierarchyList =
+      //              getLocationsHierarchy(locationsIdentifiers);
+      //      fhirPractitionerDetails.setLocationHierarchyList(locationHierarchyList);
+      logger.info("Searching for locations by ids");
+      List<Location> locationsList = getLocationsByIds(locationIds);
+
       PractitionerDetails practitionerDetails = new PractitionerDetails();
       FhirPractitionerDetails fhirPractitionerDetails = new FhirPractitionerDetails();
       practitionerDetails.setId(practitionerId);
       fhirPractitionerDetails.setId(practitionerId);
       fhirPractitionerDetails.setCareTeams(careTeams);
+      fhirPractitionerDetails.setPractitioners(Arrays.asList(practitioner));
+      fhirPractitionerDetails.setGroups(groups);
+      fhirPractitionerDetails.setLocations(locationsList);
+      fhirPractitionerDetails.setLocationHierarchyList(Arrays.asList(new LocationHierarchy()));
+      fhirPractitionerDetails.setPractitionerRoles(practitionerRoles);
+      fhirPractitionerDetails.setOrganizationAffiliations(
+          Arrays.asList(new OrganizationAffiliation()));
+      fhirPractitionerDetails.setOrganizations(bothOrganizations);
+
       practitionerDetails.setFhirPractitionerDetails(fhirPractitionerDetails);
-      Gson gson = new Gson();
-      String practitionerDetailsJson = gson.toJson(practitionerDetails);
-      //      ObjectMapper objectMapper = new ObjectMapper();
-      // String practitionerDetailsJson = objectMapper.writeValueAsString(fhirPractitionerDetails);
-//      InputStream inputStream = objectToInputStream(practitionerDetails);
-//      String responseStringAA = StreamUtils.copyToString(inputStream, Charset.forName("UTF-8"));
-//      httpResponse.setEntity(
-//          new StringEntity(responseStringAA)); // Need this to reinstate the entity content
-
-      System.out.println(practitionerDetailsJson);
-
-      //
-      //
-            httpResponse.setEntity(
-                    new StringEntity(practitionerDetailsJson));
+      String resultContent = fhirR4JsonParser.encodeResourceToString(practitionerDetails);
+      httpResponse.setEntity(new StringEntity(resultContent));
       return httpResponse;
 
     } else if (request.getRequestPath().contains("LocationHierarchy")) {
@@ -313,9 +357,6 @@ public abstract class HttpFhirClient {
     RequestBuilder builder = RequestBuilder.create(httpMethod);
     HttpResponse httpResponse;
     setUri(builder, "CareTeam?participant=" + practitionerId);
-
-    //      copyRequiredHeaders(request, builder);
-    //      copyParameters(request, builder);
     httpResponse = sendRequest(builder);
     HttpEntity entity = httpResponse.getEntity();
 
@@ -340,21 +381,311 @@ public abstract class HttpFhirClient {
     return careTeamList;
   }
 
-  public final InputStream objectToInputStream(PractitionerDetails practitionerDetails) {
-    try {
-      ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-      ObjectOutputStream objectOutputStream = new ObjectOutputStream(byteArrayOutputStream);
-
-      objectOutputStream.writeObject(practitionerDetails);
-
-      objectOutputStream.flush();
-      objectOutputStream.close();
-
-      return new ByteArrayInputStream(byteArrayOutputStream.toByteArray());
-    } catch (IOException e) {
-      e.printStackTrace();
+  private List<Practitioner> mapToPractitioners(
+      List<Bundle.BundleEntryComponent> practitionerEntries) {
+    List<Practitioner> practitionerList = new ArrayList<>();
+    Practitioner practitioner;
+    for (Bundle.BundleEntryComponent practitionerEntry : practitionerEntries) {
+      practitioner = (Practitioner) practitionerEntry.getResource();
+      practitionerList.add(practitioner);
     }
+    return practitionerList;
+  }
 
-    return null;
+  private List<Bundle.BundleEntryComponent> getManagingOrganizationsOfCareTeams(
+      List<CareTeam> careTeamsList) throws IOException {
+    List<String> organizationIdReferences = new ArrayList<>();
+    List<Reference> managingOrganizations = new ArrayList<>();
+    for (CareTeam careTeam : careTeamsList) {
+      if (careTeam.hasManagingOrganization()) {
+        managingOrganizations.addAll(careTeam.getManagingOrganization());
+      }
+    }
+    for (Reference managingOrganization : managingOrganizations) {
+      if (managingOrganization != null && managingOrganization.getReference() != null) {
+        organizationIdReferences.add(managingOrganization.getReference());
+      }
+    }
+    return searchOrganizationsById(organizationIdReferences);
+  }
+
+  private List<Bundle.BundleEntryComponent> searchOrganizationsById(
+      List<String> organizationIdsReferences) throws IOException {
+    List<String> organizationIds = getOrganizationIdsFromReferences(organizationIdsReferences);
+    logger.info("Making a list of identifiers from organization identifiers");
+    Bundle organizationsBundle;
+    List<String> theIdList = new ArrayList<String>();
+    if (organizationIds.size() > 0) {
+      for (String organizationId : organizationIds) {
+        theIdList.add(organizationId);
+        logger.info("Added organization id : " + organizationId + " in a list");
+      }
+      logger.info(
+          "Now hitting organization search end point with the idslist param of size: "
+              + theIdList.size());
+      String httpMethod = "GET";
+      RequestBuilder builder = RequestBuilder.create(httpMethod);
+      HttpResponse httpResponse;
+      setUri(builder, "Organization?_id=" + theIdList);
+      httpResponse = sendRequest(builder);
+      HttpEntity entity = httpResponse.getEntity();
+
+      String responseString =
+          StreamUtils.copyToString(entity.getContent(), Charset.forName("UTF-8"));
+      httpResponse.setEntity(
+          new StringEntity(responseString)); // Need this to reinstate the entity content
+      FhirContext ctx = FhirContext.forR4();
+      IParser parser = ctx.newJsonParser();
+      organizationsBundle = parser.parseResource(Bundle.class, responseString);
+      List<Bundle.BundleEntryComponent> organizationEntries =
+          organizationsBundle != null ? organizationsBundle.getEntry() : new ArrayList<>();
+      return organizationEntries;
+    } else {
+      return new ArrayList<>();
+    }
+  }
+
+  private List<Organization> mapToOrganization(
+      List<Bundle.BundleEntryComponent> organizationEntries) {
+    List<Organization> organizationList = new ArrayList<>();
+    Organization organization;
+    for (Bundle.BundleEntryComponent organizationObj : organizationEntries) {
+      organization = (Organization) organizationObj.getResource();
+      organizationList.add(organization);
+    }
+    return organizationList;
+  }
+
+  private List<String> getOrganizationIdsFromReferences(List<String> organizationReferences) {
+    return getResourceIds(organizationReferences);
+  }
+
+  @NotNull
+  private List<String> getResourceIds(List<String> resourceReferences) {
+    List<String> resourceIds = new ArrayList<>();
+    for (String reference : resourceReferences) {
+      if (reference.contains(FORWARD_SLASH)) {
+        reference = reference.substring(reference.indexOf(FORWARD_SLASH) + 1);
+      }
+      resourceIds.add(reference);
+    }
+    return resourceIds;
+  }
+
+  private List<Bundle.BundleEntryComponent> getOrganizationsOfPractitioner(String practitionerId)
+      throws IOException {
+    List<String> organizationIdsReferences = getOrganizationIds(practitionerId);
+    logger.info(
+        "Organization Ids are retrieved, found to be of size: " + organizationIdsReferences.size());
+
+    return searchOrganizationsById(organizationIdsReferences);
+  }
+
+  private List<String> getOrganizationIds(String practitionerId) throws IOException {
+    List<Bundle.BundleEntryComponent> practitionerRolesBundleEntries =
+        getPractitionerRolesOfPractitioner(practitionerId);
+    List<String> organizationIdsString = new ArrayList<>();
+    if (practitionerRolesBundleEntries.size() > 0) {
+      for (Bundle.BundleEntryComponent practitionerRoleEntryComponent :
+          practitionerRolesBundleEntries) {
+        PractitionerRole pRole = (PractitionerRole) practitionerRoleEntryComponent.getResource();
+        if (pRole != null
+            && pRole.getOrganization() != null
+            && pRole.getOrganization().getReference() != null) {
+          organizationIdsString.add(pRole.getOrganization().getReference());
+        }
+      }
+    }
+    return organizationIdsString;
+  }
+
+  private List<Bundle.BundleEntryComponent> getPractitionerRolesOfPractitioner(
+      String practitionerId) throws IOException {
+    String httpMethod = "GET";
+    RequestBuilder builder = RequestBuilder.create(httpMethod);
+    HttpResponse httpResponse;
+    setUri(builder, "PractitionerRole?practitioner=" + practitionerId);
+    httpResponse = sendRequest(builder);
+    HttpEntity entity = httpResponse.getEntity();
+
+    String responseString = StreamUtils.copyToString(entity.getContent(), Charset.forName("UTF-8"));
+    httpResponse.setEntity(
+        new StringEntity(responseString)); // Need this to reinstate the entity content
+    FhirContext ctx = FhirContext.forR4();
+    IParser parser = ctx.newJsonParser();
+    Bundle practitionerRoleBundle = parser.parseResource(Bundle.class, responseString);
+    List<Bundle.BundleEntryComponent> practitionerRoleEntries =
+        practitionerRoleBundle != null ? practitionerRoleBundle.getEntry() : new ArrayList<>();
+    return practitionerRoleEntries;
+  }
+
+  private List<PractitionerRole> mapToPractitionerRoles(
+      List<Bundle.BundleEntryComponent> practitionerRoles) {
+
+    List<PractitionerRole> practitionerRoleList = new ArrayList<>();
+    PractitionerRole practitionerRole;
+    for (Bundle.BundleEntryComponent practitionerRoleObj : practitionerRoles) {
+      practitionerRole = (PractitionerRole) practitionerRoleObj.getResource();
+      practitionerRoleList.add(practitionerRole);
+    }
+    return practitionerRoleList;
+  }
+
+  private List<Bundle.BundleEntryComponent> getGroupsAssignedToAPractitioner(String practitionerId)
+      throws IOException {
+    String httpMethod = "GET";
+    RequestBuilder builder = RequestBuilder.create(httpMethod);
+    HttpResponse httpResponse;
+    setUri(builder, "Group?code=405623001&member" + practitionerId);
+    httpResponse = sendRequest(builder);
+    HttpEntity entity = httpResponse.getEntity();
+
+    String responseString = StreamUtils.copyToString(entity.getContent(), Charset.forName("UTF-8"));
+    httpResponse.setEntity(
+        new StringEntity(responseString)); // Need this to reinstate the entity content
+    FhirContext ctx = FhirContext.forR4();
+    IParser parser = ctx.newJsonParser();
+    Bundle groupsBundle = parser.parseResource(Bundle.class, responseString);
+    List<Bundle.BundleEntryComponent> groupsEntries =
+        groupsBundle != null ? groupsBundle.getEntry() : new ArrayList<>();
+    return groupsEntries;
+  }
+
+  private List<Group> mapToGroups(List<Bundle.BundleEntryComponent> groupsEntries) {
+    List<Group> groupList = new ArrayList<>();
+    Group groupObj;
+    for (Bundle.BundleEntryComponent groupEntry : groupsEntries) {
+      groupObj = (Group) groupEntry.getResource();
+      groupList.add(groupObj);
+    }
+    return groupList;
+  }
+
+  private List<String> getLocationIdentifiersByOrganizations(List<Organization> organizations)
+      throws IOException {
+    List<String> locationsIdentifiers = new ArrayList<>();
+    Set<String> locationsIdentifiersSet = new HashSet<>();
+    logger.info("Traversing organizations");
+    for (Organization team : organizations) {
+      String httpMethod = "GET";
+      RequestBuilder builder = RequestBuilder.create(httpMethod);
+      HttpResponse httpResponse;
+
+      logger.info("Searching organization affiliation from organization id: " + team.getId());
+
+      setUri(builder, "OrganizationAffiliation?primary-organization=" + team.getId());
+      httpResponse = sendRequest(builder);
+      HttpEntity entity = httpResponse.getEntity();
+
+      String responseString =
+          StreamUtils.copyToString(entity.getContent(), Charset.forName("UTF-8"));
+      httpResponse.setEntity(
+          new StringEntity(responseString)); // Need this to reinstate the entity content
+      FhirContext ctx = FhirContext.forR4();
+      IParser parser = ctx.newJsonParser();
+      Bundle organizationAffiliationBundle = parser.parseResource(Bundle.class, responseString);
+      List<Bundle.BundleEntryComponent> organizationAffiliationEntries =
+          organizationAffiliationBundle != null
+              ? organizationAffiliationBundle.getEntry()
+              : new ArrayList<>();
+      List<OrganizationAffiliation> organizationAffiliations =
+          mapToOrganizationAffiliation(organizationAffiliationEntries);
+      OrganizationAffiliation organizationAffiliationObj;
+      if (organizationAffiliations.size() > 0) {
+        for (IBaseResource organizationAffiliation : organizationAffiliations) {
+          organizationAffiliationObj = (OrganizationAffiliation) organizationAffiliation;
+          List<Reference> locationList = organizationAffiliationObj.getLocation();
+          for (Reference location : locationList) {
+            if (location != null
+                && location.getReference() != null
+                && locationsIdentifiersSet != null) {
+              locationsIdentifiersSet.add(location.getReference());
+            }
+          }
+        }
+      }
+    }
+    locationsIdentifiers = new ArrayList<>(locationsIdentifiersSet);
+    return locationsIdentifiers;
+  }
+
+  private List<OrganizationAffiliation> mapToOrganizationAffiliation(
+      List<Bundle.BundleEntryComponent> organnizationAffiliationEntries) {
+    List<OrganizationAffiliation> organizationAffiliationList = new ArrayList<>();
+    OrganizationAffiliation organizationAffiliation;
+    for (Bundle.BundleEntryComponent organizationAffiliationEntry :
+        organnizationAffiliationEntries) {
+      organizationAffiliation =
+          (OrganizationAffiliation) organizationAffiliationEntry.getResource();
+      organizationAffiliationList.add(organizationAffiliation);
+    }
+    return organizationAffiliationList;
+  }
+
+  private List<String> getLocationIdsFromReferences(List<String> locationReferences) {
+    return getResourceIds(locationReferences);
+  }
+
+  private List<String> getLocationIdentifiersByIds(List<String> locationIds) throws IOException {
+    List<String> locationsIdentifiers = new ArrayList<>();
+    for (String locationId : locationIds) {
+      List<Location> locationsResources = generateLocationResource(locationId);
+      for (Location locationResource : locationsResources) {
+        locationsIdentifiers.addAll(
+            locationResource.getIdentifier().stream()
+                .map(this::getLocationIdentifierValue)
+                .collect(Collectors.toList()));
+      }
+    }
+    return locationsIdentifiers;
+  }
+
+  private List<Location> generateLocationResource(String locationId) throws IOException {
+    String httpMethod = "GET";
+    RequestBuilder builder = RequestBuilder.create(httpMethod);
+    HttpResponse httpResponse;
+    setUri(builder, "Location?_id" + locationId);
+    httpResponse = sendRequest(builder);
+    HttpEntity entity = httpResponse.getEntity();
+
+    String responseString = StreamUtils.copyToString(entity.getContent(), Charset.forName("UTF-8"));
+    httpResponse.setEntity(
+        new StringEntity(responseString)); // Need this to reinstate the entity content
+    FhirContext ctx = FhirContext.forR4();
+    IParser parser = ctx.newJsonParser();
+    Bundle locationBundle = parser.parseResource(Bundle.class, responseString);
+    List<Bundle.BundleEntryComponent> locationEntries =
+        locationBundle != null ? locationBundle.getEntry() : new ArrayList<>();
+    return mapToLocation(locationEntries);
+  }
+
+  private List<Location> mapToLocation(List<Bundle.BundleEntryComponent> locationEntries) {
+    List<Location> locationsList = new ArrayList<>();
+    Location organizationAffiliation;
+    for (Bundle.BundleEntryComponent locationEntry : locationEntries) {
+      organizationAffiliation = (Location) locationEntry.getResource();
+      locationsList.add(organizationAffiliation);
+    }
+    return locationsList;
+  }
+
+  private String getLocationIdentifierValue(Identifier locationIdentifier) {
+    if (locationIdentifier.getUse() != null
+        && locationIdentifier.getUse().equals(Identifier.IdentifierUse.OFFICIAL)) {
+      return locationIdentifier.getValue();
+    }
+    return EMPTY_STRING;
+  }
+
+  private List<Location> getLocationsByIds(List<String> locationIds) throws IOException {
+    List<Location> locations = new ArrayList<>();
+    for (String locationId : locationIds) {
+      Location location;
+      for (IBaseResource locationResource : generateLocationResource(locationId)) {
+        location = (Location) locationResource;
+        locations.add(location);
+      }
+    }
+    return locations;
   }
 }
