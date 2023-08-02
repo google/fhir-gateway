@@ -426,7 +426,8 @@ public abstract class HttpFhirClient {
       String httpMethod = "GET";
       RequestBuilder builder = RequestBuilder.create(httpMethod);
       HttpResponse httpResponse;
-      setUri(builder, "Organization?_id=" + theIdList);
+      String ids = getCommaSeparatedList(theIdList);
+      setUri(builder, "Organization?_id=" + ids);
       httpResponse = sendRequest(builder);
       HttpEntity entity = httpResponse.getEntity();
 
@@ -536,7 +537,7 @@ public abstract class HttpFhirClient {
     String httpMethod = "GET";
     RequestBuilder builder = RequestBuilder.create(httpMethod);
     HttpResponse httpResponse;
-    setUri(builder, "Group?code=405623001&member" + practitionerId);
+    setUri(builder, "Group?code=405623001&member=" + practitionerId);
     httpResponse = sendRequest(builder);
     HttpEntity entity = httpResponse.getEntity();
 
@@ -687,5 +688,14 @@ public abstract class HttpFhirClient {
       }
     }
     return locations;
+  }
+
+  public static String getCommaSeparatedList(List<String> numbers) {
+    StringBuilder commaSeparatedList = new StringBuilder();
+    for (String number : numbers) {
+      commaSeparatedList.append(number).append(",");
+    }
+    commaSeparatedList.delete(commaSeparatedList.length() - 1, commaSeparatedList.length());
+    return commaSeparatedList.toString();
   }
 }
