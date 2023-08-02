@@ -15,8 +15,6 @@
  */
 package com.google.fhir.gateway.plugin;
 
-import static com.google.fhir.gateway.plugin.PermissionAccessChecker.Factory.PROXY_TO_ENV;
-
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
 import ca.uhn.fhir.rest.api.RequestTypeEnum;
@@ -33,7 +31,6 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -42,8 +39,6 @@ import javax.annotation.Nullable;
 import lombok.Getter;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.tuple.ImmutablePair;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.http.HttpResponse;
 import org.apache.http.impl.client.BasicResponseHandler;
 import org.apache.http.util.TextUtils;
@@ -56,41 +51,55 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class OpenSRPSyncAccessDecision implements AccessDecision {
+public class SyncAccessDecision implements AccessDecision {
   public static final String SYNC_FILTER_IGNORE_RESOURCES_FILE_ENV =
       "SYNC_FILTER_IGNORE_RESOURCES_FILE";
   public static final String MATCHES_ANY_VALUE = "ANY_VALUE";
-  private static final Logger logger = LoggerFactory.getLogger(OpenSRPSyncAccessDecision.class);
+  private static final Logger logger = LoggerFactory.getLogger(SyncAccessDecision.class);
   private static final int LENGTH_OF_SEARCH_PARAM_AND_EQUALS = 5;
-  private final List<String> syncStrategy;
+  private final String syncStrategy;
   private final String applicationId;
   private final boolean accessGranted;
-
   private final List<String> careTeamIds;
-
   private final List<String> locationIds;
-
   private final List<String> organizationIds;
+  private final List<String> roles;
   private IgnoredResourcesConfig config;
+  private String keycloakUUID;
   private Gson gson = new Gson();
-
   private FhirContext fhirR4Context = FhirContext.forR4();
   private IParser fhirR4JsonParser = fhirR4Context.newJsonParser();
+  private IGenericClient fhirR4Client;
 
-  public OpenSRPSyncAccessDecision(
+  private PractitionerDetailsEndpointHelper practitionerDetailsEndpointHelper;
+
+  public SyncAccessDecision(
+      String keycloakUUID,
       String applicationId,
       boolean accessGranted,
       List<String> locationIds,
       List<String> careTeamIds,
       List<String> organizationIds,
-      List<String> syncStrategy) {
+      String syncStrategy,
+      List<String> roles) {
+    this.keycloakUUID = keycloakUUID;
     this.applicationId = applicationId;
     this.accessGranted = accessGranted;
     this.careTeamIds = careTeamIds;
     this.locationIds = locationIds;
     this.organizationIds = organizationIds;
     this.syncStrategy = syncStrategy;
-    config = getSkippedResourcesConfigs();
+    this.config = getSkippedResourcesConfigs();
+    this.roles = roles;
+    try {
+      setFhirR4Client(
+          fhirR4Context.newRestfulGenericClient(
+              System.getenv(PermissionAccessChecker.Factory.PROXY_TO_ENV)));
+    } catch (NullPointerException e) {
+      logger.error(e.getMessage());
+    }
+
+    this.practitionerDetailsEndpointHelper = new PractitionerDetailsEndpointHelper(fhirR4Client);
   }
 
   @Override
@@ -122,7 +131,10 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
             addSyncFilters(getSyncTags(locationIds, careTeamIds, organizationIds));
         requestMutation =
             RequestMutation.builder()
-                .queryParams(Map.of(ProxyConstants.TAG_SEARCH_PARAM, syncFilterParameterValues))
+                .queryParams(
+                    Map.of(
+                        ProxyConstants.TAG_SEARCH_PARAM,
+                        Arrays.asList(StringUtils.join(syncFilterParameterValues, ","))))
                 .build();
       }
     }
@@ -137,14 +149,13 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
    * @param syncTags
    * @return the extra query Parameter values
    */
-  private List<String> addSyncFilters(Pair<String, Map<String, String[]>> syncTags) {
+  private List<String> addSyncFilters(Map<String, String[]> syncTags) {
     List<String> paramValues = new ArrayList<>();
-    Collections.addAll(
-        paramValues,
-        syncTags
-            .getKey()
-            .substring(LENGTH_OF_SEARCH_PARAM_AND_EQUALS)
-            .split(ProxyConstants.PARAM_VALUES_SEPARATOR));
+
+    for (var entry : syncTags.entrySet()) {
+      paramValues.add(PractitionerDetailsEndpointHelper.createSearchTagValues(entry));
+    }
+
     return paramValues;
   }
 
@@ -181,7 +192,20 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
         resultContent = fhirR4JsonParser.encodeResourceToString(resultContentBundle);
     }
 
+    if (includeAttributedPractitioners(request.getRequestPath())) {
+      Bundle practitionerDetailsBundle =
+          this.practitionerDetailsEndpointHelper.getSupervisorPractitionerDetailsByKeycloakId(
+              keycloakUUID);
+      resultContent = fhirR4JsonParser.encodeResourceToString(practitionerDetailsBundle);
+    }
+
     return resultContent;
+  }
+
+  private boolean includeAttributedPractitioners(String requestPath) {
+    return Constants.SYNC_STRATEGY_LOCATION.equalsIgnoreCase(syncStrategy)
+        && roles.contains(Constants.ROLE_SUPERVISOR)
+        && Constants.ENDPOINT_PRACTITIONER_DETAILS.equals(requestPath);
   }
 
   @NotNull
@@ -264,7 +288,7 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
       requestBundle = processListEntriesGatewayModeByBundle(responseResource);
     }
 
-    return createFhirClientForR4().transaction().withBundle(requestBundle).execute();
+    return fhirR4Client.transaction().withBundle(requestBundle).execute();
   }
 
   /**
@@ -276,7 +300,7 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
    * @param organizationIds
    * @return Pair of URL to [Code.url, [Code.Value]] map. The URL is complete url
    */
-  private Pair<String, Map<String, String[]>> getSyncTags(
+  private Map<String, String[]> getSyncTags(
       List<String> locationIds, List<String> careTeamIds, List<String> organizationIds) {
     StringBuilder sb = new StringBuilder();
     Map<String, String[]> map = new HashMap<>();
@@ -288,7 +312,7 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
     addTags(ProxyConstants.ORGANISATION_TAG_URL, organizationIds, map, sb);
     addTags(ProxyConstants.CARE_TEAM_TAG_URL, careTeamIds, map, sb);
 
-    return new ImmutablePair<>(sb.toString(), map);
+    return map;
   }
 
   private void addTags(
@@ -415,10 +439,6 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
     return false;
   }
 
-  private IGenericClient createFhirClientForR4() {
-    return fhirR4Context.newRestfulGenericClient(System.getenv(PROXY_TO_ENV));
-  }
-
   @VisibleForTesting
   protected void setSkippedResourcesConfig(IgnoredResourcesConfig config) {
     this.config = config;
@@ -427,6 +447,11 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
   @VisibleForTesting
   protected void setFhirR4Context(FhirContext fhirR4Context) {
     this.fhirR4Context = fhirR4Context;
+  }
+
+  @VisibleForTesting
+  public void setFhirR4Client(IGenericClient fhirR4Client) {
+    this.fhirR4Client = fhirR4Client;
   }
 
   class IgnoredResourcesConfig {
@@ -450,5 +475,8 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
   public static final class Constants {
     public static final String FHIR_GATEWAY_MODE = "fhir-gateway-mode";
     public static final String LIST_ENTRIES = "list-entries";
+    public static final String ROLE_SUPERVISOR = "SUPERVISOR";
+    public static final String ENDPOINT_PRACTITIONER_DETAILS = "practitioner-details";
+    public static final String SYNC_STRATEGY_LOCATION = "Location";
   }
 }
