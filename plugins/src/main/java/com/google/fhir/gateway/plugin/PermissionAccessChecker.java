@@ -46,7 +46,7 @@ public class PermissionAccessChecker implements AccessChecker {
   private static final Logger logger = LoggerFactory.getLogger(PermissionAccessChecker.class);
   private final ResourceFinder resourceFinder;
   private final List<String> userRoles;
-  private OpenSRPSyncAccessDecision openSRPSyncAccessDecision;
+  private SyncAccessDecision syncAccessDecision;
 
   private PermissionAccessChecker(
       String keycloakUUID,
@@ -66,8 +66,8 @@ public class PermissionAccessChecker implements AccessChecker {
     Preconditions.checkNotNull(syncStrategy);
     this.resourceFinder = resourceFinder;
     this.userRoles = userRoles;
-    this.openSRPSyncAccessDecision =
-        new OpenSRPSyncAccessDecision(
+    this.syncAccessDecision =
+        new SyncAccessDecision(
             keycloakUUID,
             applicationId,
             true,
@@ -123,7 +123,7 @@ public class PermissionAccessChecker implements AccessChecker {
   }
 
   private AccessDecision getAccessDecision(boolean userHasRole) {
-    return userHasRole ? openSRPSyncAccessDecision : NoOpAccessDecision.accessDenied();
+    return userHasRole ? syncAccessDecision : NoOpAccessDecision.accessDenied();
   }
 
   private AccessDecision processPost(boolean userHasRole) {

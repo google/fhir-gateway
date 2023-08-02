@@ -52,7 +52,7 @@ import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnitRunner;
 
 @RunWith(MockitoJUnitRunner.class)
-public class OpenSRPSyncAccessDecisionTest {
+public class SyncAccessDecisionTest {
 
   private List<String> locationIds = new ArrayList<>();
 
@@ -62,7 +62,7 @@ public class OpenSRPSyncAccessDecisionTest {
 
   private List<String> userRoles = new ArrayList<>();
 
-  private OpenSRPSyncAccessDecision testInstance;
+  private SyncAccessDecision testInstance;
 
   @Test
   public void
@@ -71,7 +71,7 @@ public class OpenSRPSyncAccessDecisionTest {
     careTeamIds.add("my-careteam-id");
     organisationIds.add("my-organization-id");
 
-    testInstance = createOpenSRPSyncAccessDecisionTestInstance();
+    testInstance = createSyncAccessDecisionTestInstance();
 
     RequestDetails requestDetails = new ServletRequestDetails();
     requestDetails.setRequestType(RequestTypeEnum.GET);
@@ -141,7 +141,7 @@ public class OpenSRPSyncAccessDecisionTest {
       throws IOException {
     locationIds.add("locationid12");
     locationIds.add("locationid2");
-    testInstance = createOpenSRPSyncAccessDecisionTestInstance();
+    testInstance = createSyncAccessDecisionTestInstance();
 
     RequestDetails requestDetails = new ServletRequestDetails();
     requestDetails.setRequestType(RequestTypeEnum.GET);
@@ -176,7 +176,7 @@ public class OpenSRPSyncAccessDecisionTest {
       throws IOException {
     careTeamIds.add("careteamid1");
     careTeamIds.add("careteamid2");
-    testInstance = createOpenSRPSyncAccessDecisionTestInstance();
+    testInstance = createSyncAccessDecisionTestInstance();
 
     RequestDetails requestDetails = new ServletRequestDetails();
     requestDetails.setRequestType(RequestTypeEnum.GET);
@@ -212,7 +212,7 @@ public class OpenSRPSyncAccessDecisionTest {
       throws IOException {
     organisationIds.add("organizationid1");
     organisationIds.add("organizationid2");
-    testInstance = createOpenSRPSyncAccessDecisionTestInstance();
+    testInstance = createSyncAccessDecisionTestInstance();
 
     RequestDetails requestDetails = new ServletRequestDetails();
     requestDetails.setRequestType(RequestTypeEnum.GET);
@@ -245,7 +245,7 @@ public class OpenSRPSyncAccessDecisionTest {
   public void preProcessShouldAddFiltersWhenResourceNotInSyncFilterIgnoredResourcesFile() {
     organisationIds.add("organizationid1");
     organisationIds.add("organizationid2");
-    testInstance = createOpenSRPSyncAccessDecisionTestInstance();
+    testInstance = createSyncAccessDecisionTestInstance();
 
     RequestDetails requestDetails = new ServletRequestDetails();
     requestDetails.setRequestType(RequestTypeEnum.GET);
@@ -277,7 +277,7 @@ public class OpenSRPSyncAccessDecisionTest {
   public void preProcessShouldSkipAddingFiltersWhenResourceInSyncFilterIgnoredResourcesFile() {
     organisationIds.add("organizationid1");
     organisationIds.add("organizationid2");
-    testInstance = createOpenSRPSyncAccessDecisionTestInstance();
+    testInstance = createSyncAccessDecisionTestInstance();
 
     RequestDetails requestDetails = new ServletRequestDetails();
     requestDetails.setRequestType(RequestTypeEnum.GET);
@@ -302,7 +302,7 @@ public class OpenSRPSyncAccessDecisionTest {
       preProcessShouldSkipAddingFiltersWhenSearchResourceByIdsInSyncFilterIgnoredResourcesFile() {
     organisationIds.add("organizationid1");
     organisationIds.add("organizationid2");
-    testInstance = createOpenSRPSyncAccessDecisionTestInstance();
+    testInstance = createSyncAccessDecisionTestInstance();
 
     RequestDetails requestDetails = new ServletRequestDetails();
     requestDetails.setRequestType(RequestTypeEnum.GET);
@@ -333,7 +333,7 @@ public class OpenSRPSyncAccessDecisionTest {
       preProcessShouldAddFiltersWhenSearchResourceByIdsDoNotMatchSyncFilterIgnoredResources() {
     organisationIds.add("organizationid1");
     organisationIds.add("organizationid2");
-    testInstance = createOpenSRPSyncAccessDecisionTestInstance();
+    testInstance = createSyncAccessDecisionTestInstance();
 
     RequestDetails requestDetails = new ServletRequestDetails();
     requestDetails.setRequestType(RequestTypeEnum.GET);
@@ -370,7 +370,7 @@ public class OpenSRPSyncAccessDecisionTest {
 
   @Test(expected = RuntimeException.class)
   public void preprocessShouldThrowRuntimeExceptionWhenNoSyncStrategyFilterIsProvided() {
-    testInstance = createOpenSRPSyncAccessDecisionTestInstance();
+    testInstance = createSyncAccessDecisionTestInstance();
 
     RequestDetails requestDetails = new ServletRequestDetails();
     requestDetails.setRequestType(RequestTypeEnum.GET);
@@ -387,7 +387,7 @@ public class OpenSRPSyncAccessDecisionTest {
   @Test
   public void testPostProcessWithListModeHeaderShouldFetchListEntriesBundle() throws IOException {
     locationIds.add("Location-1");
-    testInstance = Mockito.spy(createOpenSRPSyncAccessDecisionTestInstance());
+    testInstance = Mockito.spy(createSyncAccessDecisionTestInstance());
 
     FhirContext fhirR4Context = mock(FhirContext.class);
     IGenericClient iGenericClient = mock(IGenericClient.class);
@@ -411,8 +411,8 @@ public class OpenSRPSyncAccessDecisionTest {
 
     RequestDetailsReader requestDetailsSpy = Mockito.mock(RequestDetailsReader.class);
 
-    Mockito.when(requestDetailsSpy.getHeader(OpenSRPSyncAccessDecision.Constants.FHIR_GATEWAY_MODE))
-        .thenReturn(OpenSRPSyncAccessDecision.Constants.LIST_ENTRIES);
+    Mockito.when(requestDetailsSpy.getHeader(SyncAccessDecision.Constants.FHIR_GATEWAY_MODE))
+        .thenReturn(SyncAccessDecision.Constants.LIST_ENTRIES);
 
     URL listUrl = Resources.getResource("test_list_resource.json");
     String testListJson = Resources.toString(listUrl, StandardCharsets.UTF_8);
@@ -449,10 +449,10 @@ public class OpenSRPSyncAccessDecisionTest {
 
   @Test
   public void testPostProcessWithoutListModeHeaderShouldShouldReturnNull() throws IOException {
-    testInstance = createOpenSRPSyncAccessDecisionTestInstance();
+    testInstance = createSyncAccessDecisionTestInstance();
 
     RequestDetailsReader requestDetailsSpy = Mockito.mock(RequestDetailsReader.class);
-    Mockito.when(requestDetailsSpy.getHeader(OpenSRPSyncAccessDecision.Constants.FHIR_GATEWAY_MODE))
+    Mockito.when(requestDetailsSpy.getHeader(SyncAccessDecision.Constants.FHIR_GATEWAY_MODE))
         .thenReturn("");
 
     String resultContent =
@@ -466,7 +466,7 @@ public class OpenSRPSyncAccessDecisionTest {
   public void testPostProcessWithListModeHeaderSearchByTagShouldFetchListEntriesBundle()
       throws IOException {
     locationIds.add("Location-1");
-    testInstance = Mockito.spy(createOpenSRPSyncAccessDecisionTestInstance());
+    testInstance = Mockito.spy(createSyncAccessDecisionTestInstance());
 
     FhirContext fhirR4Context = mock(FhirContext.class);
     IGenericClient iGenericClient = mock(IGenericClient.class);
@@ -488,8 +488,8 @@ public class OpenSRPSyncAccessDecisionTest {
 
     RequestDetailsReader requestDetailsSpy = Mockito.mock(RequestDetailsReader.class);
 
-    Mockito.when(requestDetailsSpy.getHeader(OpenSRPSyncAccessDecision.Constants.FHIR_GATEWAY_MODE))
-        .thenReturn(OpenSRPSyncAccessDecision.Constants.LIST_ENTRIES);
+    Mockito.when(requestDetailsSpy.getHeader(SyncAccessDecision.Constants.FHIR_GATEWAY_MODE))
+        .thenReturn(SyncAccessDecision.Constants.LIST_ENTRIES);
 
     URL listUrl = Resources.getResource("test_list_resource.json");
     String testListJson = Resources.toString(listUrl, StandardCharsets.UTF_8);
@@ -544,9 +544,9 @@ public class OpenSRPSyncAccessDecisionTest {
     organisationIds.clear();
   }
 
-  private OpenSRPSyncAccessDecision createOpenSRPSyncAccessDecisionTestInstance() {
-    OpenSRPSyncAccessDecision accessDecision =
-        new OpenSRPSyncAccessDecision(
+  private SyncAccessDecision createSyncAccessDecisionTestInstance() {
+    SyncAccessDecision accessDecision =
+        new SyncAccessDecision(
             "sample-keycloak-id",
             "sample-application-id",
             true,
@@ -557,7 +557,7 @@ public class OpenSRPSyncAccessDecisionTest {
             userRoles);
 
     URL configFileUrl = Resources.getResource("hapi_sync_filter_ignored_queries.json");
-    OpenSRPSyncAccessDecision.IgnoredResourcesConfig skippedDataFilterConfig =
+    SyncAccessDecision.IgnoredResourcesConfig skippedDataFilterConfig =
         accessDecision.getIgnoredResourcesConfigFileConfiguration(configFileUrl.getPath());
     accessDecision.setSkippedResourcesConfig(skippedDataFilterConfig);
     return accessDecision;

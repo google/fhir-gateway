@@ -51,11 +51,11 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class OpenSRPSyncAccessDecision implements AccessDecision {
+public class SyncAccessDecision implements AccessDecision {
   public static final String SYNC_FILTER_IGNORE_RESOURCES_FILE_ENV =
       "SYNC_FILTER_IGNORE_RESOURCES_FILE";
   public static final String MATCHES_ANY_VALUE = "ANY_VALUE";
-  private static final Logger logger = LoggerFactory.getLogger(OpenSRPSyncAccessDecision.class);
+  private static final Logger logger = LoggerFactory.getLogger(SyncAccessDecision.class);
   private static final int LENGTH_OF_SEARCH_PARAM_AND_EQUALS = 5;
   private final String syncStrategy;
   private final String applicationId;
@@ -73,7 +73,7 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
 
   private PractitionerDetailsEndpointHelper practitionerDetailsEndpointHelper;
 
-  public OpenSRPSyncAccessDecision(
+  public SyncAccessDecision(
       String keycloakUUID,
       String applicationId,
       boolean accessGranted,
