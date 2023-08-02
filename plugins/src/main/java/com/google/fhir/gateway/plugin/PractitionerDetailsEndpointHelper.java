@@ -33,14 +33,15 @@ import org.smartregister.model.practitioner.PractitionerDetails;
 import org.smartregister.utils.Constants;
 import org.springframework.lang.Nullable;
 
-public class OpenSRPHelper {
-  private static final Logger logger = LoggerFactory.getLogger(OpenSRPHelper.class);
+public class PractitionerDetailsEndpointHelper {
+  private static final Logger logger =
+      LoggerFactory.getLogger(PractitionerDetailsEndpointHelper.class);
   public static final String PRACTITIONER_GROUP_CODE = "405623001";
   public static final String HTTP_SNOMED_INFO_SCT = "http://snomed.info/sct";
   public static final Bundle EMPTY_BUNDLE = new Bundle();
   private IGenericClient r4FhirClient;
 
-  public OpenSRPHelper(IGenericClient fhirClient) {
+  public PractitionerDetailsEndpointHelper(IGenericClient fhirClient) {
     this.r4FhirClient = fhirClient;
   }
 

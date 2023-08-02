@@ -71,7 +71,7 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
   private IParser fhirR4JsonParser = fhirR4Context.newJsonParser();
   private IGenericClient fhirR4Client;
 
-  private OpenSRPHelper openSRPHelper;
+  private PractitionerDetailsEndpointHelper practitionerDetailsEndpointHelper;
 
   public OpenSRPSyncAccessDecision(
       String keycloakUUID,
@@ -99,7 +99,7 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
       logger.error(e.getMessage());
     }
 
-    this.openSRPHelper = new OpenSRPHelper(fhirR4Client);
+    this.practitionerDetailsEndpointHelper = new PractitionerDetailsEndpointHelper(fhirR4Client);
   }
 
   @Override
@@ -153,7 +153,7 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
     List<String> paramValues = new ArrayList<>();
 
     for (var entry : syncTags.entrySet()) {
-      paramValues.add(OpenSRPHelper.createSearchTagValues(entry));
+      paramValues.add(PractitionerDetailsEndpointHelper.createSearchTagValues(entry));
     }
 
     return paramValues;
@@ -194,7 +194,8 @@ public class OpenSRPSyncAccessDecision implements AccessDecision {
 
     if (includeAttributedPractitioners(request.getRequestPath())) {
       Bundle practitionerDetailsBundle =
-          this.openSRPHelper.getSupervisorPractitionerDetailsByKeycloakId(keycloakUUID);
+          this.practitionerDetailsEndpointHelper.getSupervisorPractitionerDetailsByKeycloakId(
+              keycloakUUID);
       resultContent = fhirR4JsonParser.encodeResourceToString(practitionerDetailsBundle);
     }
 

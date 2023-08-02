@@ -346,7 +346,7 @@ public class PermissionAccessChecker implements AccessChecker {
           locationIds =
               practitionerDetails != null
                       && practitionerDetails.getFhirPractitionerDetails() != null
-                  ? OpenSRPHelper.getAttributedLocations(
+                  ? PractitionerDetailsEndpointHelper.getAttributedLocations(
                       practitionerDetails.getFhirPractitionerDetails().getLocationHierarchyList())
                   : locationIds;
         }
