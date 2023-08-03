@@ -15,15 +15,15 @@
  */
 package com.google.fhir.gateway;
 
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.boot.web.servlet.ServletComponentScan;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RestController;
 
-@SpringBootApplication(scanBasePackages = {"com.google.fhir.gateway"})
-@ServletComponentScan(basePackages = "com.google.fhir.gateway")
-public class MainApp {
+@RestController
+public class TestRestController {
 
-  public static void main(String[] args) {
-    SpringApplication.run(MainApp.class, args);
+  @PostMapping("/Test")
+  String test(@RequestBody String data) {
+    return "Testing";
   }
 }
