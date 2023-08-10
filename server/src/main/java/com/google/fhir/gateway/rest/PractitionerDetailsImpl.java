@@ -139,7 +139,6 @@ public class PractitionerDetailsImpl {
     fhirPractitionerDetails.setPractitioners(Arrays.asList(practitioner));
     fhirPractitionerDetails.setGroups(groupsList);
     fhirPractitionerDetails.setLocations(locationsList);
-    fhirPractitionerDetails.setLocationHierarchyList(Arrays.asList(new LocationHierarchy()));
     fhirPractitionerDetails.setPractitionerRoles(practitionerRoleList);
     fhirPractitionerDetails.setOrganizationAffiliations(organizationAffiliations);
     fhirPractitionerDetails.setOrganizations(bothOrganizations);
