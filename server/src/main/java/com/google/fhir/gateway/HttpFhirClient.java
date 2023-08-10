@@ -134,31 +134,9 @@ public abstract class HttpFhirClient {
     RequestBuilder builder = RequestBuilder.create(httpMethod);
     HttpResponse httpResponse;
     if (request.getRequestPath().contains(PRACTITIONER_DETAILS)) {
-      //      HttpResponseFactory factory = new DefaultHttpResponseFactory();
-      //      httpResponse = factory.newHttpResponse(new BasicStatusLine(HttpVersion.HTTP_1_1,
-      // HttpStatus.SC_OK, null), null);
-
       httpResponse =
           new BasicHttpResponse(new BasicStatusLine(HttpVersion.HTTP_1_1, HttpStatus.SC_OK, null));
       String keycloakUuidRequestParam = request.getParameters().get(KEYCLOAK_UUID)[0].toString();
-      //      setUri(
-      //          builder,
-      //          PRACTITONER_RESOURCE_PATH
-      //              + QUESTION_MARK
-      //              + IDENTIFIER
-      //              + EQUALS_TO_SIGN
-      //              + keycloakUuidRequestParam);
-      //      byte[] requestContent = request.loadRequestContents();
-      //      if (requestContent != null && requestContent.length > 0) {
-      //        String contentType = request.getHeader("Content-Type");
-      //        if (contentType == null) {
-      //          ExceptionUtil.throwRuntimeExceptionAndLog(
-      //              logger, "Content-Type header should be set for requests with body.");
-      //        }
-      //        builder.setEntity(new ByteArrayEntity(requestContent));
-      //      }
-      //      copyRequiredHeaders(request, builder);
-      //      httpResponse = sendRequest(builder);
       practitionerDetailsImpl = new PractitionerDetailsImpl();
 
       PractitionerDetails practitionerDetails =
@@ -169,24 +147,6 @@ public abstract class HttpFhirClient {
 
     } else if (request.getRequestPath().contains(LOCATION_HIERARCHY)) {
       locationHierarchyImpl = new LocationHierarchyImpl();
-      //      setUri(
-      //          builder,
-      //          org.smartregister.utils.Constants.LOCATION
-      //              + QUESTION_MARK
-      //              + IDENTIFIER
-      //              + EQUALS_TO_SIGN
-      //              + request.getParameters().get(IDENTIFIER)[0].toString());
-      //      byte[] requestContent = request.loadRequestContents();
-      //      if (requestContent != null && requestContent.length > 0) {
-      //        String contentType = request.getHeader("Content-Type");
-      //        if (contentType == null) {
-      //          ExceptionUtil.throwRuntimeExceptionAndLog(
-      //              logger, "Content-Type header should be set for requests with body.");
-      //        }
-      //        builder.setEntity(new ByteArrayEntity(requestContent));
-      //      }
-      //      copyRequiredHeaders(request, builder);
-      //      httpResponse = sendRequest(builder);
       httpResponse =
           new BasicHttpResponse(new BasicStatusLine(HttpVersion.HTTP_1_1, HttpStatus.SC_OK, null));
       String identifier = request.getParameters().get("identifier")[0];
