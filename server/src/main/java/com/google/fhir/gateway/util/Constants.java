@@ -51,4 +51,14 @@ public interface Constants {
   String PROXY_TO_ENV = "PROXY_TO";
   String PRACTITIONER_GROUP_CODE = "405623001";
   String HTTP_SNOMED_INFO_SCT = "http://snomed.info/sct";
+
+  String PRACTITIONER_DETAILS = "PractitionerDetails";
+
+  String LOCATION_HIERARCHY = "LocationHierarchy";
+
+  String PRACTITONER_RESOURCE_PATH = "Practitioner";
+  String QUESTION_MARK = "?";
+
+  String EQUALS_TO_SIGN = "=";
+  String HTTP_GET_METHOD = "GET";
 }

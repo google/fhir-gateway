@@ -15,8 +15,12 @@
  */
 package com.google.fhir.gateway;
 
+import static com.google.fhir.gateway.util.Constants.*;
+import static com.google.fhir.gateway.util.Constants.EMPTY_STRING;
+import static com.google.fhir.gateway.util.Constants.FORWARD_SLASH;
 import static com.google.fhir.gateway.util.RestUtils.getCommaSeparatedList;
 import static org.smartregister.utils.Constants.*;
+import static org.smartregister.utils.Constants.KEYCLOAK_UUID;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
@@ -34,15 +38,15 @@ import java.net.URISyntaxException;
 import java.nio.charset.Charset;
 import java.util.*;
 import java.util.stream.Collectors;
-import org.apache.http.Header;
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpResponse;
+import org.apache.http.*;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.client.methods.RequestBuilder;
 import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.HttpClients;
+import org.apache.http.message.BasicHttpResponse;
+import org.apache.http.message.BasicStatusLine;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.model.*;
 import org.jetbrains.annotations.NotNull;
@@ -129,24 +133,33 @@ public abstract class HttpFhirClient {
     String httpMethod = request.getServletRequest().getMethod();
     RequestBuilder builder = RequestBuilder.create(httpMethod);
     HttpResponse httpResponse;
-    if (request.getRequestPath().contains("PractitionerDetails")) {
-      setUri(
-          builder,
-          "Practitioner?identifier=" + request.getParameters().get("keycloak-uuid")[0].toString());
-      byte[] requestContent = request.loadRequestContents();
-      if (requestContent != null && requestContent.length > 0) {
-        String contentType = request.getHeader("Content-Type");
-        if (contentType == null) {
-          ExceptionUtil.throwRuntimeExceptionAndLog(
-              logger, "Content-Type header should be set for requests with body.");
-        }
-        builder.setEntity(new ByteArrayEntity(requestContent));
-      }
-      copyRequiredHeaders(request, builder);
-      //      copyParameters(request, builder);
-      httpResponse = sendRequest(builder);
+    if (request.getRequestPath().contains(PRACTITIONER_DETAILS)) {
+      //      HttpResponseFactory factory = new DefaultHttpResponseFactory();
+      //      httpResponse = factory.newHttpResponse(new BasicStatusLine(HttpVersion.HTTP_1_1,
+      // HttpStatus.SC_OK, null), null);
+
+      httpResponse =
+          new BasicHttpResponse(new BasicStatusLine(HttpVersion.HTTP_1_1, HttpStatus.SC_OK, null));
+      String keycloakUuidRequestParam = request.getParameters().get(KEYCLOAK_UUID)[0].toString();
+      //      setUri(
+      //          builder,
+      //          PRACTITONER_RESOURCE_PATH
+      //              + QUESTION_MARK
+      //              + IDENTIFIER
+      //              + EQUALS_TO_SIGN
+      //              + keycloakUuidRequestParam);
+      //      byte[] requestContent = request.loadRequestContents();
+      //      if (requestContent != null && requestContent.length > 0) {
+      //        String contentType = request.getHeader("Content-Type");
+      //        if (contentType == null) {
+      //          ExceptionUtil.throwRuntimeExceptionAndLog(
+      //              logger, "Content-Type header should be set for requests with body.");
+      //        }
+      //        builder.setEntity(new ByteArrayEntity(requestContent));
+      //      }
+      //      copyRequiredHeaders(request, builder);
+      //      httpResponse = sendRequest(builder);
       practitionerDetailsImpl = new PractitionerDetailsImpl();
-      String keycloakUuidRequestParam = request.getParameters().get("keycloak-uuid")[0].toString();
 
       PractitionerDetails practitionerDetails =
           practitionerDetailsImpl.getPractitionerDetails(keycloakUuidRequestParam);
@@ -154,23 +167,28 @@ public abstract class HttpFhirClient {
       httpResponse.setEntity(new StringEntity(resultContent));
       return httpResponse;
 
-    } else if (request.getRequestPath().contains("LocationHierarchy")) {
+    } else if (request.getRequestPath().contains(LOCATION_HIERARCHY)) {
       locationHierarchyImpl = new LocationHierarchyImpl();
-      setUri(
-          builder,
-          "Location?identifier=" + request.getParameters().get("identifier")[0].toString());
-      byte[] requestContent = request.loadRequestContents();
-      if (requestContent != null && requestContent.length > 0) {
-        String contentType = request.getHeader("Content-Type");
-        if (contentType == null) {
-          ExceptionUtil.throwRuntimeExceptionAndLog(
-              logger, "Content-Type header should be set for requests with body.");
-        }
-        builder.setEntity(new ByteArrayEntity(requestContent));
-      }
-      copyRequiredHeaders(request, builder);
-      httpResponse = sendRequest(builder);
-      ;
+      //      setUri(
+      //          builder,
+      //          org.smartregister.utils.Constants.LOCATION
+      //              + QUESTION_MARK
+      //              + IDENTIFIER
+      //              + EQUALS_TO_SIGN
+      //              + request.getParameters().get(IDENTIFIER)[0].toString());
+      //      byte[] requestContent = request.loadRequestContents();
+      //      if (requestContent != null && requestContent.length > 0) {
+      //        String contentType = request.getHeader("Content-Type");
+      //        if (contentType == null) {
+      //          ExceptionUtil.throwRuntimeExceptionAndLog(
+      //              logger, "Content-Type header should be set for requests with body.");
+      //        }
+      //        builder.setEntity(new ByteArrayEntity(requestContent));
+      //      }
+      //      copyRequiredHeaders(request, builder);
+      //      httpResponse = sendRequest(builder);
+      httpResponse =
+          new BasicHttpResponse(new BasicStatusLine(HttpVersion.HTTP_1_1, HttpStatus.SC_OK, null));
       String identifier = request.getParameters().get("identifier")[0];
       LocationHierarchy locationHierarchy = locationHierarchyImpl.getLocationHierarchy(identifier);
       String resultContent = fhirR4JsonParser.encodeResourceToString(locationHierarchy);
@@ -414,10 +432,15 @@ public abstract class HttpFhirClient {
 
   private List<Bundle.BundleEntryComponent> getGroupsAssignedToAPractitioner(String practitionerId)
       throws IOException {
-    String httpMethod = "GET";
+    String httpMethod = HTTP_GET_METHOD;
     RequestBuilder builder = RequestBuilder.create(httpMethod);
     HttpResponse httpResponse;
-    setUri(builder, "Group?code=405623001&member=" + practitionerId);
+    setUri(
+        builder,
+        com.google.fhir.gateway.util.Constants.GROUP
+            + QUESTION_MARK
+            + "code=405623001&member="
+            + practitionerId);
     httpResponse = sendRequest(builder);
     HttpEntity entity = httpResponse.getEntity();
 
@@ -519,10 +542,15 @@ public abstract class HttpFhirClient {
   }
 
   private List<Location> generateLocationResource(String locationId) throws IOException {
-    String httpMethod = "GET";
+    String httpMethod = HTTP_GET_METHOD;
     RequestBuilder builder = RequestBuilder.create(httpMethod);
     HttpResponse httpResponse;
-    setUri(builder, "Location?_id" + locationId);
+    setUri(
+        builder,
+        com.google.fhir.gateway.util.Constants.LOCATION
+            + QUESTION_MARK
+            + org.smartregister.utils.Constants.ID
+            + locationId);
     httpResponse = sendRequest(builder);
     HttpEntity entity = httpResponse.getEntity();
 

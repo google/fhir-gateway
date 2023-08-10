@@ -20,7 +20,6 @@ import static org.smartregister.utils.Constants.*;
 import static org.smartregister.utils.Constants.LOCATION_RESOURCE_NOT_FOUND;
 
 import ca.uhn.fhir.context.FhirContext;
-import ca.uhn.fhir.parser.IParser;
 import ca.uhn.fhir.rest.client.api.IGenericClient;
 import ca.uhn.fhir.rest.gclient.ReferenceClientParam;
 import ca.uhn.fhir.rest.gclient.TokenClientParam;
@@ -38,8 +37,6 @@ import org.smartregister.model.location.LocationHierarchyTree;
 public class LocationHierarchyImpl {
 
   private FhirContext fhirR4Context = FhirContext.forR4();
-
-  private IParser fhirR4JsonParser = fhirR4Context.newJsonParser().setPrettyPrint(true);
 
   private static final Logger logger = LoggerFactory.getLogger(LocationHierarchyImpl.class);
 
@@ -82,7 +79,7 @@ public class LocationHierarchyImpl {
     Bundle childLocationBundle =
         getFhirClientForR4()
             .search()
-            .forResource(Patient.class)
+            .forResource(Location.class)
             .where(new ReferenceClientParam(Location.SP_PARTOF).hasAnyOfIds(locationId))
             .returnBundle(Bundle.class)
             .execute();
@@ -125,15 +122,16 @@ public class LocationHierarchyImpl {
     Bundle locationsBundle =
         getFhirClientForR4()
             .search()
-            .forResource(Patient.class)
+            .forResource(Location.class)
             .where(new TokenClientParam(Location.SP_IDENTIFIER).exactly().identifier(identifier))
             .returnBundle(Bundle.class)
             .execute();
 
     List<Location> locationsList = new ArrayList<>();
-    locationsBundle.getEntry().stream()
-        .map(bundleEntryComponent -> ((Location) bundleEntryComponent.getResource()))
-        .collect(Collectors.toList());
-    return locationsList.get(0);
+    if (locationsBundle != null)
+      locationsBundle.getEntry().stream()
+          .map(bundleEntryComponent -> ((Location) bundleEntryComponent.getResource()))
+          .collect(Collectors.toList());
+    return locationsList.size() > 0 ? locationsList.get(0) : new Location();
   }
 }

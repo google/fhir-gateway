@@ -19,9 +19,9 @@ import static com.google.fhir.gateway.util.Constants.*;
 import static org.smartregister.utils.Constants.EMPTY_STRING;
 
 import ca.uhn.fhir.context.FhirContext;
-import ca.uhn.fhir.parser.IParser;
 import ca.uhn.fhir.rest.client.api.IGenericClient;
 import ca.uhn.fhir.rest.gclient.ReferenceClientParam;
+import ca.uhn.fhir.rest.param.TokenParam;
 import com.google.fhir.gateway.util.Constants;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -41,14 +41,14 @@ import org.smartregister.model.practitioner.PractitionerDetails;
 public class PractitionerDetailsImpl {
   private FhirContext fhirR4Context = FhirContext.forR4();
 
-  private IParser fhirR4JsonParser = fhirR4Context.newJsonParser().setPrettyPrint(true);
-
   private static final Bundle EMPTY_BUNDLE = new Bundle();
 
   private static final Logger logger = LoggerFactory.getLogger(PractitionerDetailsImpl.class);
 
   private IGenericClient r4FhirClient =
       fhirR4Context.newRestfulGenericClient(System.getenv(PROXY_TO_ENV));
+
+  private LocationHierarchyImpl locationHierarchyImpl;
 
   private IGenericClient getFhirClientForR4() {
     return r4FhirClient;
@@ -97,6 +97,7 @@ public class PractitionerDetailsImpl {
         Stream.concat(managingOrganizationTeams.stream(), teams.stream())
             .distinct()
             .collect(Collectors.toList());
+
     Bundle groupsBundle = getGroupsAssignedToPractitioner(practitionerId);
     logger.info("Groups are fetched");
 
@@ -104,12 +105,14 @@ public class PractitionerDetailsImpl {
 
     logger.info("Searching for locations by organizations");
 
+    List<String> organizationIds =
+        Stream.concat(
+                careTeamManagingOrganizationIds.stream(), practitionerOrganizationIds.stream())
+            .distinct()
+            .collect(Collectors.toList());
+
     Bundle organizationAffiliationsBundle =
-        getOrganizationAffiliationsByOrganizationIdsBundle(
-            Stream.concat(
-                    careTeamManagingOrganizationIds.stream(), practitionerOrganizationIds.stream())
-                .distinct()
-                .collect(Collectors.toList()));
+        getOrganizationAffiliationsByOrganizationIdsBundle(organizationIds);
 
     List<OrganizationAffiliation> organizationAffiliations =
         mapBundleToOrganizationAffiliation(organizationAffiliationsBundle);
@@ -123,10 +126,8 @@ public class PractitionerDetailsImpl {
     // different
 
     logger.info("Searching for location hierarchy list by locations identifiers");
-    //      List<LocationHierarchy> locationHierarchyList =
-    //              getLocationsHierarchyByOfficialLocationIdentifiers(locationsIdentifiers);
-    //      fhirPractitionerDetails.setLocationHierarchyList(locationHierarchyList);
-
+    locationHierarchyImpl = new LocationHierarchyImpl();
+    List<LocationHierarchy> locationHierarchyList = getLocationsHierarchy(locationsIdentifiers);
     logger.info("Searching for locations by ids");
     List<Location> locationsList = getLocationsByIds(locationIds);
 
@@ -142,6 +143,7 @@ public class PractitionerDetailsImpl {
     fhirPractitionerDetails.setPractitionerRoles(practitionerRoleList);
     fhirPractitionerDetails.setOrganizationAffiliations(organizationAffiliations);
     fhirPractitionerDetails.setOrganizations(bothOrganizations);
+    fhirPractitionerDetails.setLocationHierarchyList(locationHierarchyList);
 
     practitionerDetails.setFhirPractitionerDetails(fhirPractitionerDetails);
     return practitionerDetails;
@@ -340,5 +342,18 @@ public class PractitionerDetailsImpl {
     return organizationAffiliationBundle.getEntry().stream()
         .map(bundleEntryComponent -> (OrganizationAffiliation) bundleEntryComponent.getResource())
         .collect(Collectors.toList());
+  }
+
+  private List<LocationHierarchy> getLocationsHierarchy(List<String> locationsIdentifiers) {
+    List<LocationHierarchy> locationHierarchyList = new ArrayList<>();
+    TokenParam identifier;
+    LocationHierarchy locationHierarchy;
+    for (String locationsIdentifier : locationsIdentifiers) {
+      identifier = new TokenParam();
+      identifier.setValue(locationsIdentifier);
+      locationHierarchy = locationHierarchyImpl.getLocationHierarchy(identifier.getValue());
+      locationHierarchyList.add(locationHierarchy);
+    }
+    return locationHierarchyList;
   }
 }
