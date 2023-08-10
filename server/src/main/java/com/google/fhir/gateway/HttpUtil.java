@@ -116,7 +116,6 @@ public class HttpUtil {
   }
 
   public static BufferedReader readerFromEntity(HttpEntity entity) throws IOException {
-    System.out.println("Inside Reader from entity");
     ContentType contentType = ContentType.getOrDefault(entity);
     Charset charset = Constants.CHARSET_UTF8;
     if (contentType.getCharset() != null) {
