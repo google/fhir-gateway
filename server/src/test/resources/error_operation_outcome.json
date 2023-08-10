@@ -1,0 +1,18 @@
+{
+  "resourceType": "OperationOutcome",
+  "meta": {
+    "profile": ["https://healthcare.googleapis.com/v1/projects/fhir-sdk/locations/us/datasets/synthea-sample-data/fhirStores/gcs-data/fhir/StructureDefinition/Spine-OperationOutcome-1"]
+  },
+  "issue": [{
+    "severity": "error",
+    "code": "exception",
+    "details": {
+      "coding": [{
+        "system": "https://healthcare.googleapis.com/v1/projects/fhir-sdk/locations/us/datasets/synthea-sample-data/fhirStores/gcs-data/fhir/ValueSet/Spine-ErrorOrWarningCode-1",
+        "code": "INTERNAL_SERVER_ERROR",
+        "display": "Internal server error"
+      }]
+    },
+    "diagnostics": "Any further internal debug details i.e. stack trace details etc."
+  }]
+}

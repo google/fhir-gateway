@@ -21,9 +21,13 @@ set -e
 export BUILD_ID=${KOKORO_BUILD_ID:-local}
 
 function setup() {
-  docker build -t us-docker.pkg.dev/fhir-proxy-build/stable/fhir-access-proxy:${BUILD_ID} .
+  docker build -t us-docker.pkg.dev/fhir-proxy-build/stable/fhir-gateway:${BUILD_ID} .
   docker-compose -f docker/keycloak/config-compose.yaml \
                  up --force-recreate --remove-orphans -d --quiet-pull
+  # TODO find a way to expose docker container logs in the output; currently
+  #   with -d we don't get any logs and it makes debugging failures difficult.
+  # Note `--wait` is an option in the new version of `docker compose` to make
+  # sure that all services are up in a healthy state (old version fails).
   docker-compose -f docker/hapi-proxy-compose.yaml \
                  up --force-recreate --remove-orphans -d --quiet-pull --wait
 }

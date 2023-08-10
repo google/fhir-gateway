@@ -1,0 +1,12 @@
+{
+  "resourceType": "Bundle",
+  "type": "transaction",
+  "entry": [
+    {
+      "request": {
+        "method": "DELETE",
+        "url": "Observation?patient=be92a43f-de46-affa-b131-bbf9eea51140&_id=4047"
+      }
+    }
+  ]
+}

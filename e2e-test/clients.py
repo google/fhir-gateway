@@ -121,4 +121,5 @@ class AuthClient:
             "grant_type": "password",
         }
         response = requests.post(self.url, data=payload)
+        response.raise_for_status()
         return response.json()["access_token"]

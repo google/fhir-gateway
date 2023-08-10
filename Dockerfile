@@ -1,5 +1,5 @@
 #
-# Copyright 2021-2022 Google LLC
+# Copyright 2021-2023 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,8 +15,8 @@
 #
 
 # Image for building and running tests against the source code of
-# the FHIR Access Proxy.
-FROM maven:3.8.5-openjdk-11 as build
+# the FHIR Gateway.
+FROM maven:3.8.5-openjdk-17-slim as build
 
 RUN apt-get update && apt-get install -y nodejs npm
 RUN npm cache clean -f && npm install -g n && n stable
@@ -27,18 +27,22 @@ COPY server/src ./server/src
 COPY server/pom.xml ./server/
 COPY plugins/src ./plugins/src
 COPY plugins/pom.xml ./plugins/
+COPY exec/src ./exec/src
+COPY exec/pom.xml ./exec/
 COPY license-header.txt .
 COPY pom.xml .
 
 RUN mvn spotless:check
-RUN mvn --batch-mode package -Pstandalone-app
+# Updating license will fail in e2e and there is no point doing it here anyways.
+RUN mvn --batch-mode package -Pstandalone-app -Dlicense.skip=true
 
 
-# Image for FHIR Access Proxy binary with configuration knobs as environment vars.
-FROM eclipse-temurin:11-jdk-focal as main
+# Image for FHIR Gateway binary with configuration knobs as environment vars.
+FROM eclipse-temurin:17-jdk-focal as main
 
-COPY --from=build /app/plugins/target/plugins-0.1.0-exec.jar /
+COPY --from=build /app/exec/target/fhir-gateway-exec.jar /
 COPY resources/hapi_page_url_allowed_queries.json resources/hapi_page_url_allowed_queries.json
+COPY resources/hapi_sync_filter_ignored_queries.json resources/hapi_sync_filter_ignored_queries.json
 
 ENV PROXY_PORT=8080
 ENV TOKEN_ISSUER="http://localhost/auth/realms/test"
@@ -51,4 +55,4 @@ ENV BACKEND_TYPE="HAPI"
 ENV ACCESS_CHECKER="list"
 ENV RUN_MODE="PROD"
 
-ENTRYPOINT java -jar plugins-0.1.0-exec.jar --server.port=${PROXY_PORT}
+ENTRYPOINT java -jar fhir-gateway-exec.jar --server.port=${PROXY_PORT}

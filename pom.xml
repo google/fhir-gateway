@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
 
-    Copyright 2021-2022 Google LLC
+    Copyright 2021-2023 Google LLC
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -19,26 +19,70 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <groupId>com.google.fhir.proxy</groupId>
-  <artifactId>fhir-proxy</artifactId>
-  <version>0.1.0</version>
+  <parent>
+    <groupId>org.sonatype.oss</groupId>
+    <artifactId>oss-parent</artifactId>
+    <version>9</version>
+  </parent>
+
+  <groupId>com.google.fhir.gateway</groupId>
+  <artifactId>fhir-gateway</artifactId>
+  <version>0.1.20-beta</version>
   <packaging>pom</packaging>
 
-  <name>FHIR Access Proxy</name>
+  <name>FHIR Information Gateway</name>
+  <description>A pluggable access-control gateway for any generic FHIR server.</description>
+  <url>https://github.com/google/fhir-gateway</url>
   <inceptionYear>2021</inceptionYear>
+
+  <licenses>
+    <license>
+      <name>The Apache License, Version 2.0</name>
+      <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+    </license>
+  </licenses>
+
   <modules>
+    <module>exec</module>
     <module>plugins</module>
     <module>server</module>
   </modules>
 
+  <scm>
+    <connection>scm:git:git://github.com/google/fhir-gateway.git</connection>
+    <developerConnection>scm:git:ssh://github.com:google/fhir-gateway.git</developerConnection>
+    <url>https://github.com/google/fhir-gateway/tree/main</url>
+  </scm>
+
+  <!-- For release documentation see:
+    https://central.sonatype.org/publish/publish-maven/
+    Note, although it suggests new projects should use s01.oss.sonatype.org but
+    with our sonatype.org credentials, it fails with a "Forbidden" message. -->
+  <distributionManagement>
+    <repository>
+      <id>nexus-releases</id>
+      <url>https://oss.sonatype.org/service/local/staging/deploy/maven2</url>
+    </repository>
+    <snapshotRepository>
+      <uniqueVersion>false</uniqueVersion>
+      <id>nexus-snapshots</id>
+      <name>Nexus Snapshots Repository</name>
+      <url>https://oss.sonatype.org/content/repositories/snapshots</url>
+    </snapshotRepository>
+  </distributionManagement>
+
   <properties>
-    <hapifhir_version>5.7.1</hapifhir_version>
+    <hapifhir_version>6.2.5</hapifhir_version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <spotless.version>2.22.8</spotless.version>
+    <spotless.version>2.27.2</spotless.version>
     <root.basedir>${project.basedir}</root.basedir>
     <maven.compiler.source>11</maven.compiler.source>
     <maven.compiler.target>11</maven.compiler.target>
-    <spring-boot.version>2.6.6</spring-boot.version>
+    <!-- Check this for why we are not using a higher version for now:
+      https://www.slf4j.org/codes.html#StaticLoggerBinder
+      The root cause is that we are using an older version of Spring. -->
+    <slf4j.version>1.7.36</slf4j.version>
+    <logback.version>1.2.11</logback.version>
     <license-maven-plugin.version>4.1</license-maven-plugin.version>
   </properties>
 
@@ -51,10 +95,21 @@
     also need to include a logging library. Logback is used here, but log4j
     would also be fine.
     -->
+    <!-- Add slf4j API frontend binding with JUL backend -->
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+      <version>${slf4j.version}</version>
+    </dependency>
     <dependency>
       <groupId>ch.qos.logback</groupId>
       <artifactId>logback-classic</artifactId>
-      <version>1.2.0</version>
+      <version>${logback.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>ch.qos.logback</groupId>
+      <artifactId>logback-core</artifactId>
+      <version>${logback.version}</version>
     </dependency>
 
     <!-- For Dependency Injection annotations -->
@@ -75,7 +130,7 @@
     <dependency>
       <groupId>org.mockito</groupId>
       <artifactId>mockito-core</artifactId>
-      <version>4.1.0</version>
+      <version>5.1.1</version>
       <scope>test</scope>
     </dependency>
 
@@ -83,6 +138,13 @@
       <groupId>org.hamcrest</groupId>
       <artifactId>hamcrest-core</artifactId>
       <version>2.2</version>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>net.bytebuddy</groupId>
+      <artifactId>byte-buddy</artifactId>
+      <version>1.14.3</version>
       <scope>test</scope>
     </dependency>
 
@@ -94,10 +156,9 @@
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-compiler-plugin</artifactId>
-          <version>3.3</version>
+          <version>3.10.1</version>
           <configuration>
-            <source>1.8</source>
-            <target>1.8</target>
+            <release>11</release>
           </configuration>
         </plugin>
       </plugins>
@@ -175,6 +236,7 @@
               </includes>
               <excludes>
                 <exclude>**/target/**</exclude>
+                <exclude>.github/PULL_REQUEST_TEMPLATE.md</exclude>
               </excludes>
               <prettier>
                 <!-- Formatter that Spotless supports and can format Markdown:
@@ -202,7 +264,7 @@
 
             <!-- apply a specific flavor of google-java-format and reflow long strings -->
             <googleJavaFormat>
-              <version>1.8</version>
+              <version>1.15.0</version>
               <style>GOOGLE</style>
               <reflowLongStrings>true</reflowLongStrings>
             </googleJavaFormat>
