@@ -377,8 +377,8 @@ public class BearerAuthorizationInterceptorTest {
 
           public RequestMutation getRequestMutation(RequestDetailsReader requestDetailsReader) {
             return RequestMutation.builder().queryParams(paramMutations).build();
-          } 
-      
+          }
+
           @Override
           public String postProcess(
               RequestDetailsReader requestDetailsReader, HttpResponse response) throws IOException {
