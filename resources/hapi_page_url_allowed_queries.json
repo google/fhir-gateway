@@ -6,7 +6,7 @@
         "_getpages": "ANY_VALUE"
       },
       "allowExtraParams": true,
-      "allParamsRequired": true
+      "allParamsRequired": false
     },
     {
       "path": "Composition",

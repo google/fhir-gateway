@@ -278,7 +278,6 @@ public class BearerAuthorizationInterceptor {
     }
     AccessDecision outcome = checkAuthorization(requestDetails);
     mutateRequest(requestDetails, outcome);
-    outcome.preProcess(servletDetails);
     logger.debug("Authorized request path " + requestPath);
     try {
       HttpResponse response = fhirClient.handleRequest(servletDetails);
@@ -290,7 +289,7 @@ public class BearerAuthorizationInterceptor {
       if (HttpUtil.isResponseValid(response)) {
         try {
           // For post-processing rationale/example see b/207589782#comment3.
-          content = outcome.postProcess(response);
+          content = outcome.postProcess(new RequestDetailsToReader(requestDetails), response);
         } catch (Exception e) {
           // Note this is after a successful fetch/update of the FHIR store. That success must be
           // passed to the client even if the access related post-processing fails.

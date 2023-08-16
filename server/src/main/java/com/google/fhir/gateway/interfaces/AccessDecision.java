@@ -15,7 +15,6 @@
  */
 package com.google.fhir.gateway.interfaces;
 
-import ca.uhn.fhir.rest.server.servlet.ServletRequestDetails;
 import java.io.IOException;
 import javax.annotation.Nullable;
 import org.apache.http.HttpResponse;
@@ -26,8 +25,6 @@ public interface AccessDecision {
    * @return true iff access was granted.
    */
   boolean canAccess();
-
-  void preProcess(ServletRequestDetails servletRequestDetails);
 
   /**
    * Allows the incoming request mutation based on the access decision.
@@ -56,5 +53,6 @@ public interface AccessDecision {
    *     reads the response; otherwise null. Note that we should try to avoid reading the whole
    *     content in memory whenever it is not needed for post-processing.
    */
-  String postProcess(HttpResponse response) throws IOException;
+  String postProcess(RequestDetailsReader requestDetailsReader, HttpResponse response)
+      throws IOException;
 }

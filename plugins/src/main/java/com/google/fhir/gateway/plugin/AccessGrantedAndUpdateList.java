@@ -17,7 +17,6 @@ package com.google.fhir.gateway.plugin;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
-import ca.uhn.fhir.rest.server.servlet.ServletRequestDetails;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Sets;
 import com.google.common.escape.Escaper;
@@ -76,7 +75,8 @@ class AccessGrantedAndUpdateList implements AccessDecision {
   }
 
   @Override
-  public String postProcess(HttpResponse response) throws IOException {
+  public String postProcess(RequestDetailsReader request, HttpResponse response)
+      throws IOException {
     Preconditions.checkState(HttpUtil.isResponseValid(response));
     String content = CharStreams.toString(HttpUtil.readerFromEntity(response.getEntity()));
     IParser parser = fhirContext.newJsonParser();
@@ -156,7 +156,4 @@ class AccessGrantedAndUpdateList implements AccessDecision {
     return new AccessGrantedAndUpdateList(
         patientListId, httpFhirClient, fhirContext, existPutPatients, ResourceType.Bundle);
   }
-
-  @Override
-  public void preProcess(ServletRequestDetails servletRequestDetails) {}
 }
