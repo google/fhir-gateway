@@ -16,9 +16,6 @@
 package com.google.fhir.gateway;
 
 import static com.google.fhir.gateway.util.Constants.*;
-import static com.google.fhir.gateway.util.Constants.EMPTY_STRING;
-import static com.google.fhir.gateway.util.Constants.FORWARD_SLASH;
-import static com.google.fhir.gateway.util.RestUtils.getCommaSeparatedList;
 import static org.smartregister.utils.Constants.*;
 import static org.smartregister.utils.Constants.KEYCLOAK_UUID;
 
@@ -35,9 +32,7 @@ import com.google.fhir.gateway.rest.PractitionerDetailsImpl;
 import java.io.*;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.nio.charset.Charset;
 import java.util.*;
-import java.util.stream.Collectors;
 import org.apache.http.*;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpUriRequest;
@@ -47,14 +42,11 @@ import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.message.BasicHttpResponse;
 import org.apache.http.message.BasicStatusLine;
-import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.model.*;
-import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.smartregister.model.location.LocationHierarchy;
 import org.smartregister.model.practitioner.PractitionerDetails;
-import org.springframework.util.StreamUtils;
 
 public abstract class HttpFhirClient {
 
@@ -242,5 +234,4 @@ public abstract class HttpFhirClient {
       }
     }
   }
-
 }
