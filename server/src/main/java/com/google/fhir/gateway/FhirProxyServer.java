@@ -19,7 +19,6 @@ import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.rest.api.Constants;
 import ca.uhn.fhir.rest.server.RestfulServer;
 import ca.uhn.fhir.rest.server.interceptor.CorsInterceptor;
-import com.google.fhir.gateway.GenericFhirClient.GenericFhirClientBuilder;
 import com.google.fhir.gateway.interfaces.AccessCheckerFactory;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -32,18 +31,13 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.cors.CorsConfiguration;
 
-@WebServlet("/*")
+@WebServlet("/fhir/*")
 public class FhirProxyServer extends RestfulServer {
 
   private static final Logger logger = LoggerFactory.getLogger(FhirProxyServer.class);
 
-  private static final String PROXY_TO_ENV = "PROXY_TO";
-  private static final String TOKEN_ISSUER_ENV = "TOKEN_ISSUER";
   private static final String ACCESS_CHECKER_ENV = "ACCESS_CHECKER";
   private static final String PERMISSIVE_ACCESS_CHECKER = "permissive";
-  private static final String BACKEND_TYPE_ENV = "BACKEND_TYPE";
-  private static final String WELL_KNOWN_ENDPOINT_ENV = "WELL_KNOWN_ENDPOINT";
-  private static final String WELL_KNOWN_ENDPOINT_DEFAULT = ".well-known/openid-configuration";
   private static final String ALLOWED_QUERIES_FILE_ENV = "ALLOWED_QUERIES_FILE";
 
   // TODO: improve this mixture of Spring based IOC with non-@Component classes. This is the
@@ -61,30 +55,6 @@ public class FhirProxyServer extends RestfulServer {
   // implement a way to kill the server immediately when initialize fails.
   @Override
   protected void initialize() throws ServletException {
-    String backendType = System.getenv(BACKEND_TYPE_ENV);
-    if (backendType == null) {
-      throw new ServletException(
-          String.format("The environment variable %s is not set!", BACKEND_TYPE_ENV));
-    }
-    String fhirStore = System.getenv(PROXY_TO_ENV);
-    if (fhirStore == null) {
-      throw new ServletException(
-          String.format("The environment variable %s is not set!", PROXY_TO_ENV));
-    }
-    String tokenIssuer = System.getenv(TOKEN_ISSUER_ENV);
-    if (tokenIssuer == null) {
-      throw new ServletException(
-          String.format("The environment variable %s is not set!", TOKEN_ISSUER_ENV));
-    }
-
-    String wellKnownEndpoint = System.getenv(WELL_KNOWN_ENDPOINT_ENV);
-    if (wellKnownEndpoint == null) {
-      wellKnownEndpoint = WELL_KNOWN_ENDPOINT_DEFAULT;
-      logger.info(
-          String.format(
-              "The environment variable %s is not set! Using default value of %s instead ",
-              WELL_KNOWN_ENDPOINT_ENV, WELL_KNOWN_ENDPOINT_DEFAULT));
-    }
     // TODO make the FHIR version configurable.
     // Create a context for the appropriate version
     setFhirContext(FhirContext.forR4());
@@ -95,33 +65,18 @@ public class FhirProxyServer extends RestfulServer {
     try {
       logger.info("Adding BearerAuthorizationInterceptor ");
       AccessCheckerFactory checkerFactory = chooseAccessCheckerFactory();
-      HttpFhirClient httpFhirClient = chooseHttpFhirClient(backendType, fhirStore);
+      HttpFhirClient httpFhirClient = FhirClientFactory.createFhirClientFromEnvVars();
+      TokenVerifier tokenVerifier = TokenVerifier.createFromEnvVars();
       registerInterceptor(
           new BearerAuthorizationInterceptor(
               httpFhirClient,
-              tokenIssuer,
-              wellKnownEndpoint,
+              tokenVerifier,
               this,
-              new HttpUtil(),
               checkerFactory,
               new AllowedQueriesChecker(System.getenv(ALLOWED_QUERIES_FILE_ENV))));
     } catch (IOException e) {
       ExceptionUtil.throwRuntimeExceptionAndLog(logger, "IOException while initializing", e);
     }
-  }
-
-  private HttpFhirClient chooseHttpFhirClient(String backendType, String fhirStore)
-      throws ServletException, IOException {
-    if (backendType.equals("GCP")) {
-      return new GcpFhirClient(fhirStore, GcpFhirClient.createCredentials());
-    }
-
-    if (backendType.equals("HAPI")) {
-      return new GenericFhirClientBuilder().setFhirStore(fhirStore).build();
-    }
-    throw new ServletException(
-        String.format(
-            "The environment variable %s is not set to either GCP or HAPI!", BACKEND_TYPE_ENV));
   }
 
   private AccessCheckerFactory chooseAccessCheckerFactory() {
