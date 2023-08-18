@@ -41,6 +41,7 @@ public class FhirClientFactory {
 
   private static HttpFhirClient chooseHttpFhirClient(String backendType, String fhirStore)
       throws IOException {
+    // TODO add an enum if the list of special FHIR servers grow and rename HAPI to GENERIC.
     if (backendType.equals("GCP")) {
       return new GcpFhirClient(fhirStore, GcpFhirClient.createCredentials());
     }

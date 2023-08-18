@@ -32,6 +32,7 @@ public class CustomGenericEndpointExample extends HttpServlet {
   @Override
   protected void doGet(HttpServletRequest request, HttpServletResponse resp) throws IOException {
     String uri = request.getRequestURI();
+    // For a real production case, `uri` needs to be escaped.
     resp.getOutputStream().print("Successful request to the custom endpoint " + uri);
     resp.setStatus(HttpStatus.SC_OK);
   }
