@@ -29,14 +29,9 @@ import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
 import ca.uhn.fhir.rest.api.server.IRestfulResponse;
 import ca.uhn.fhir.rest.server.RestfulServer;
-import ca.uhn.fhir.rest.server.exceptions.AuthenticationException;
 import ca.uhn.fhir.rest.server.exceptions.ForbiddenOperationException;
 import ca.uhn.fhir.rest.server.servlet.ServletRequestDetails;
 import ca.uhn.fhir.rest.server.servlet.ServletRestfulResponse;
-import com.auth0.jwt.JWT;
-import com.auth0.jwt.JWTCreator;
-import com.auth0.jwt.algorithms.Algorithm;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.io.Resources;
@@ -49,16 +44,8 @@ import com.google.gson.Gson;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.io.Writer;
-import java.net.URI;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.security.GeneralSecurityException;
-import java.security.Key;
-import java.security.KeyPair;
-import java.security.KeyPairGenerator;
-import java.security.interfaces.RSAPrivateKey;
-import java.security.interfaces.RSAPublicKey;
-import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -89,19 +76,15 @@ public class BearerAuthorizationInterceptorTest {
 
   private BearerAuthorizationInterceptor testInstance;
 
-  private static final String BASE_URL = "http://myprxy/fhir";
+  private static final String BASE_URL = "http://myproxy/fhir";
   private static final String FHIR_STORE =
       "https://healthcare.googleapis.com/v1/projects/fhir-sdk/locations/us/datasets/"
           + "synthea-sample-data/fhirStores/gcs-data/fhir";
-  private static final String TOKEN_ISSUER = "https://token.issuer";
-
-  private KeyPair keyPair;
-
   @Mock private HttpFhirClient fhirClientMock;
 
   @Mock private RestfulServer serverMock;
 
-  @Mock private HttpUtil httpUtilMock;
+  @Mock private TokenVerifier tokenVerifierMock;
 
   @Mock private ServletRequestDetails requestMock;
 
@@ -110,29 +93,12 @@ public class BearerAuthorizationInterceptorTest {
 
   private final Writer writerStub = new StringWriter();
 
-  private String generateKeyPairAndEncode() {
-    try {
-      KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
-      generator.initialize(1024);
-      keyPair = generator.generateKeyPair();
-      Key publicKey = keyPair.getPublic();
-      Preconditions.checkState("X.509".equals(publicKey.getFormat()));
-      return Base64.getEncoder().encodeToString(publicKey.getEncoded());
-    } catch (GeneralSecurityException e) {
-      logger.error("error in generating keys", e);
-      Preconditions.checkState(false); // We should never get here!
-    }
-    return null;
-  }
-
   private BearerAuthorizationInterceptor createTestInstance(
       boolean isAccessGranted, String allowedQueriesConfig) throws IOException {
     return new BearerAuthorizationInterceptor(
         fhirClientMock,
-        TOKEN_ISSUER,
-        "test",
+        tokenVerifierMock,
         serverMock,
-        httpUtilMock,
         (jwt, httpFhirClient, fhirContext, patientFinder) ->
             new AccessChecker() {
               @Override
@@ -145,75 +111,21 @@ public class BearerAuthorizationInterceptorTest {
 
   @Before
   public void setUp() throws IOException {
-    String publicKeyBase64 = generateKeyPairAndEncode();
-    HttpResponse responseMock = Mockito.mock(HttpResponse.class, Answers.RETURNS_DEEP_STUBS);
     when(serverMock.getServerBaseForRequest(any(ServletRequestDetails.class))).thenReturn(BASE_URL);
     when(serverMock.getFhirContext()).thenReturn(fhirContext);
-    when(httpUtilMock.getResourceOrFail(any(URI.class))).thenReturn(responseMock);
-    TestUtil.setUpFhirResponseMock(
-        responseMock, String.format("{public_key: '%s'}", publicKeyBase64));
-    URL idpUrl = Resources.getResource("idp_keycloak_config.json");
-    String testIdpConfig = Resources.toString(idpUrl, StandardCharsets.UTF_8);
-    when(httpUtilMock.fetchWellKnownConfig(anyString(), anyString())).thenReturn(testIdpConfig);
     when(fhirClientMock.handleRequest(requestMock)).thenReturn(fhirResponseMock);
     when(fhirClientMock.getBaseUrl()).thenReturn(FHIR_STORE);
     testInstance = createTestInstance(true, null);
   }
 
-  private String signJwt(JWTCreator.Builder jwtBuilder) {
-    Algorithm algorithm =
-        Algorithm.RSA256((RSAPublicKey) keyPair.getPublic(), (RSAPrivateKey) keyPair.getPrivate());
-    String token = jwtBuilder.sign(algorithm);
-    logger.debug(String.format(" The generated JWT is: %s", token));
-    return token;
+  private void setupBearerAndFhirResponse(String fhirStoreResponse) throws IOException {
+    setupFhirResponse(fhirStoreResponse, true);
   }
 
-  @Test
-  public void decodeAndVerifyBearerTokenTest() {
-    JWTCreator.Builder jwtBuilder = JWT.create().withIssuer(TOKEN_ISSUER);
-    testInstance.decodeAndVerifyBearerToken("Bearer " + signJwt(jwtBuilder));
-  }
-
-  @Test(expected = AuthenticationException.class)
-  public void decodeAndVerifyBearerTokenWrongIssuer() {
-    JWTCreator.Builder jwtBuilder = JWT.create().withIssuer(TOKEN_ISSUER + "WRONG");
-    testInstance.decodeAndVerifyBearerToken("Bearer " + signJwt(jwtBuilder));
-  }
-
-  @Test(expected = AuthenticationException.class)
-  public void decodeAndVerifyBearerTokenBadSignature() {
-    // We overwrite the original `keyPair` hence the signature won't match the original public key.
-    generateKeyPairAndEncode();
-    JWTCreator.Builder jwtBuilder = JWT.create().withIssuer(TOKEN_ISSUER);
-    testInstance.decodeAndVerifyBearerToken("Bearer " + signJwt(jwtBuilder));
-  }
-
-  @Test(expected = AuthenticationException.class)
-  public void decodeAndVerifyBearerTokenNoBearer() {
-    JWTCreator.Builder jwtBuilder = JWT.create().withIssuer(TOKEN_ISSUER);
-    testInstance.decodeAndVerifyBearerToken(signJwt(jwtBuilder));
-  }
-
-  @Test(expected = AuthenticationException.class)
-  public void decodeAndVerifyBearerTokenMalformedBearer() {
-    JWTCreator.Builder jwtBuilder = JWT.create().withIssuer(TOKEN_ISSUER);
-    testInstance.decodeAndVerifyBearerToken("BearerTTT " + signJwt(jwtBuilder));
-  }
-
-  @Test(expected = AuthenticationException.class)
-  public void decodeAndVerifyBearerTokenMalformedToken() {
-    JWTCreator.Builder jwtBuilder = JWT.create().withIssuer(TOKEN_ISSUER);
-    testInstance.decodeAndVerifyBearerToken("Bearer TTT");
-  }
-
-  private void authorizeRequestCommonSetUp(String fhirStoreResponse) throws IOException {
-    JWTCreator.Builder jwtBuilder = JWT.create().withIssuer(TOKEN_ISSUER);
-    String jwt = signJwt(jwtBuilder);
-    when(requestMock.getHeader("Authorization")).thenReturn("Bearer " + jwt);
-    setupFhirResponse(fhirStoreResponse);
-  }
-
-  private void setupFhirResponse(String fhirStoreResponse) throws IOException {
+  private void setupFhirResponse(String fhirStoreResponse, boolean addBearer) throws IOException {
+    if (addBearer) {
+      when(requestMock.getHeader("Authorization")).thenReturn("Bearer ANYTHING");
+    }
     IRestfulResponse proxyResponseMock = Mockito.mock(IRestfulResponse.class);
     when(requestMock.getResponse()).thenReturn(proxyResponseMock);
     when(proxyResponseMock.getResponseWriter(
@@ -226,7 +138,7 @@ public class BearerAuthorizationInterceptorTest {
   public void authorizeRequestPatient() throws IOException {
     URL patientUrl = Resources.getResource("test_patient.json");
     String testPatientJson = Resources.toString(patientUrl, StandardCharsets.UTF_8);
-    authorizeRequestCommonSetUp(testPatientJson);
+    setupBearerAndFhirResponse(testPatientJson);
     testInstance.authorizeRequest(requestMock);
     assertThat(testPatientJson, equalTo(writerStub.toString()));
   }
@@ -235,7 +147,7 @@ public class BearerAuthorizationInterceptorTest {
   public void authorizeRequestList() throws IOException {
     URL patientUrl = Resources.getResource("patient-list-example.json");
     String testListJson = Resources.toString(patientUrl, StandardCharsets.UTF_8);
-    authorizeRequestCommonSetUp(testListJson);
+    setupBearerAndFhirResponse(testListJson);
     testInstance.authorizeRequest(requestMock);
     assertThat(testListJson, equalTo(writerStub.toString()));
   }
@@ -244,7 +156,7 @@ public class BearerAuthorizationInterceptorTest {
   public void authorizeRequestTestReplaceUrl() throws IOException {
     URL searchUrl = Resources.getResource("patient_id_search.json");
     String testPatientIdSearch = Resources.toString(searchUrl, StandardCharsets.UTF_8);
-    authorizeRequestCommonSetUp(testPatientIdSearch);
+    setupBearerAndFhirResponse(testPatientIdSearch);
     testInstance.authorizeRequest(requestMock);
     String replaced = testPatientIdSearch.replaceAll(FHIR_STORE, BASE_URL);
     assertThat(replaced, equalTo(writerStub.toString()));
@@ -254,7 +166,7 @@ public class BearerAuthorizationInterceptorTest {
   public void authorizeRequestTestResourceErrorResponse() throws IOException {
     URL errorUrl = Resources.getResource("error_operation_outcome.json");
     String errorResponse = Resources.toString(errorUrl, StandardCharsets.UTF_8);
-    authorizeRequestCommonSetUp(errorResponse);
+    setupBearerAndFhirResponse(errorResponse);
     when(fhirResponseMock.getStatusLine().getStatusCode())
         .thenReturn(HttpStatus.SC_INTERNAL_SERVER_ERROR);
     testInstance.authorizeRequest(requestMock);
@@ -277,6 +189,10 @@ public class BearerAuthorizationInterceptorTest {
     HttpServletRequest servletRequestMock = Mockito.mock(HttpServletRequest.class);
     when(requestMock.getServletRequest()).thenReturn(servletRequestMock);
     when(servletRequestMock.getProtocol()).thenReturn("HTTP/1.1");
+    URL idpUrl = Resources.getResource("idp_keycloak_config.json");
+    String testIdpConfig = Resources.toString(idpUrl, StandardCharsets.UTF_8);
+    when(tokenVerifierMock.getWellKnownConfig()).thenReturn(testIdpConfig);
+
     testInstance.authorizeRequest(requestMock);
     Gson gson = new Gson();
     Map<String, Object> jsonMap = Maps.newHashMap();
@@ -321,7 +237,7 @@ public class BearerAuthorizationInterceptorTest {
     noAuthRequestSetup(BearerAuthorizationInterceptor.METADATA_PATH);
     URL capabilityUrl = Resources.getResource("capability.json");
     String capabilityJson = Resources.toString(capabilityUrl, StandardCharsets.UTF_8);
-    authorizeRequestCommonSetUp(capabilityJson);
+    setupBearerAndFhirResponse(capabilityJson);
     testInstance.authorizeRequest(requestMock);
     IParser parser = fhirContext.newJsonParser();
     IBaseResource resource = parser.parseResource(writerStub.toString());
@@ -340,7 +256,7 @@ public class BearerAuthorizationInterceptorTest {
         createTestInstance(
             false, Resources.getResource("allowed_unauthenticated_queries.json").getPath());
     String responseJson = "{\"resourceType\": \"Bundle\"}";
-    setupFhirResponse(responseJson);
+    setupFhirResponse(responseJson, false);
     when(requestMock.getRequestPath()).thenReturn("Composition");
 
     testInstance.authorizeRequest(requestMock);
@@ -354,7 +270,7 @@ public class BearerAuthorizationInterceptorTest {
     testInstance =
         createTestInstance(
             false, Resources.getResource("allowed_unauthenticated_queries.json").getPath());
-    authorizeRequestCommonSetUp("never returned response");
+    setupBearerAndFhirResponse("never returned response");
     when(requestMock.getRequestPath()).thenReturn("Patient");
 
     testInstance.authorizeRequest(requestMock);
@@ -401,8 +317,7 @@ public class BearerAuthorizationInterceptorTest {
   public void shouldSendGzippedResponseWhenRequested() throws IOException {
     testInstance = createTestInstance(true, null);
     String responseJson = "{\"resourceType\": \"Bundle\"}";
-    JWTCreator.Builder jwtBuilder = JWT.create().withIssuer(TOKEN_ISSUER);
-    when(requestMock.getHeader("Authorization")).thenReturn("Bearer " + signJwt(jwtBuilder));
+    when(requestMock.getHeader("Authorization")).thenReturn("Bearer ANYTHING");
     when(requestMock.getHeader("Accept-Encoding".toLowerCase())).thenReturn("gzip");
 
     // requestMock.getResponse() {@link ServletRequestDetails#getResponse()} is an abstraction HAPI
