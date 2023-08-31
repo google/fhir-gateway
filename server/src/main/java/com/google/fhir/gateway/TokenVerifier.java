@@ -38,6 +38,8 @@ import java.security.spec.EncodedKeySpec;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
+import java.util.HashMap;
+import java.util.Map;
 import org.apache.http.HttpResponse;
 import org.apache.http.util.EntityUtils;
 import org.slf4j.Logger;
@@ -56,7 +58,12 @@ public class TokenVerifier {
   private static final String SIGN_ALGORITHM = "RS256";
 
   private final String tokenIssuer;
+  // Note the Verification class is _not_ thread-safe but the JWTVerifier instances created by its
+  // `build()` are thread-safe and reusable. It is important to reuse those instances, otherwise
+  // we may end up with a memory leak; details: https://github.com/auth0/java-jwt/issues/592
+  // Access to `jwtVerifierConfig` and `verifierForIssuer` should be non-concurrent.
   private final Verification jwtVerifierConfig;
+  private final Map<String, JWTVerifier> verifierForIssuer;
   private final HttpUtil httpUtil;
   private final String configJson;
 
@@ -68,6 +75,7 @@ public class TokenVerifier {
     RSAPublicKey issuerPublicKey = fetchAndDecodePublicKey();
     jwtVerifierConfig = JWT.require(Algorithm.RSA256(issuerPublicKey, null));
     this.configJson = httpUtil.fetchWellKnownConfig(tokenIssuer, wellKnownEndpoint);
+    this.verifierForIssuer = new HashMap<>();
   }
 
   public static TokenVerifier createFromEnvVars() throws IOException {
@@ -126,21 +134,23 @@ public class TokenVerifier {
     return null;
   }
 
-  private JWTVerifier buildJwtVerifier(String issuer) {
-
-    if (tokenIssuer.equals(issuer)) {
-      return jwtVerifierConfig.withIssuer(tokenIssuer).build();
-    } else if (FhirProxyServer.isDevMode()) {
-      // If server is in DEV mode, set issuer to one from request
-      logger.warn("Server run in DEV mode. Setting issuer to issuer from request.");
-      return jwtVerifierConfig.withIssuer(issuer).build();
-    } else {
-      ExceptionUtil.throwRuntimeExceptionAndLog(
-          logger,
-          String.format("The token issuer %s does not match the expected token issuer", issuer),
-          AuthenticationException.class);
-      return null;
+  private synchronized JWTVerifier getJwtVerifier(String issuer) {
+    if (!tokenIssuer.equals(issuer)) {
+      if (FhirProxyServer.isDevMode()) {
+        // If server is in DEV mode, set issuer to one from request
+        logger.warn("Server run in DEV mode. Setting issuer to issuer from request.");
+      } else {
+        ExceptionUtil.throwRuntimeExceptionAndLog(
+            logger,
+            String.format("The token issuer %s does not match the expected token issuer", issuer),
+            AuthenticationException.class);
+        return null;
+      }
     }
+    if (!verifierForIssuer.containsKey(issuer)) {
+      verifierForIssuer.put(issuer, jwtVerifierConfig.withIssuer(issuer).build());
+    }
+    return verifierForIssuer.get(issuer);
   }
 
   @VisibleForTesting
@@ -161,7 +171,7 @@ public class TokenVerifier {
     }
     String issuer = jwt.getIssuer();
     String algorithm = jwt.getAlgorithm();
-    JWTVerifier jwtVerifier = buildJwtVerifier(issuer);
+    JWTVerifier jwtVerifier = getJwtVerifier(issuer);
     logger.info(
         String.format(
             "JWT issuer is %s, audience is %s, and algorithm is %s",
