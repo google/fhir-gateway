@@ -15,38 +15,27 @@
  */
 package com.google.fhir.gateway;
 
-import static com.google.fhir.gateway.util.Constants.*;
-import static org.smartregister.utils.Constants.*;
-import static org.smartregister.utils.Constants.KEYCLOAK_UUID;
-
-import ca.uhn.fhir.context.FhirContext;
-import ca.uhn.fhir.parser.IParser;
 import ca.uhn.fhir.rest.api.Constants;
 import ca.uhn.fhir.rest.server.servlet.ServletRequestDetails;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
-import com.google.fhir.gateway.rest.LocationHierarchyImpl;
-import com.google.fhir.gateway.rest.PractitionerDetailsImpl;
-import java.io.*;
+import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.*;
-import org.apache.http.*;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import org.apache.http.Header;
+import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.client.methods.RequestBuilder;
 import org.apache.http.entity.ByteArrayEntity;
-import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.HttpClients;
-import org.apache.http.message.BasicHttpResponse;
-import org.apache.http.message.BasicStatusLine;
-import org.hl7.fhir.r4.model.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.smartregister.model.location.LocationHierarchy;
-import org.smartregister.model.practitioner.PractitionerDetails;
 
 // TODO evaluate if we can provide the API of HAPI's IGenericClient as well:
 //  https://hapifhir.io/hapi-fhir/docs/client/generic_client.html
@@ -98,14 +87,6 @@ public abstract class HttpFhirClient {
           "x-forwarded-for",
           "x-forwarded-host");
 
-  private FhirContext fhirR4Context = FhirContext.forR4();
-
-  private IParser fhirR4JsonParser = fhirR4Context.newJsonParser().setPrettyPrint(true);
-
-  private PractitionerDetailsImpl practitionerDetailsImpl;
-
-  private LocationHierarchyImpl locationHierarchyImpl;
-
   protected abstract String getBaseUrl();
 
   protected abstract URI getUriForResource(String resourcePath) throws URISyntaxException;
@@ -127,16 +108,14 @@ public abstract class HttpFhirClient {
   HttpResponse handleRequest(ServletRequestDetails request) throws IOException {
     String httpMethod = request.getServletRequest().getMethod();
     RequestBuilder builder = RequestBuilder.create(httpMethod);
-    HttpResponse httpResponse;
     setUri(builder, request.getRequestPath());
-
     // TODO Check why this does not work Content-Type is application/x-www-form-urlencoded.
     byte[] requestContent = request.loadRequestContents();
     if (requestContent != null && requestContent.length > 0) {
       String contentType = request.getHeader("Content-Type");
       if (contentType == null) {
         ExceptionUtil.throwRuntimeExceptionAndLog(
-                logger, "Content-Type header should be set for requests with body.");
+            logger, "Content-Type header should be set for requests with body.");
       }
       builder.setEntity(new ByteArrayEntity(requestContent));
     }
