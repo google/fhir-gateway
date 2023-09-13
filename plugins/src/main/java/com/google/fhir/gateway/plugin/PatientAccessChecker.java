@@ -162,6 +162,7 @@ public class PatientAccessChecker implements AccessChecker {
     if (FhirUtil.isSameResourceType(requestDetails.getResourceName(), ResourceType.Patient)) {
       return NoOpAccessDecision.accessDenied();
     }
+    // TODO(https://github.com/google/fhir-access-proxy/issues/63):Support direct resource deletion.
     Set<String> patientIds = patientFinder.findPatientsFromParams(requestDetails);
     return new NoOpAccessDecision(
         validatePatientIds(patientIds)

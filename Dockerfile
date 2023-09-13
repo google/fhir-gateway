@@ -42,7 +42,6 @@ FROM eclipse-temurin:17-jdk-focal as main
 
 COPY --from=build /app/exec/target/fhir-gateway-exec.jar /
 COPY resources/hapi_page_url_allowed_queries.json resources/hapi_page_url_allowed_queries.json
-COPY resources/hapi_sync_filter_ignored_queries.json resources/hapi_sync_filter_ignored_queries.json
 
 ENV PROXY_PORT=8080
 ENV TOKEN_ISSUER="http://localhost/auth/realms/test"
