@@ -128,44 +128,21 @@ public abstract class HttpFhirClient {
     String httpMethod = request.getServletRequest().getMethod();
     RequestBuilder builder = RequestBuilder.create(httpMethod);
     HttpResponse httpResponse;
-    if (request.getRequestPath().contains(PRACTITIONER_DETAILS)) {
-      httpResponse =
-          new BasicHttpResponse(new BasicStatusLine(HttpVersion.HTTP_1_1, HttpStatus.SC_OK, null));
-      String keycloakUuidRequestParam = request.getParameters().get(KEYCLOAK_UUID)[0].toString();
-      practitionerDetailsImpl = new PractitionerDetailsImpl();
+    setUri(builder, request.getRequestPath());
 
-      PractitionerDetails practitionerDetails =
-          practitionerDetailsImpl.getPractitionerDetails(keycloakUuidRequestParam);
-      String resultContent = fhirR4JsonParser.encodeResourceToString(practitionerDetails);
-      httpResponse.setEntity(new StringEntity(resultContent));
-      return httpResponse;
-
-    } else if (request.getRequestPath().contains(LOCATION_HIERARCHY)) {
-      locationHierarchyImpl = new LocationHierarchyImpl();
-      httpResponse =
-          new BasicHttpResponse(new BasicStatusLine(HttpVersion.HTTP_1_1, HttpStatus.SC_OK, null));
-      String identifier = request.getParameters().get("identifier")[0];
-      LocationHierarchy locationHierarchy = locationHierarchyImpl.getLocationHierarchy(identifier);
-      String resultContent = fhirR4JsonParser.encodeResourceToString(locationHierarchy);
-      httpResponse.setEntity(new StringEntity(resultContent));
-      return httpResponse;
-    } else {
-      setUri(builder, request.getRequestPath());
-
-      // TODO Check why this does not work Content-Type is application/x-www-form-urlencoded.
-      byte[] requestContent = request.loadRequestContents();
-      if (requestContent != null && requestContent.length > 0) {
-        String contentType = request.getHeader("Content-Type");
-        if (contentType == null) {
-          ExceptionUtil.throwRuntimeExceptionAndLog(
-              logger, "Content-Type header should be set for requests with body.");
-        }
-        builder.setEntity(new ByteArrayEntity(requestContent));
+    // TODO Check why this does not work Content-Type is application/x-www-form-urlencoded.
+    byte[] requestContent = request.loadRequestContents();
+    if (requestContent != null && requestContent.length > 0) {
+      String contentType = request.getHeader("Content-Type");
+      if (contentType == null) {
+        ExceptionUtil.throwRuntimeExceptionAndLog(
+                logger, "Content-Type header should be set for requests with body.");
       }
-      copyRequiredHeaders(request, builder);
-      copyParameters(request, builder);
-      return sendRequest(builder);
+      builder.setEntity(new ByteArrayEntity(requestContent));
     }
+    copyRequiredHeaders(request, builder);
+    copyParameters(request, builder);
+    return sendRequest(builder);
   }
 
   public HttpResponse getResource(String resourcePath) throws IOException {
