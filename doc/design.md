@@ -367,7 +367,7 @@ The mapping from resources to patients is done through the
 [patient compartment](https://www.hl7.org/fhir/compartmentdefinition-patient.html)
 definition. Note that we can still access many resources in one query; in
 particular through
-[Patient/ID/\$everything](https://hl7.org/fhir/patient-operation-everything.html)
+[Patient/ID/$everything](https://hl7.org/fhir/patient-operation-everything.html)
 queries, we can fetch all updates for a single patient.
 
 This approach helps support both the **flexible-access-control** and
