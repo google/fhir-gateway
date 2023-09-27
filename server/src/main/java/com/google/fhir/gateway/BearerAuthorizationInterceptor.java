@@ -152,7 +152,7 @@ public class BearerAuthorizationInterceptor {
       HttpResponse response = fhirClient.handleRequest(servletDetails);
       HttpUtil.validateResponseEntityExistsOrFail(response, requestPath);
       // TODO communicate post-processing failures to the client; see:
-      //   https://github.com/google/fhir-gateway/issues/66
+      //   https://github.com/google/fhir-access-proxy/issues/66
 
       String content = null;
       if (HttpUtil.isResponseValid(response)) {
