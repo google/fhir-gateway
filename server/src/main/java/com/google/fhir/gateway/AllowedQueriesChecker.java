@@ -95,11 +95,6 @@ class AllowedQueriesChecker {
       return false;
     }
 
-    if (entry.getRequestType() != null
-        && !(entry.getRequestType().toUpperCase()).equals(requestDetails.getRequestType().name())) {
-      return false;
-    }
-
     Set<String> matchedQueryParams = Sets.newHashSet();
     for (Entry<String, String> expectedParam : entry.getQueryParams().entrySet()) {
       String[] actualQueryValue = requestDetails.getParameters().get(expectedParam.getKey());
