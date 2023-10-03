@@ -36,7 +36,7 @@ all pieces can be woven together into a single Spring Boot app. To build all
 modules, from the root run:
 
 ```shell
-mvn package
+mvn package -Dspotless.apply.skip=true
 ```
 
 The server and the plugins can be run together through this executable jar (
@@ -164,7 +164,7 @@ The proxy is also available as a [docker image](Dockerfile):
 ```shell
 $ docker run -p 8081:8080 -e TOKEN_ISSUER=[token_issuer_url] \
   -e PROXY_TO=[fhir_server_url] -e ACCESS_CHECKER=list \
-  us-docker.pkg.dev/fhir-proxy-build/stable/fhir-access-proxy:latest
+  us-docker.pkg.dev/fhir-proxy-build/stable/fhir-gateway:latest
 ```
 
 Note if the `TOKEN_ISSUER` is on the `localhost` you may need to bypass proxy's

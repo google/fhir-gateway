@@ -216,4 +216,15 @@ public class PatientAccessCheckerTest extends AccessCheckerTestBase {
     AccessChecker testInstance = getInstance();
     assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
   }
+
+  @Test
+  public void canAccessGetObservationMultipleSubjectsUnauthorized() {
+    when(requestMock.getResourceName()).thenReturn("Observation");
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.GET);
+    when(requestMock.getParameters())
+        .thenReturn(
+            Map.of("subject", new String[] {PATIENT_AUTHORIZED + "," + PATIENT_NON_AUTHORIZED}));
+    AccessChecker testInstance = getInstance();
+    assertThat(testInstance.checkAccess(requestMock).canAccess(), equalTo(false));
+  }
 }

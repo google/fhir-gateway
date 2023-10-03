@@ -21,7 +21,6 @@ import static org.hamcrest.Matchers.equalTo;
 import com.google.fhir.gateway.GenericFhirClient.GenericFhirClientBuilder;
 import java.net.URI;
 import java.net.URISyntaxException;
-import javax.servlet.ServletException;
 import org.apache.http.Header;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -30,18 +29,18 @@ import org.mockito.junit.MockitoJUnitRunner;
 @RunWith(MockitoJUnitRunner.class)
 public class GenericFhirClientTest {
 
-  @Test(expected = ServletException.class)
-  public void buildGenericFhirClientFhirStoreNotSetTest() throws ServletException {
+  @Test(expected = IllegalArgumentException.class)
+  public void buildGenericFhirClientFhirStoreNotSetTest() {
     new GenericFhirClientBuilder().build();
   }
 
-  @Test(expected = ServletException.class)
-  public void buildGenericFhirClientNoFhirStoreBlankTest() throws ServletException {
+  @Test(expected = IllegalArgumentException.class)
+  public void buildGenericFhirClientNoFhirStoreBlankTest() {
     new GenericFhirClientBuilder().setFhirStore("    ").build();
   }
 
   @Test
-  public void getAuthHeaderNoUsernamePasswordTest() throws ServletException {
+  public void getAuthHeaderNoUsernamePasswordTest() {
     GenericFhirClient genericFhirClient =
         new GenericFhirClientBuilder().setFhirStore("random.fhir").build();
     Header header = genericFhirClient.getAuthHeader();
@@ -50,7 +49,7 @@ public class GenericFhirClientTest {
   }
 
   @Test
-  public void getUriForResourceTest() throws URISyntaxException, ServletException {
+  public void getUriForResourceTest() throws URISyntaxException {
     GenericFhirClient genericFhirClient =
         new GenericFhirClientBuilder().setFhirStore("random.fhir").build();
     URI uri = genericFhirClient.getUriForResource("hello/world");

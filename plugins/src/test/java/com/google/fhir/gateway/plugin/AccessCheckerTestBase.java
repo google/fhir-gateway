@@ -350,6 +350,17 @@ public abstract class AccessCheckerTestBase {
     testInstance.checkAccess(requestMock).canAccess();
   }
 
+  @Test
+  public void canAccessPatientWithIdSearch() {
+    when(requestMock.getResourceName()).thenReturn("Patient");
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.GET);
+    Map<String, String[]> params = Maps.newHashMap();
+    params.put("_id", new String[] {PATIENT_AUTHORIZED});
+    when(requestMock.getParameters()).thenReturn(params);
+    AccessChecker testInstance = getInstance();
+    testInstance.checkAccess(requestMock).canAccess();
+  }
+
   @Test(expected = InvalidRequestException.class)
   public void canAccessSearchReverseChaining() {
     when(requestMock.getResourceName()).thenReturn("Observation");

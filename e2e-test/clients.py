@@ -65,7 +65,7 @@ class FhirProxyClient:
     """
 
     def __init__(self, host: str = "http://localhost", port: int = 8080) -> None:
-        self.base_url = "{}:{}".format(host, port)
+        self.base_url = "{}:{}/fhir".format(host, port)
         self.session = _setup_session(self.base_url)
 
     def get_resource_count(
