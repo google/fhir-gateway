@@ -320,35 +320,35 @@ varies by context.
 Each of these approaches are described in the following sections. In each case,
 we briefly describe what is supported in the first release of the access
 gateway. The "first release" is when we open-sourced the project in June 2022 in
-[this GitHub repository](https://github.com/google/fhir-access-proxy). Let's
+[this GitHub repository](https://github.com/google/fhir-gateway). Let's
 first look at the architecture of the gateway. There are two main components:
 
-**[Server](https://github.com/google/fhir-access-proxy/tree/main/server/src/main/java/com/google/fhir/gateway)**:
+**[Server](https://github.com/google/fhir-gateway/tree/main/server/src/main/java/com/google/fhir/gateway)**:
 The core of the access gateway is the "server" which provides a
-[servlet](https://github.com/google/fhir-access-proxy/blob/main/server/src/main/java/com/google/fhir/gateway/FhirProxyServer.java)
+[servlet](https://github.com/google/fhir-gateway/blob/main/server/src/main/java/com/google/fhir/gateway/FhirProxyServer.java)
 that processes FHIR queries and an
-[authorization interceptor](https://github.com/google/fhir-access-proxy/blob/main/server/src/main/java/com/google/fhir/gateway/BearerAuthorizationInterceptor.java)
+[authorization interceptor](https://github.com/google/fhir-gateway/blob/main/server/src/main/java/com/google/fhir/gateway/BearerAuthorizationInterceptor.java)
 that inspects those. The interceptor decodes and validates the JWT access-token
 and makes a call to an
-[AccessChecker](https://github.com/google/fhir-access-proxy/blob/main/server/src/main/java/com/google/fhir/gateway/interfaces/AccessChecker.java)
+[AccessChecker](https://github.com/google/fhir-gateway/blob/main/server/src/main/java/com/google/fhir/gateway/interfaces/AccessChecker.java)
 plugin to decide whether access should be granted or not. The server also
 provides common FHIR query/resource processing, e.g.,
-[PatientFinder](https://github.com/google/fhir-access-proxy/blob/main/server/src/main/java/com/google/fhir/gateway/interfaces/PatientFinder.java)
+[PatientFinder](https://github.com/google/fhir-gateway/blob/main/server/src/main/java/com/google/fhir/gateway/interfaces/PatientFinder.java)
 for finding patient context. These libraries are meant to be used in the plugin
 implementations.
 
-**[AccessChecker plugin](https://github.com/google/fhir-access-proxy/tree/main/plugins)**:
+**[AccessChecker plugin](https://github.com/google/fhir-gateway/tree/main/plugins)**:
 Each access gateway needs at least one AccessChecker plugin. Gateway
 implementers can provide their customized access-check logic in this plugin. The
 server code's initialization finds plugins by looking for
-[AccessCheckerFactory](https://github.com/google/fhir-access-proxy/blob/main/server/src/main/java/com/google/fhir/gateway/interfaces/AccessCheckerFactory.java)
+[AccessCheckerFactory](https://github.com/google/fhir-gateway/blob/main/server/src/main/java/com/google/fhir/gateway/interfaces/AccessCheckerFactory.java)
 implementations that are
 [@Named](https://docs.oracle.com/javaee/7/api/javax/inject/Named.html). The
 specified name is used to select that plugin at runtime. Example implementations
 are
-[ListAccessChecker](https://github.com/google/fhir-access-proxy/blob/main/plugins/src/main/java/com/google/fhir/gateway/plugin/ListAccessChecker.java)
+[ListAccessChecker](https://github.com/google/fhir-gateway/blob/main/plugins/src/main/java/com/google/fhir/gateway/plugin/ListAccessChecker.java)
 and
-[PatientAccessChecker](https://github.com/google/fhir-access-proxy/blob/main/plugins/src/main/java/com/google/fhir/gateway/plugin/PatientAccessChecker.java).
+[PatientAccessChecker](https://github.com/google/fhir-gateway/blob/main/plugins/src/main/java/com/google/fhir/gateway/plugin/PatientAccessChecker.java).
 AccessChecker plugins can send RPCs to other backends if they need to collect
 extra information. In our examples, the plugins consult with the same FHIR store
 that resources are pulled from, but you could imagine consulting more hardened
@@ -374,7 +374,7 @@ This approach helps support both the **flexible-access-control** and
 **untrusted-app** items from the [constraints](#scenarios-and-constraints)
 section. Note to use this approach for access-control, the patient context
 should be inferred from the FHIR query. The server provides
-[a library](https://github.com/google/fhir-access-proxy/blob/main/server/src/main/java/com/google/fhir/gateway/PatientFinderImp.java)
+[a library](https://github.com/google/fhir-gateway/blob/main/server/src/main/java/com/google/fhir/gateway/PatientFinderImp.java)
 for doing this.
 
 ### Query templates allowed/blocked list
@@ -394,7 +394,7 @@ search results of a previous query. Just from these queries, we cannot decide
 what the patient context is, so we should let those queries go through (there is
 a security risk here but since `_getpages` param values are ephemeral UUIDs,
 this is probably ok). Here is a
-[sample config](https://github.com/google/fhir-access-proxy/blob/main/resources/hapi_page_url_allowed_queries.json)
+[sample config](https://github.com/google/fhir-gateway/blob/main/resources/hapi_page_url_allowed_queries.json)
 for this. We note that we want our core "server" to be _stateless_ (for easy
 scalability); therefore cannot store next/prev URLs from previous query results.
 
@@ -424,11 +424,11 @@ structure of FHIR queries that the gateway accepts). So we still need some
 restrictions on the permitted queries as mentioned above.
 
 Among gateway interfaces, there is
-[AccessDecision](https://github.com/google/fhir-access-proxy/blob/main/server/src/main/java/com/google/fhir/gateway/interfaces/AccessDecision.java)
+[AccessDecision](https://github.com/google/fhir-gateway/blob/main/server/src/main/java/com/google/fhir/gateway/interfaces/AccessDecision.java)
 which is returned from a
-[checkAccess](https://github.com/google/fhir-access-proxy/blob/85f7c87a26494d4efba5d01904c8c27074eb26a9/server/src/main/java/com/google/fhir/gateway/interfaces/AccessChecker.java#L31).
+[checkAccess](https://github.com/google/fhir-gateway/blob/85f7c87a26494d4efba5d01904c8c27074eb26a9/server/src/main/java/com/google/fhir/gateway/interfaces/AccessChecker.java#L31).
 This interface has a
-[postProcess](https://github.com/google/fhir-access-proxy/blob/85f7c87a26494d4efba5d01904c8c27074eb26a9/server/src/main/java/com/google/fhir/gateway/interfaces/AccessDecision.java#L39)
+[postProcess](https://github.com/google/fhir-gateway/blob/85f7c87a26494d4efba5d01904c8c27074eb26a9/server/src/main/java/com/google/fhir/gateway/interfaces/AccessDecision.java#L39)
 method which can be used for post-processing of resources returned from the FHIR
 server.
 

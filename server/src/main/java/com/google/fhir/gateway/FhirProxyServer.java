@@ -17,6 +17,7 @@ package com.google.fhir.gateway;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.rest.api.Constants;
+import ca.uhn.fhir.rest.server.ApacheProxyAddressStrategy;
 import ca.uhn.fhir.rest.server.RestfulServer;
 import ca.uhn.fhir.rest.server.interceptor.CorsInterceptor;
 import com.google.fhir.gateway.interfaces.AccessCheckerFactory;
@@ -46,7 +47,7 @@ public class FhirProxyServer extends RestfulServer {
   //   Spring's automatic scanning.
   @Autowired private Map<String, AccessCheckerFactory> accessCheckerFactories;
 
-  static boolean isDevMode() {
+  public static boolean isDevMode() {
     String runMode = System.getenv("RUN_MODE");
     return "DEV".equals(runMode);
   }
@@ -77,6 +78,8 @@ public class FhirProxyServer extends RestfulServer {
     } catch (IOException e) {
       ExceptionUtil.throwRuntimeExceptionAndLog(logger, "IOException while initializing", e);
     }
+
+    setServerAddressStrategy(new ApacheProxyAddressStrategy(true));
   }
 
   private AccessCheckerFactory chooseAccessCheckerFactory() {

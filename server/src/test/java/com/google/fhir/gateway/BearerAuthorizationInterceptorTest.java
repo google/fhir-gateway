@@ -62,15 +62,10 @@ import org.mockito.Answers;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnitRunner;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 @RunWith(MockitoJUnitRunner.class)
 public class BearerAuthorizationInterceptorTest {
-
-  private static final Logger logger =
-      LoggerFactory.getLogger(BearerAuthorizationInterceptorTest.class);
 
   private static final FhirContext fhirContext = FhirContext.forR4();
 

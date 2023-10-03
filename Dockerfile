@@ -15,8 +15,8 @@
 #
 
 # Image for building and running tests against the source code of
-# the FHIR Access Proxy.
-FROM maven:3.8.5-openjdk-11 as build
+# the FHIR Gateway.
+FROM maven:3.8.5-openjdk-11-slim as build
 
 RUN apt-get update && apt-get install -y nodejs npm
 RUN npm cache clean -f && npm install -g n && n stable
@@ -37,10 +37,10 @@ RUN mvn spotless:check
 RUN mvn --batch-mode package -Pstandalone-app -Dlicense.skip=true
 
 
-# Image for FHIR Access Proxy binary with configuration knobs as environment vars.
+# Image for FHIR Gateway binary with configuration knobs as environment vars.
 FROM eclipse-temurin:11-jdk-focal as main
 
-COPY --from=build /app/exec/target/exec-0.2.1-SNAPSHOT.jar /
+COPY --from=build /app/exec/target/fhir-gateway-exec.jar /
 COPY resources/hapi_page_url_allowed_queries.json resources/hapi_page_url_allowed_queries.json
 
 ENV PROXY_PORT=8080
@@ -54,4 +54,4 @@ ENV BACKEND_TYPE="HAPI"
 ENV ACCESS_CHECKER="list"
 ENV RUN_MODE="PROD"
 
-ENTRYPOINT java -jar exec-0.2.1-SNAPSHOT.jar --server.port=${PROXY_PORT}
+ENTRYPOINT java -jar fhir-gateway-exec.jar --server.port=${PROXY_PORT}

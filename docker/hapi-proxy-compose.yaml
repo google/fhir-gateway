@@ -35,7 +35,7 @@ version: "3.0"
 
 services:
   fhir-proxy:
-    image: us-docker.pkg.dev/fhir-proxy-build/stable/fhir-access-proxy:${BUILD_ID:-latest}
+    image: us-docker.pkg.dev/fhir-proxy-build/stable/fhir-gateway:${BUILD_ID:-latest}
     environment:
     - TOKEN_ISSUER
     - PROXY_TO

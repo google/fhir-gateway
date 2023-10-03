@@ -79,6 +79,9 @@
   </dependencies>
 
   <build>
+
+    <finalName>${project.parent.artifactId}-${project.artifactId}</finalName>
+
     <plugins>
       <!-- With this we can create a standalone executable JAR. -->
       <plugin>
