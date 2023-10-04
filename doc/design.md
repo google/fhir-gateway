@@ -320,8 +320,8 @@ varies by context.
 Each of these approaches are described in the following sections. In each case,
 we briefly describe what is supported in the first release of the access
 gateway. The "first release" is when we open-sourced the project in June 2022 in
-[this GitHub repository](https://github.com/google/fhir-gateway). Let's
-first look at the architecture of the gateway. There are two main components:
+[this GitHub repository](https://github.com/google/fhir-gateway). Let's first
+look at the architecture of the gateway. There are two main components:
 
 **[Server](https://github.com/google/fhir-gateway/tree/main/server/src/main/java/com/google/fhir/gateway)**:
 The core of the access gateway is the "server" which provides a
