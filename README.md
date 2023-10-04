@@ -36,7 +36,7 @@ all pieces can be woven together into a single Spring Boot app. To build all
 modules, from the root run:
 
 ```shell
-mvn package
+mvn package -Dspotless.apply.skip=true
 ```
 
 The server and the plugins can be run together through this executable jar (

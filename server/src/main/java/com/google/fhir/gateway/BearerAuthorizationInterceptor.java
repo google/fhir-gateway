@@ -26,13 +26,7 @@ import ca.uhn.fhir.rest.server.RestfulServer;
 import ca.uhn.fhir.rest.server.exceptions.AuthenticationException;
 import ca.uhn.fhir.rest.server.exceptions.ForbiddenOperationException;
 import ca.uhn.fhir.rest.server.servlet.ServletRequestDetails;
-import com.auth0.jwt.JWT;
-import com.auth0.jwt.JWTVerifier;
-import com.auth0.jwt.algorithms.Algorithm;
-import com.auth0.jwt.exceptions.JWTDecodeException;
-import com.auth0.jwt.exceptions.JWTVerificationException;
 import com.auth0.jwt.interfaces.DecodedJWT;
-import com.auth0.jwt.interfaces.Verification;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.fhir.gateway.interfaces.AccessChecker;
@@ -40,27 +34,14 @@ import com.google.fhir.gateway.interfaces.AccessCheckerFactory;
 import com.google.fhir.gateway.interfaces.AccessDecision;
 import com.google.fhir.gateway.interfaces.RequestDetailsReader;
 import com.google.fhir.gateway.interfaces.RequestMutation;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import java.io.IOException;
 import java.io.Reader;
 import java.io.StringReader;
 import java.io.Writer;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.nio.charset.StandardCharsets;
-import java.security.KeyFactory;
-import java.security.NoSuchAlgorithmException;
-import java.security.interfaces.RSAPublicKey;
-import java.security.spec.EncodedKeySpec;
-import java.security.spec.InvalidKeySpecException;
-import java.security.spec.X509EncodedKeySpec;
-import java.util.Base64;
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
-import org.apache.http.util.EntityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.util.CollectionUtils;
@@ -72,7 +53,6 @@ public class BearerAuthorizationInterceptor {
       LoggerFactory.getLogger(BearerAuthorizationInterceptor.class);
 
   private static final String DEFAULT_CONTENT_TYPE = "application/json; charset=UTF-8";
-  private static final String BEARER_PREFIX = "Bearer ";
 
   private static final String ACCEPT_ENCODING_HEADER = "Accept-Encoding";
 
@@ -84,25 +64,16 @@ public class BearerAuthorizationInterceptor {
   // For fetching CapabilityStatement: https://www.hl7.org/fhir/http.html#capabilities
   @VisibleForTesting static final String METADATA_PATH = "metadata";
 
-  // TODO: Make this configurable or based on the given JWT; we should at least support some other
-  // RSA* and ES* algorithms (requires ECDSA512 JWT algorithm).
-  private static final String SIGN_ALGORITHM = "RS256";
-
-  private final String tokenIssuer;
-  private final Verification jwtVerifierConfig;
-  private final HttpUtil httpUtil;
+  private final TokenVerifier tokenVerifier;
   private final RestfulServer server;
   private final HttpFhirClient fhirClient;
   private final AccessCheckerFactory accessFactory;
   private final AllowedQueriesChecker allowedQueriesChecker;
-  private final String configJson;
 
   BearerAuthorizationInterceptor(
       HttpFhirClient fhirClient,
-      String tokenIssuer,
-      String wellKnownEndpoint,
+      TokenVerifier tokenVerifier,
       RestfulServer server,
-      HttpUtil httpUtil,
       AccessCheckerFactory accessFactory,
       AllowedQueriesChecker allowedQueriesChecker)
       throws IOException {
@@ -110,111 +81,10 @@ public class BearerAuthorizationInterceptor {
     Preconditions.checkNotNull(server);
     this.server = server;
     this.fhirClient = fhirClient;
-    this.httpUtil = httpUtil;
-    this.tokenIssuer = tokenIssuer;
+    this.tokenVerifier = tokenVerifier;
     this.accessFactory = accessFactory;
     this.allowedQueriesChecker = allowedQueriesChecker;
-    RSAPublicKey issuerPublicKey = fetchAndDecodePublicKey();
-    jwtVerifierConfig = JWT.require(Algorithm.RSA256(issuerPublicKey, null));
-    this.configJson = httpUtil.fetchWellKnownConfig(tokenIssuer, wellKnownEndpoint);
     logger.info("Created proxy to the FHIR store " + this.fhirClient.getBaseUrl());
-  }
-
-  private RSAPublicKey fetchAndDecodePublicKey() throws IOException {
-    // Preconditions.checkState(SIGN_ALGORITHM.equals("ES512"));
-    Preconditions.checkState(SIGN_ALGORITHM.equals("RS256"));
-    // final String keyAlgorithm = "EC";
-    final String keyAlgorithm = "RSA";
-    try {
-      // TODO: Make sure this works for any issuer not just Keycloak; instead of this we should
-      // read the metadata and choose the right endpoint for the keys.
-      HttpResponse response = httpUtil.getResourceOrFail(new URI(tokenIssuer));
-      JsonObject jsonObject =
-          JsonParser.parseString(EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8))
-              .getAsJsonObject();
-      String keyStr = jsonObject.get("public_key").getAsString();
-      if (keyStr == null) {
-        ExceptionUtil.throwRuntimeExceptionAndLog(
-            logger, "Cannot find 'public_key' in issuer metadata.");
-      }
-      KeyFactory keyFactory = KeyFactory.getInstance(keyAlgorithm);
-      EncodedKeySpec keySpec = new X509EncodedKeySpec(Base64.getDecoder().decode(keyStr));
-      return (RSAPublicKey) keyFactory.generatePublic(keySpec);
-    } catch (URISyntaxException e) {
-      ExceptionUtil.throwRuntimeExceptionAndLog(
-          logger, "Error in token issuer URI " + tokenIssuer, e, AuthenticationException.class);
-    } catch (NoSuchAlgorithmException e) {
-      ExceptionUtil.throwRuntimeExceptionAndLog(
-          logger, "Invalid algorithm " + keyAlgorithm, e, AuthenticationException.class);
-    } catch (InvalidKeySpecException e) {
-      ExceptionUtil.throwRuntimeExceptionAndLog(
-          logger, "Invalid KeySpec: " + e.getMessage(), e, AuthenticationException.class);
-    }
-    // We should never get here, this is to keep the IDE happy!
-    return null;
-  }
-
-  private JWTVerifier buildJwtVerifier(String issuer) {
-
-    if (tokenIssuer.equals(issuer)) {
-      return jwtVerifierConfig.withIssuer(tokenIssuer).build();
-    } else if (FhirProxyServer.isDevMode()) {
-      // If server is in DEV mode, set issuer to one from request
-      logger.warn("Server run in DEV mode. Setting issuer to issuer from request.");
-      return jwtVerifierConfig.withIssuer(issuer).build();
-    } else {
-      ExceptionUtil.throwRuntimeExceptionAndLog(
-          logger,
-          String.format("The token issuer %s does not match the expected token issuer", issuer),
-          AuthenticationException.class);
-      return null;
-    }
-  }
-
-  @VisibleForTesting
-  DecodedJWT decodeAndVerifyBearerToken(String authHeader) {
-    if (!authHeader.startsWith(BEARER_PREFIX)) {
-      ExceptionUtil.throwRuntimeExceptionAndLog(
-          logger,
-          "Authorization header is not a valid Bearer token!",
-          AuthenticationException.class);
-    }
-    String bearerToken = authHeader.substring(BEARER_PREFIX.length());
-    DecodedJWT jwt = null;
-    try {
-      jwt = JWT.decode(bearerToken);
-    } catch (JWTDecodeException e) {
-      ExceptionUtil.throwRuntimeExceptionAndLog(
-          logger, "Failed to decode JWT: " + e.getMessage(), e, AuthenticationException.class);
-    }
-    String issuer = jwt.getIssuer();
-    String algorithm = jwt.getAlgorithm();
-    JWTVerifier jwtVerifier = buildJwtVerifier(issuer);
-    logger.info(
-        String.format(
-            "JWT issuer is %s, audience is %s, and algorithm is %s",
-            issuer, jwt.getAudience(), algorithm));
-
-    if (!SIGN_ALGORITHM.equals(algorithm)) {
-      ExceptionUtil.throwRuntimeExceptionAndLog(
-          logger,
-          String.format(
-              "Only %s signing algorithm is supported, got %s", SIGN_ALGORITHM, algorithm),
-          AuthenticationException.class);
-    }
-    DecodedJWT verifiedJwt = null;
-    try {
-      verifiedJwt = jwtVerifier.verify(jwt);
-    } catch (JWTVerificationException e) {
-      // Throwing an AuthenticationException instead since it is handled by HAPI and a 401
-      // status code is returned in the response.
-      ExceptionUtil.throwRuntimeExceptionAndLog(
-          logger,
-          String.format("JWT verification failed with error: %s", e.getMessage()),
-          e,
-          AuthenticationException.class);
-    }
-    return verifiedJwt;
   }
 
   private AccessDecision checkAuthorization(RequestDetails requestDetails) {
@@ -241,7 +111,7 @@ public class BearerAuthorizationInterceptor {
       ExceptionUtil.throwRuntimeExceptionAndLog(
           logger, "No Authorization header provided!", AuthenticationException.class);
     }
-    DecodedJWT decodedJwt = decodeAndVerifyBearerToken(authHeader);
+    DecodedJWT decodedJwt = tokenVerifier.decodeAndVerifyBearerToken(authHeader);
     FhirContext fhirContext = server.getFhirContext();
     PatientFinderImp patientFinder = PatientFinderImp.getInstance(fhirContext);
     AccessChecker accessChecker =
@@ -400,7 +270,7 @@ public class BearerAuthorizationInterceptor {
               DEFAULT_CONTENT_TYPE,
               Constants.CHARSET_NAME_UTF8,
               false);
-      writer.write(configJson);
+      writer.write(tokenVerifier.getWellKnownConfig());
       writer.close();
     } catch (IOException e) {
       logger.error(

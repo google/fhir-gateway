@@ -1,5 +1,5 @@
 #
-# Copyright 2021-2022 Google LLC
+# Copyright 2021-2023 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -65,7 +65,7 @@ class FhirProxyClient:
     """
 
     def __init__(self, host: str = "http://localhost", port: int = 8080) -> None:
-        self.base_url = "{}:{}".format(host, port)
+        self.base_url = "{}:{}/fhir".format(host, port)
         self.session = _setup_session(self.base_url)
 
     def get_resource_count(

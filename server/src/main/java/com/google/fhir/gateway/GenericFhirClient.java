@@ -17,7 +17,6 @@ package com.google.fhir.gateway;
 
 import java.net.URI;
 import java.net.URISyntaxException;
-import javax.servlet.ServletException;
 import org.apache.http.Header;
 import org.apache.http.client.utils.URIBuilder;
 import org.apache.http.message.BasicHeader;
@@ -61,9 +60,9 @@ public final class GenericFhirClient extends HttpFhirClient {
       return this;
     }
 
-    public GenericFhirClient build() throws ServletException {
+    public GenericFhirClient build() {
       if (fhirStore == null || fhirStore.isBlank()) {
-        throw new ServletException("FhirStore not set!");
+        throw new IllegalArgumentException("FhirStore not set!");
       }
       return new GenericFhirClient(fhirStore);
     }

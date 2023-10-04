@@ -16,7 +16,7 @@
 
 # Image for building and running tests against the source code of
 # the FHIR Gateway.
-FROM maven:3.8.5-openjdk-17-slim as build
+FROM maven:3.8.5-openjdk-11-slim as build
 
 RUN apt-get update && apt-get install -y nodejs npm
 RUN npm cache clean -f && npm install -g n && n stable

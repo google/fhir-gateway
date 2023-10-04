@@ -109,7 +109,7 @@ public class ListAccessChecker implements AccessChecker {
   // may want to revisit it in the future.
   // Note patientIds are expected NOT to include the `Patient/` prefix (pure IDs only).
   private boolean serverListIncludesAnyPatient(Set<String> patientIds) {
-    if (patientIds == null) {
+    if (patientIds == null || patientIds.isEmpty()) {
       return false;
     }
     // TODO consider using the HAPI FHIR client instead; see:
@@ -123,7 +123,7 @@ public class ListAccessChecker implements AccessChecker {
   // Note patientIds are expected to include the `Patient/` prefix.
   // TODO fix the above inconsistency with `serverListIncludesAnyPatient`.
   private boolean serverListIncludesAllPatients(Set<String> patientIds) {
-    if (patientIds == null) {
+    if (patientIds == null || patientIds.isEmpty()) {
       return false;
     }
     String patientParam = queryBuilder(patientIds, "item=", "&");
@@ -190,8 +190,10 @@ public class ListAccessChecker implements AccessChecker {
       }
       return NoOpAccessDecision.accessDenied();
     }
-    String patientId = patientFinder.findPatientFromParams(requestDetails);
-    return new NoOpAccessDecision(serverListIncludesAnyPatient(Sets.newHashSet(patientId)));
+    Set<String> patientIds = patientFinder.findPatientsFromParams(requestDetails);
+    Set<String> patientQueries = Sets.newHashSet();
+    patientIds.forEach(patientId -> patientQueries.add(String.format("Patient/%s", patientId)));
+    return new NoOpAccessDecision(serverListIncludesAllPatients(patientQueries));
   }
 
   private AccessDecision processPost(RequestDetailsReader requestDetails) {
@@ -238,8 +240,10 @@ public class ListAccessChecker implements AccessChecker {
     // TODO(https://github.com/google/fhir-gateway/issues/63):Support direct resource deletion.
 
     // There should be a patient id in search params; the param name is based on the resource.
-    String patientId = patientFinder.findPatientFromParams(requestDetails);
-    return new NoOpAccessDecision(serverListIncludesAnyPatient(Sets.newHashSet(patientId)));
+    Set<String> patientIds = patientFinder.findPatientsFromParams(requestDetails);
+    Set<String> patientQueries = Sets.newHashSet();
+    patientIds.forEach(patientId -> patientQueries.add(String.format("Patient/%s", patientId)));
+    return new NoOpAccessDecision(serverListIncludesAllPatients(patientQueries));
   }
 
   private AccessDecision checkNonPatientAccessInUpdate(
@@ -249,10 +253,10 @@ public class ListAccessChecker implements AccessChecker {
         "Expected either PATCH or PUT!");
 
     // We do not allow direct resource PUT/PATCH, so Patient ID must be returned
-    String patientId = patientFinder.findPatientFromParams(requestDetails);
+    Set<String> patientIds = patientFinder.findPatientsFromParams(requestDetails);
     Set<String> patientQueries = Sets.newHashSet();
     // Escaping is not needed here as the set elements will be escaped later.
-    patientQueries.add(String.format("Patient/%s", patientId));
+    patientIds.forEach(patientId -> patientQueries.add(String.format("Patient/%s", patientId)));
 
     Set<String> patientSet = Sets.newHashSet();
     if (updateMethod == RequestTypeEnum.PATCH) {
@@ -327,6 +331,7 @@ public class ListAccessChecker implements AccessChecker {
 
     Set<String> patientsToCreate = Sets.newHashSet();
     Set<String> patientsToUpdate = Sets.newHashSet();
+    Set<String> patientsToDelete = patientsInBundleUnfiltered.getDeletedPatients();
 
     for (String patientId : patientsInBundleUnfiltered.getUpdatedPatients()) {
       if (!patientsExist(patientId)) {
@@ -342,7 +347,8 @@ public class ListAccessChecker implements AccessChecker {
 
     Set<String> patientQueries = Sets.newHashSet();
     for (Set<String> patientRefSet : patientsInBundleUnfiltered.getReferencedPatients()) {
-      if (Collections.disjoint(patientRefSet, patientsToCreate)) {
+      if (Collections.disjoint(patientRefSet, patientsToCreate)
+          && Collections.disjoint(patientRefSet, patientsToDelete)) {
         String orQuery = queryBuilder(patientRefSet, "Patient/", ",");
         patientQueries.add(orQuery);
       }
@@ -350,6 +356,13 @@ public class ListAccessChecker implements AccessChecker {
 
     if (!patientsToUpdate.isEmpty()) {
       for (String eachPatient : patientsToUpdate) {
+        String andQuery = String.format("Patient/%s", eachPatient);
+        patientQueries.add(andQuery);
+      }
+    }
+
+    if (!patientsToDelete.isEmpty()) {
+      for (String eachPatient : patientsToDelete) {
         String andQuery = String.format("Patient/%s", eachPatient);
         patientQueries.add(andQuery);
       }

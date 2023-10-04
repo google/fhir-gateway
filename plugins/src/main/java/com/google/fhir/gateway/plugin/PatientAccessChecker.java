@@ -119,17 +119,21 @@ public class PatientAccessChecker implements AccessChecker {
     return processCreate(requestDetails);
   }
 
+  private Boolean validatePatientIds(Set<String> patientIds) {
+    return patientIds.size() == 1 && authorizedPatientId.equals(patientIds.iterator().next());
+  }
+
   private AccessDecision processRead(RequestDetailsReader requestDetails) {
-    String patientId = patientFinder.findPatientFromParams(requestDetails);
+    Set<String> patientIds = patientFinder.findPatientsFromParams(requestDetails);
     return new NoOpAccessDecision(
-        authorizedPatientId.equals(patientId)
+        validatePatientIds(patientIds)
             && smartScopeChecker.hasPermission(requestDetails.getResourceName(), Permission.READ));
   }
 
   private AccessDecision processSearch(RequestDetailsReader requestDetails) {
-    String patientId = patientFinder.findPatientFromParams(requestDetails);
+    Set<String> patientIds = patientFinder.findPatientsFromParams(requestDetails);
     return new NoOpAccessDecision(
-        authorizedPatientId.equals(patientId)
+        validatePatientIds(patientIds)
             && smartScopeChecker.hasPermission(
                 requestDetails.getResourceName(), Permission.SEARCH));
   }
@@ -159,9 +163,9 @@ public class PatientAccessChecker implements AccessChecker {
       return NoOpAccessDecision.accessDenied();
     }
     // TODO(https://github.com/google/fhir-gateway/issues/63):Support direct resource deletion.
-    String patientId = patientFinder.findPatientFromParams(requestDetails);
+    Set<String> patientIds = patientFinder.findPatientsFromParams(requestDetails);
     return new NoOpAccessDecision(
-        authorizedPatientId.equals(patientId)
+        validatePatientIds(patientIds)
             && smartScopeChecker.hasPermission(
                 requestDetails.getResourceName(), Permission.DELETE));
   }
@@ -169,8 +173,8 @@ public class PatientAccessChecker implements AccessChecker {
   private AccessDecision checkNonPatientAccessInUpdate(
       RequestDetailsReader requestDetails, RequestTypeEnum updateMethod) {
     // We do not allow direct resource PUT/PATCH, so Patient ID must be returned
-    String patientId = patientFinder.findPatientFromParams(requestDetails);
-    if (!patientId.equals(authorizedPatientId)) {
+    Set<String> referencedPatientIds = patientFinder.findPatientsFromParams(requestDetails);
+    if (!validatePatientIds(referencedPatientIds)) {
       return NoOpAccessDecision.accessDenied();
     }
 

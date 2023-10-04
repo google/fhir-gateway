@@ -21,7 +21,7 @@
   <parent>
     <groupId>com.google.fhir.gateway</groupId>
     <artifactId>fhir-gateway</artifactId>
-    <version>0.1.32</version>
+    <version>0.3.0</version>
   </parent>
 
   <artifactId>server</artifactId>
@@ -115,7 +115,7 @@
     <dependency>
       <groupId>com.auth0</groupId>
       <artifactId>java-jwt</artifactId>
-      <version>4.2.2</version>
+      <version>4.4.0</version>
     </dependency>
 
     <!-- These are needed for the FhirPath and FHIRPathEngine of HAPI.

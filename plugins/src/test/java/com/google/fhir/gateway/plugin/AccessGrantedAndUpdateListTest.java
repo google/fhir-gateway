@@ -41,7 +41,7 @@ public class AccessGrantedAndUpdateListTest {
   private HttpResponse responseMock;
 
   @Mock(answer = Answers.RETURNS_DEEP_STUBS)
-  private RequestDetailsReader requestDetailsMock;
+  private RequestDetailsReader requestDetailsReader;
 
   private static final FhirContext fhirContext = FhirContext.forR4();
 
@@ -59,7 +59,7 @@ public class AccessGrantedAndUpdateListTest {
     testInstance =
         AccessGrantedAndUpdateList.forPatientResource(
             TEST_LIST_ID, httpFhirClientMock, fhirContext);
-    testInstance.postProcess(requestDetailsMock, responseMock);
+    testInstance.postProcess(requestDetailsReader, responseMock);
   }
 
   @Test
@@ -67,6 +67,6 @@ public class AccessGrantedAndUpdateListTest {
     testInstance =
         AccessGrantedAndUpdateList.forPatientResource(
             TEST_LIST_ID, httpFhirClientMock, fhirContext);
-    testInstance.postProcess(requestDetailsMock, responseMock);
+    testInstance.postProcess(requestDetailsReader, responseMock);
   }
 }
