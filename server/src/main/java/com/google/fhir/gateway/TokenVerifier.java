@@ -154,7 +154,7 @@ public class TokenVerifier {
   }
 
   @VisibleForTesting
-  DecodedJWT decodeAndVerifyBearerToken(String authHeader) {
+  public DecodedJWT decodeAndVerifyBearerToken(String authHeader) {
     if (!authHeader.startsWith(BEARER_PREFIX)) {
       ExceptionUtil.throwRuntimeExceptionAndLog(
           logger,
