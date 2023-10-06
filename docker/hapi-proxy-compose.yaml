@@ -1,5 +1,5 @@
 #
-# Copyright 2021-2022 Google LLC
+# Copyright 2021-2023 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -35,7 +35,7 @@ version: "3.0"
 
 services:
   fhir-proxy:
-    image: us-docker.pkg.dev/fhir-proxy-build/stable/fhir-access-proxy:${BUILD_ID:-latest}
+    image: us-docker.pkg.dev/fhir-proxy-build/stable/fhir-gateway:${BUILD_ID:-latest}
     environment:
     - TOKEN_ISSUER
     - PROXY_TO

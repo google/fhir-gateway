@@ -53,7 +53,7 @@ public class ExceptionUtil {
     throwRuntimeExceptionAndLog(logger, errorMessage, null, RuntimeException.class);
   }
 
-  static void throwRuntimeExceptionAndLog(Logger logger, String errorMessage, Exception e) {
+  public static void throwRuntimeExceptionAndLog(Logger logger, String errorMessage, Exception e) {
     throwRuntimeExceptionAndLog(logger, errorMessage, e, RuntimeException.class);
   }
 }

@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright 2021-2022 Google LLC
+# Copyright 2021-2023 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -28,4 +28,4 @@ set -e
 export BUILD_ID=${KOKORO_BUILD_ID:-local}
 gcloud auth configure-docker us-docker.pkg.dev
 ./e2e-test/e2e.sh
-docker push us-docker.pkg.dev/fhir-proxy-build/stable/fhir-access-proxy:${BUILD_ID}
+docker push us-docker.pkg.dev/fhir-proxy-build/stable/fhir-gateway:${BUILD_ID}
