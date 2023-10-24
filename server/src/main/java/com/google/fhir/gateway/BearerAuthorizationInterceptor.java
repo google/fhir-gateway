@@ -211,7 +211,7 @@ public class BearerAuthorizationInterceptor {
     if (acceptEncodingValue == null) {
       return false;
     }
-    return GZIP_ENCODING_VALUE.equalsIgnoreCase(acceptEncodingValue);
+    return acceptEncodingValue.contains(GZIP_ENCODING_VALUE);
   }
 
   /**
