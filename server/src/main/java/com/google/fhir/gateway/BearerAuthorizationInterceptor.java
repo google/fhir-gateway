@@ -38,6 +38,7 @@ import java.io.IOException;
 import java.io.Reader;
 import java.io.StringReader;
 import java.io.Writer;
+import java.util.Locale;
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
@@ -211,7 +212,7 @@ public class BearerAuthorizationInterceptor {
     if (acceptEncodingValue == null) {
       return false;
     }
-    return GZIP_ENCODING_VALUE.equalsIgnoreCase(acceptEncodingValue);
+    return acceptEncodingValue.toLowerCase(Locale.ENGLISH).contains(GZIP_ENCODING_VALUE);
   }
 
   /**
