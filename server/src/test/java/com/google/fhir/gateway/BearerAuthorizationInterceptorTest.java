@@ -337,4 +337,42 @@ public class BearerAuthorizationInterceptorTest {
     assertThat(
         proxyServletResponseMock.getHeader("Content-Encoding".toLowerCase()), equalTo("gzip"));
   }
+
+  @Test
+  public void shouldSendGzippedResponseWhenRequestedCaseInsensitive() throws IOException {
+    testInstance = createTestInstance(true, null);
+    String responseJson = "{\"resourceType\": \"Bundle\"}";
+    when(requestMock.getHeader("Authorization")).thenReturn("Bearer ANYTHING");
+    when(requestMock.getHeader("Accept-Encoding".toLowerCase())).thenReturn("GZIP");
+    when(requestMock.getServer()).thenReturn(serverMock);
+    ServletRestfulResponse proxyResponseMock = new ServletRestfulResponse(requestMock);
+    when(requestMock.getResponse()).thenReturn(proxyResponseMock);
+    HttpServletResponse proxyServletResponseMock = new MockHttpServletResponse();
+    when(requestMock.getServletResponse()).thenReturn(proxyServletResponseMock);
+    TestUtil.setUpFhirResponseMock(fhirResponseMock, responseJson);
+
+    testInstance.authorizeRequest(requestMock);
+
+    assertThat(
+        proxyServletResponseMock.getHeader("Content-Encoding".toLowerCase()), equalTo("gzip"));
+  }
+
+  @Test
+  public void shouldSendGzippedResponseWhenRequestedMultipleEncodingFormats() throws IOException {
+    testInstance = createTestInstance(true, null);
+    String responseJson = "{\"resourceType\": \"Bundle\"}";
+    when(requestMock.getHeader("Authorization")).thenReturn("Bearer ANYTHING");
+    when(requestMock.getHeader("Accept-Encoding".toLowerCase())).thenReturn("gzip, deflate, br");
+    when(requestMock.getServer()).thenReturn(serverMock);
+    ServletRestfulResponse proxyResponseMock = new ServletRestfulResponse(requestMock);
+    when(requestMock.getResponse()).thenReturn(proxyResponseMock);
+    HttpServletResponse proxyServletResponseMock = new MockHttpServletResponse();
+    when(requestMock.getServletResponse()).thenReturn(proxyServletResponseMock);
+    TestUtil.setUpFhirResponseMock(fhirResponseMock, responseJson);
+
+    testInstance.authorizeRequest(requestMock);
+
+    assertThat(
+        proxyServletResponseMock.getHeader("Content-Encoding".toLowerCase()), equalTo("gzip"));
+  }
 }
