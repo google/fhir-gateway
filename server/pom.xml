@@ -31,7 +31,7 @@
     <root.basedir>${project.parent.basedir}</root.basedir>
     <!-- This is chosen based on the Spring Boot version used in exec module.
       Note this module should have no Spring Boot dependency. -->
-    <spring.version>5.3.23</spring.version>
+    <spring.version>6.1.1</spring.version>
   </properties>
 
   <dependencies>
