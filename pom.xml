@@ -46,6 +46,7 @@
     <module>exec</module>
     <module>plugins</module>
     <module>server</module>
+    <module>coverage</module>
   </modules>
 
   <scm>
@@ -165,13 +166,6 @@
             <goals>
               <goal>prepare-agent</goal>
             </goals>
-          </execution>
-          <execution>
-            <id>report</id>
-            <goals>
-              <goal>report</goal>
-            </goals>
-            <phase>test</phase>
           </execution>
         </executions>
       </plugin>
