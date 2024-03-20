@@ -3,7 +3,7 @@
 <!-- Build status of the main branch -->
 
 [![Build Status](https://storage.googleapis.com/fhir-proxy-build-badges/build.svg)](https://storage.googleapis.com/fhir-proxy-build-badges/build.html)
-[![codecov](https://codecov.io/gh/google/fhir-gateway/branch/master/graph/badge.svg)](https://app.codecov.io/gh/google/fhir-gateway/tree/master)
+[![codecov](https://codecov.io/gh/google/fhir-gateway/branch/main/graph/badge.svg)](https://app.codecov.io/gh/google/fhir-gateway/tree/main)
 
 FHIR Information Gateway is a simple access-control proxy that sits in front of
 a [FHIR](https://www.hl7.org/fhir/) store (e.g., a
