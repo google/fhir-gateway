@@ -29,6 +29,7 @@ COPY plugins/src ./plugins/src
 COPY plugins/pom.xml ./plugins/
 COPY exec/src ./exec/src
 COPY exec/pom.xml ./exec/
+COPY coverage/pom.xml ./coverage/
 COPY license-header.txt .
 COPY pom.xml .
 
