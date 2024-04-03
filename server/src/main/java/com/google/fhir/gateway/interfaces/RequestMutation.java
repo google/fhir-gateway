@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2023 Google LLC
+ * Copyright 2021-2024 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,4 +32,5 @@ public class RequestMutation {
   // parameter in RequestMutation is already present in the original request).
   // Old parameter values should be explicitly retained while mutating values for that parameter.
   @Builder.Default Map<String, List<String>> queryParams = new HashMap<>();
+  @Builder.Default byte[] requestContent = new byte[0];
 }
