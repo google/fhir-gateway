@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2023 Google LLC
+ * Copyright 2021-2024 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -305,6 +305,65 @@ public class BearerAuthorizationInterceptorTest {
     assertThat(
         requestDetails.getParameters().get("param3"),
         arrayContainingInAnyOrder("param3-value2", "param3-value1"));
+  }
+
+  @Test
+  public void mutateRequest_whenContentMutatedThroughPlugin_shouldUpdateRequest() {
+    ServletRequestDetails requestDetails = new ServletRequestDetails();
+    String requestContent = "request-content";
+    requestDetails.setRequestContents(requestContent.getBytes(StandardCharsets.UTF_8));
+
+    AccessDecision mutableAccessDecision =
+        new AccessDecision() {
+          public boolean canAccess() {
+            return true;
+          }
+
+          public RequestMutation getRequestMutation(RequestDetailsReader requestDetailsReader) {
+            String mutatedContent = "request-content-mutated";
+            return RequestMutation.builder()
+                .requestContent(mutatedContent.getBytes(StandardCharsets.UTF_8))
+                .build();
+          }
+
+          public String postProcess(
+              RequestDetailsReader requestDetailsReader, HttpResponse response) throws IOException {
+            return null;
+          }
+        };
+
+    testInstance.mutateRequest(requestDetails, mutableAccessDecision);
+    String requestContentString =
+        new String(requestDetails.loadRequestContents(), StandardCharsets.UTF_8);
+    assertThat(requestContentString, equalTo("request-content-mutated"));
+  }
+
+  @Test
+  public void mutateRequest_whenContentNotMutatedThroughPlugin_shouldNotUpdateRequest() {
+    ServletRequestDetails requestDetails = new ServletRequestDetails();
+    String requestContent = "request-content";
+    requestDetails.setRequestContents(requestContent.getBytes(StandardCharsets.UTF_8));
+
+    AccessDecision mutableAccessDecision =
+        new AccessDecision() {
+          public boolean canAccess() {
+            return true;
+          }
+
+          public RequestMutation getRequestMutation(RequestDetailsReader requestDetailsReader) {
+            return null;
+          }
+
+          public String postProcess(
+              RequestDetailsReader requestDetailsReader, HttpResponse response) throws IOException {
+            return null;
+          }
+        };
+
+    testInstance.mutateRequest(requestDetails, mutableAccessDecision);
+    String requestContentString =
+        new String(requestDetails.loadRequestContents(), StandardCharsets.UTF_8);
+    assertThat(requestContentString, equalTo("request-content"));
   }
 
   @Test
