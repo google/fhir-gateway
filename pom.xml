@@ -71,7 +71,7 @@
   </distributionManagement>
 
   <properties>
-    <hapifhir_version>6.2.5</hapifhir_version>
+    <hapifhir_version>7.4.0</hapifhir_version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <spotless.version>2.43.0</spotless.version>
     <root.basedir>${project.basedir}</root.basedir>
