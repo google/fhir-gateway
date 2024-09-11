@@ -54,7 +54,7 @@ nav:
     - 'Create an access checker' : 'tutorial_first_access_checker.md'
   - Community:
     - 'Support' : 'support.md'
-    - 'Contributing': 'contributing.md'
+    - 'Contributing': 'contribute.md'
     - 'Release process': 'release_process.md'
 
 markdown_extensions:
