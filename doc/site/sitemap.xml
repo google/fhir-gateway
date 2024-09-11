@@ -31,6 +31,11 @@
          <changefreq>daily</changefreq>
     </url>
     <url>
+         <loc>https://example.com/info-gateway/release_process/</loc>
+         <lastmod>2024-09-11</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
          <loc>https://example.com/info-gateway/support/</loc>
          <lastmod>2024-09-11</lastmod>
          <changefreq>daily</changefreq>

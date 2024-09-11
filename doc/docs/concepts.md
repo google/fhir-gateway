@@ -54,8 +54,7 @@ The configuration parameters are provided through environment variables:
   export ACCESS_CHECKER=patient
   ```
 
-  For more information on how access-checkers work and building your own, see
-  [Understanding access checker plugins](https://github.com/google/fhir-gateway/wiki/Understanding-access-checker-plugins).
+  For more information on how access-checkers work and building your own, see [section on access checkers](#access-checkers).
 
 - `ALLOWED_QUERIES_FILE`: A list of URL requests that should bypass the access checker and always be allowed.
   [`AllowedQueriesChecker`](https://github.com/google/fhir-gateway/blob/main/server/src/main/java/com/google/fhir/gateway/AllowedQueriesChecker.java)
