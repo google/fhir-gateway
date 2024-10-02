@@ -46,6 +46,7 @@ import java.io.StringWriter;
 import java.io.Writer;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -53,6 +54,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
+import org.hamcrest.Matchers;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.model.CapabilityStatement;
 import org.junit.Before;
@@ -305,6 +307,43 @@ public class BearerAuthorizationInterceptorTest {
     assertThat(
         requestDetails.getParameters().get("param3"),
         arrayContainingInAnyOrder("param3-value2", "param3-value1"));
+  }
+
+  @Test
+  public void mutateRequestRemoveQueryParams() {
+
+    List<String> queryParamsToRemove = new ArrayList<>();
+    queryParamsToRemove.add("param1");
+
+    ServletRequestDetails requestDetails = new ServletRequestDetails();
+    requestDetails.addParameter("param1", new String[] {"param1-value1"});
+    requestDetails.addParameter("param2", new String[] {"param2-value1"});
+
+    AccessDecision mutableAccessDecision =
+        new AccessDecision() {
+          public boolean canAccess() {
+            return true;
+          }
+
+          public RequestMutation getRequestMutation(RequestDetailsReader requestDetailsReader) {
+            RequestMutation requestMutation = RequestMutation.builder().build();
+            requestMutation.getDiscardQueryParams().addAll(queryParamsToRemove);
+            return requestMutation;
+          }
+
+          public String postProcess(
+              RequestDetailsReader requestDetailsReader, HttpResponse response) throws IOException {
+            return null;
+          }
+        };
+    assertThat(requestDetails.getParameters().size(), Matchers.equalTo(2));
+
+    testInstance.mutateRequest(requestDetails, mutableAccessDecision);
+
+    assertThat(requestDetails.getParameters().size(), Matchers.equalTo(1));
+
+    assertThat(
+        requestDetails.getParameters().get("param2"), arrayContainingInAnyOrder("param2-value1"));
   }
 
   @Test
