@@ -284,7 +284,7 @@ public class BearerAuthorizationInterceptor {
     RequestMutation mutation =
         accessDecision.getRequestMutation(new RequestDetailsToReader(requestDetails));
     if (mutation == null
-        || (CollectionUtils.isEmpty(mutation.getQueryParams())
+        || (CollectionUtils.isEmpty(mutation.getAdditionalQueryParams())
             && CollectionUtils.isEmpty(mutation.getDiscardQueryParams()))) {
       return;
     }
@@ -292,7 +292,7 @@ public class BearerAuthorizationInterceptor {
     mutation.getDiscardQueryParams().forEach(requestDetails::removeParameter);
 
     mutation
-        .getQueryParams()
+        .getAdditionalQueryParams()
         .forEach((key, value) -> requestDetails.addParameter(key, value.toArray(new String[0])));
   }
 }

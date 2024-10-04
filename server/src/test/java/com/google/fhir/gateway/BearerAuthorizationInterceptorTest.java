@@ -289,7 +289,7 @@ public class BearerAuthorizationInterceptorTest {
           }
 
           public RequestMutation getRequestMutation(RequestDetailsReader requestDetailsReader) {
-            return RequestMutation.builder().queryParams(paramMutations).build();
+            return RequestMutation.builder().additionalQueryParams(paramMutations).build();
           }
 
           public String postProcess(

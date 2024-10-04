@@ -32,7 +32,7 @@ public class RequestMutation {
   // New values overwrites the old one if there is a conflict for a request param (i.e. a returned
   // parameter in RequestMutation is already present in the original request).
   // Old parameter values should be explicitly retained while mutating values for that parameter.
-  @Builder.Default Map<String, List<String>> queryParams = new HashMap<>();
+  @Builder.Default Map<String, List<String>> additionalQueryParams = new HashMap<>();
 
   // Query parameters that are no longer needed when forwarding the request to the upstream server
   // Parameters with the keys in this list will be removed
