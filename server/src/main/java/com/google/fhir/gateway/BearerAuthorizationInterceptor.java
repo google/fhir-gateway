@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2023 Google LLC
+ * Copyright 2021-2024 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -283,12 +283,16 @@ public class BearerAuthorizationInterceptor {
   void mutateRequest(RequestDetails requestDetails, AccessDecision accessDecision) {
     RequestMutation mutation =
         accessDecision.getRequestMutation(new RequestDetailsToReader(requestDetails));
-    if (mutation == null || CollectionUtils.isEmpty(mutation.getQueryParams())) {
+    if (mutation == null
+        || (CollectionUtils.isEmpty(mutation.getAdditionalQueryParams())
+            && CollectionUtils.isEmpty(mutation.getDiscardQueryParams()))) {
       return;
     }
 
+    mutation.getDiscardQueryParams().forEach(requestDetails::removeParameter);
+
     mutation
-        .getQueryParams()
+        .getAdditionalQueryParams()
         .forEach((key, value) -> requestDetails.addParameter(key, value.toArray(new String[0])));
   }
 }
