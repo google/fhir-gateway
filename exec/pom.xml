@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
 
-    Copyright 2021-2023 Google LLC
+    Copyright 2021-2024 Google LLC
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@
 
   <properties>
     <root.basedir>${project.parent.basedir}</root.basedir>
-    <spring-boot.version>2.7.5</spring-boot.version>
+    <spring-boot.version>3.3.4</spring-boot.version>
     <!-- We do not want to deploy the `exec` uber jar. -->
     <maven.deploy.skip>true</maven.deploy.skip>
   </properties>

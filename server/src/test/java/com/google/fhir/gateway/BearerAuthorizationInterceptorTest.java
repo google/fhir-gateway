@@ -41,6 +41,7 @@ import com.google.fhir.gateway.interfaces.NoOpAccessDecision;
 import com.google.fhir.gateway.interfaces.RequestDetailsReader;
 import com.google.fhir.gateway.interfaces.RequestMutation;
 import com.google.gson.Gson;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.io.Writer;
@@ -50,8 +51,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
 import org.hamcrest.Matchers;
@@ -125,8 +124,7 @@ public class BearerAuthorizationInterceptorTest {
     }
     IRestfulResponse proxyResponseMock = Mockito.mock(IRestfulResponse.class);
     when(requestMock.getResponse()).thenReturn(proxyResponseMock);
-    when(proxyResponseMock.getResponseWriter(
-            anyInt(), anyString(), anyString(), anyString(), anyBoolean()))
+    when(proxyResponseMock.getResponseWriter(anyInt(), anyString(), anyString(), anyBoolean()))
         .thenReturn(writerStub);
     TestUtil.setUpFhirResponseMock(fhirResponseMock, fhirStoreResponse);
   }
@@ -174,8 +172,7 @@ public class BearerAuthorizationInterceptorTest {
   void noAuthRequestSetup(String requestPath) throws IOException {
     IRestfulResponse proxyResponseMock = Mockito.mock(IRestfulResponse.class);
     when(requestMock.getResponse()).thenReturn(proxyResponseMock);
-    when(proxyResponseMock.getResponseWriter(
-            anyInt(), anyString(), anyString(), anyString(), anyBoolean()))
+    when(proxyResponseMock.getResponseWriter(anyInt(), anyString(), anyString(), anyBoolean()))
         .thenReturn(writerStub);
     when(requestMock.getRequestPath()).thenReturn(requestPath);
   }
@@ -183,9 +180,6 @@ public class BearerAuthorizationInterceptorTest {
   @Test
   public void authorizeRequestWellKnown() throws IOException {
     noAuthRequestSetup(BearerAuthorizationInterceptor.WELL_KNOWN_CONF_PATH);
-    HttpServletRequest servletRequestMock = Mockito.mock(HttpServletRequest.class);
-    when(requestMock.getServletRequest()).thenReturn(servletRequestMock);
-    when(servletRequestMock.getProtocol()).thenReturn("HTTP/1.1");
     URL idpUrl = Resources.getResource("idp_keycloak_config.json");
     String testIdpConfig = Resources.toString(idpUrl, StandardCharsets.UTF_8);
     when(tokenVerifierMock.getWellKnownConfig()).thenReturn(testIdpConfig);

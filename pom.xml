@@ -71,17 +71,14 @@
   </distributionManagement>
 
   <properties>
-    <hapifhir_version>6.2.5</hapifhir_version>
+    <hapifhir_version>7.4.3</hapifhir_version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <spotless.version>2.43.0</spotless.version>
     <root.basedir>${project.basedir}</root.basedir>
     <maven.compiler.source>11</maven.compiler.source>
     <maven.compiler.target>11</maven.compiler.target>
-    <!-- Check this for why we are not using a higher version for now:
-      https://www.slf4j.org/codes.html#StaticLoggerBinder
-      The root cause is that we are using an older version of Spring. -->
-    <slf4j.version>1.7.36</slf4j.version>
-    <logback.version>1.2.13</logback.version>
+    <slf4j.version>2.0.16</slf4j.version>
+    <logback.version>1.5.8</logback.version>
     <license-maven-plugin.version>4.6</license-maven-plugin.version>
   </properties>
 
@@ -129,7 +126,7 @@
     <dependency>
       <groupId>org.mockito</groupId>
       <artifactId>mockito-core</artifactId>
-      <version>5.11.0</version>
+      <version>5.14.1</version>
       <scope>test</scope>
     </dependency>
 
@@ -289,8 +286,8 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
         <configuration>
-          <source>11</source>
-          <target>11</target>
+          <source>17</source>
+          <target>17</target>
         </configuration>
       </plugin>
     </plugins>
