@@ -31,7 +31,11 @@
     <root.basedir>${project.parent.basedir}</root.basedir>
     <!-- This is chosen based on the Spring Boot version used in exec module.
       Note this module should have no Spring Boot dependency. -->
-    <spring.version>5.3.23</spring.version>
+    <spring.version>6.1.13</spring.version>
+    <!-- We should keep this consistent with Spring's Jakarta dep as well. -->
+    <jakarta-servlet.version>6.0.0</jakarta-servlet.version>
+    <!-- TODO check version compatibility with HAPI and Spring! -->
+    <jakarta-annotation.version>2.1.1</jakarta-annotation.version>
   </properties>
 
   <dependencies>
@@ -40,6 +44,13 @@
       <groupId>ca.uhn.hapi.fhir</groupId>
       <artifactId>hapi-fhir-server</artifactId>
       <version>${hapifhir_version}</version>
+    </dependency>
+    <!-- This is a dependency of both hapi-fhir-server and java-jwt, so
+      we pin a version that can work with both. -->
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+      <version>2.17.1</version>
     </dependency>
 
     <!-- At least one "structures" JAR must also be included -->
@@ -58,10 +69,14 @@
 
     <!-- Needed for JEE/Servlet support -->
     <dependency>
-      <groupId>javax.servlet</groupId>
-      <artifactId>javax.servlet-api</artifactId>
-      <version>4.0.1</version>
-      <scope>provided</scope>
+      <groupId>jakarta.servlet</groupId>
+      <artifactId>jakarta.servlet-api</artifactId>
+      <version>${jakarta-servlet.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>jakarta.annotation</groupId>
+      <artifactId>jakarta.annotation-api</artifactId>
+      <version>${jakarta-annotation.version}</version>
     </dependency>
 
     <!-- For Spring -->
@@ -111,17 +126,19 @@
       <version>4.4.0</version>
     </dependency>
 
-    <!-- These are needed for the FhirPath and FHIRPathEngine of HAPI.
-    These are "optional" dependencies for `hapi-fhir-structures-r4`. -->
+    <!-- This is to provide the ca.uhn.fhir.sl.cache.CacheProvider service. -->
+    <dependency>
+      <groupId>ca.uhn.hapi.fhir</groupId>
+      <artifactId>hapi-fhir-caching-caffeine</artifactId>
+      <version>${hapifhir_version}</version>
+    </dependency>
+
+    <!-- This is needed for the FhirPath and FHIRPathEngine of HAPI.
+      This is an "optional" dependency for `hapi-fhir-structures-r4`. -->
     <dependency>
       <groupId>org.fhir</groupId>
       <artifactId>ucum</artifactId>
       <version>1.0.8</version>
-    </dependency>
-    <dependency>
-      <groupId>com.github.ben-manes.caffeine</groupId>
-      <artifactId>caffeine</artifactId>
-      <version>3.1.8</version>
     </dependency>
 
     <!-- Gson -->

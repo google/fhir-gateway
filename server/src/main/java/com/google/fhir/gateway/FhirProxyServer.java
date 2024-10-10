@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2023 Google LLC
+ * Copyright 2021-2024 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,12 +21,12 @@ import ca.uhn.fhir.rest.server.ApacheProxyAddressStrategy;
 import ca.uhn.fhir.rest.server.RestfulServer;
 import ca.uhn.fhir.rest.server.interceptor.CorsInterceptor;
 import com.google.fhir.gateway.interfaces.AccessCheckerFactory;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.annotation.WebServlet;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Map;
-import javax.servlet.ServletException;
-import javax.servlet.annotation.WebServlet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;

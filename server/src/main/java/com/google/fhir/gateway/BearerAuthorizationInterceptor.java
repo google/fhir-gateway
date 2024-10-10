@@ -182,7 +182,6 @@ public class BearerAuthorizationInterceptor {
       Writer writer =
           proxyResponse.getResponseWriter(
               response.getStatusLine().getStatusCode(),
-              response.getStatusLine().toString(),
               DEFAULT_CONTENT_TYPE,
               Constants.CHARSET_NAME_UTF8,
               sendGzippedResponse(servletDetails));
@@ -256,20 +255,10 @@ public class BearerAuthorizationInterceptor {
 
   private void serveWellKnown(ServletRequestDetails request) {
     IRestfulResponse proxyResponse = request.getResponse();
-    final String statusLine =
-        String.format(
-            "%s %d %s",
-            request.getServletRequest().getProtocol(),
-            HttpStatus.SC_OK,
-            Constants.HTTP_STATUS_NAMES.get(HttpStatus.SC_OK));
     try {
       Writer writer =
           proxyResponse.getResponseWriter(
-              HttpStatus.SC_OK,
-              statusLine,
-              DEFAULT_CONTENT_TYPE,
-              Constants.CHARSET_NAME_UTF8,
-              false);
+              HttpStatus.SC_OK, DEFAULT_CONTENT_TYPE, Constants.CHARSET_NAME_UTF8, false);
       writer.write(tokenVerifier.getWellKnownConfig());
       writer.close();
     } catch (IOException e) {
