@@ -35,7 +35,7 @@
     <!-- We should keep this consistent with Spring's Jakarta dep as well. -->
     <jakarta-servlet.version>6.0.0</jakarta-servlet.version>
     <!-- TODO check version compatibility with HAPI and Spring! -->
-    <jakarta-annotation.version>2.1.1</jakarta-annotation.version>
+    <jakarta-annotation.version>3.0.0</jakarta-annotation.version>
   </properties>
 
   <dependencies>
