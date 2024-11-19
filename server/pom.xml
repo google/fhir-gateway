@@ -31,7 +31,7 @@
     <root.basedir>${project.parent.basedir}</root.basedir>
     <!-- This is chosen based on the Spring Boot version used in exec module.
       Note this module should have no Spring Boot dependency. -->
-    <spring.version>6.1.14</spring.version>
+    <spring.version>6.2.0</spring.version>
     <!-- We should keep this consistent with Spring's Jakarta dep as well. -->
     <jakarta-servlet.version>6.1.0</jakarta-servlet.version>
     <!-- TODO check version compatibility with HAPI and Spring! -->
