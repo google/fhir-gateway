@@ -25,7 +25,7 @@ for a FHIR query.
 <img src="doc/summary.png" width=50% alt="Modules involved in FHIR authorization/access-control">
 
 For more information on the technical design,
-[see the design doc](doc/design.md).
+[see the design doc](doc/docs/design.md).
 
 # Modules
 
