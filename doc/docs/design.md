@@ -21,7 +21,7 @@ For more context, please see the [Introduction](#introduction) section.
 Here is a summary of proposals and decisions in this design document, for the
 first version (V1) of the FHIR gateway:
 
-<img src="summary.png" width=50% height=50%>
+![High-level Architecture](images/summary.png)
 
 - There are three main components responsible for access decisions: an Identity
   Provider (IDP) which authenticates the user, an Authorization server (AuthZ)
@@ -198,8 +198,6 @@ sometimes referred to as the Identity and Access Management (IAM) or simply
 We also have an "access gateway" which is responsible for processing any access
 request for the FHIR server and is the main focus of this design doc.
 
-<img src="summary.png" width=50% height=50%>
-
 ### Authentication and authorization flow
 
 Before the user can access data, their identity should be established and based
@@ -226,7 +224,7 @@ to use
 [PKCE](https://auth0.com/docs/authorization/flows/authorization-code-flow-with-proof-key-for-code-exchange-pkce)
 which is not shown in this diagram)[^1]:
 
-<img src="flow.png">
+![flow](images/flow.png)
 
 Here is a brief description of each step:
 
@@ -265,7 +263,7 @@ to AuthZ which in turn maps the user identity to some access rules to FHIR
 resources. Popular IAM servers like [Keycloak](https://www.keycloak.org/),
 support separate/3rd party IDPs.
 
-<img src="separate.png" width=50% height=50%>
+![separate](images/separate.png)
 
 **Integrated AuthZ+Gateway**
 
@@ -277,7 +275,7 @@ simplifies the deployment architecture significantly, however we note that the
 elimination of the access token might be incompatible with some use-cases like
 SoF apps.
 
-<img src="integrated.png" width=50% height=50%>
+![integrated](images/integrated.png)
 
 ## Access gateway
 

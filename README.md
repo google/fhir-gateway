@@ -22,10 +22,10 @@ The requests to the access proxy should have the access token as a Bearer
 Authorization header. Based on that, the proxy decides whether to grant access
 for a FHIR query.
 
-<img src="doc/summary.png" width=50% alt="Modules involved in FHIR authorization/access-control">
+<img src="doc/docs/summary.png" width=50% alt="Modules involved in FHIR authorization/access-control">
 
 For more information on the technical design,
-[see the design doc](doc/design.md).
+[see the design doc](doc/docs/design.md).
 
 # Modules
 
@@ -177,7 +177,7 @@ accessing the proxy from an Android emulator, which runs on a separate network.
 GCP note: if this is not on a VM with proper service account (e.g., on a local
 host), you need to pass GCP credentials to it, for example by mapping the
 `.config/gcloud` volume (i.e., add `-v ~/.config/gcloud:/root/.config/gcloud` to
-the above command).
+the docker command).
 
 # How to use this proxy
 
