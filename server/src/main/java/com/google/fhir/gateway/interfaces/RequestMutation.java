@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2023 Google LLC
+ * Copyright 2021-2024 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  */
 package com.google.fhir.gateway.interfaces;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -31,5 +32,9 @@ public class RequestMutation {
   // New values overwrites the old one if there is a conflict for a request param (i.e. a returned
   // parameter in RequestMutation is already present in the original request).
   // Old parameter values should be explicitly retained while mutating values for that parameter.
-  @Builder.Default Map<String, List<String>> queryParams = new HashMap<>();
+  @Builder.Default Map<String, List<String>> additionalQueryParams = new HashMap<>();
+
+  // Query parameters that are no longer needed when forwarding the request to the upstream server
+  // Parameters with the keys in this list will be removed
+  @Builder.Default List<String> discardQueryParams = new ArrayList<>();
 }

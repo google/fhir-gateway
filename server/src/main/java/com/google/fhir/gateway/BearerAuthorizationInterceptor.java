@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2023 Google LLC
+ * Copyright 2021-2024 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -182,7 +182,6 @@ public class BearerAuthorizationInterceptor {
       Writer writer =
           proxyResponse.getResponseWriter(
               response.getStatusLine().getStatusCode(),
-              response.getStatusLine().toString(),
               DEFAULT_CONTENT_TYPE,
               Constants.CHARSET_NAME_UTF8,
               sendGzippedResponse(servletDetails));
@@ -256,20 +255,10 @@ public class BearerAuthorizationInterceptor {
 
   private void serveWellKnown(ServletRequestDetails request) {
     IRestfulResponse proxyResponse = request.getResponse();
-    final String statusLine =
-        String.format(
-            "%s %d %s",
-            request.getServletRequest().getProtocol(),
-            HttpStatus.SC_OK,
-            Constants.HTTP_STATUS_NAMES.get(HttpStatus.SC_OK));
     try {
       Writer writer =
           proxyResponse.getResponseWriter(
-              HttpStatus.SC_OK,
-              statusLine,
-              DEFAULT_CONTENT_TYPE,
-              Constants.CHARSET_NAME_UTF8,
-              false);
+              HttpStatus.SC_OK, DEFAULT_CONTENT_TYPE, Constants.CHARSET_NAME_UTF8, false);
       writer.write(tokenVerifier.getWellKnownConfig());
       writer.close();
     } catch (IOException e) {
@@ -283,12 +272,16 @@ public class BearerAuthorizationInterceptor {
   void mutateRequest(RequestDetails requestDetails, AccessDecision accessDecision) {
     RequestMutation mutation =
         accessDecision.getRequestMutation(new RequestDetailsToReader(requestDetails));
-    if (mutation == null || CollectionUtils.isEmpty(mutation.getQueryParams())) {
+    if (mutation == null
+        || (CollectionUtils.isEmpty(mutation.getAdditionalQueryParams())
+            && CollectionUtils.isEmpty(mutation.getDiscardQueryParams()))) {
       return;
     }
 
+    mutation.getDiscardQueryParams().forEach(requestDetails::removeParameter);
+
     mutation
-        .getQueryParams()
+        .getAdditionalQueryParams()
         .forEach((key, value) -> requestDetails.addParameter(key, value.toArray(new String[0])));
   }
 }

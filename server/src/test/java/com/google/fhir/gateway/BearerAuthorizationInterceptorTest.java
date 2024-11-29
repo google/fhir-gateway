@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2023 Google LLC
+ * Copyright 2021-2024 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,18 +41,19 @@ import com.google.fhir.gateway.interfaces.NoOpAccessDecision;
 import com.google.fhir.gateway.interfaces.RequestDetailsReader;
 import com.google.fhir.gateway.interfaces.RequestMutation;
 import com.google.gson.Gson;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.io.Writer;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
+import org.hamcrest.Matchers;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.model.CapabilityStatement;
 import org.junit.Before;
@@ -123,8 +124,7 @@ public class BearerAuthorizationInterceptorTest {
     }
     IRestfulResponse proxyResponseMock = Mockito.mock(IRestfulResponse.class);
     when(requestMock.getResponse()).thenReturn(proxyResponseMock);
-    when(proxyResponseMock.getResponseWriter(
-            anyInt(), anyString(), anyString(), anyString(), anyBoolean()))
+    when(proxyResponseMock.getResponseWriter(anyInt(), anyString(), anyString(), anyBoolean()))
         .thenReturn(writerStub);
     TestUtil.setUpFhirResponseMock(fhirResponseMock, fhirStoreResponse);
   }
@@ -172,8 +172,7 @@ public class BearerAuthorizationInterceptorTest {
   void noAuthRequestSetup(String requestPath) throws IOException {
     IRestfulResponse proxyResponseMock = Mockito.mock(IRestfulResponse.class);
     when(requestMock.getResponse()).thenReturn(proxyResponseMock);
-    when(proxyResponseMock.getResponseWriter(
-            anyInt(), anyString(), anyString(), anyString(), anyBoolean()))
+    when(proxyResponseMock.getResponseWriter(anyInt(), anyString(), anyString(), anyBoolean()))
         .thenReturn(writerStub);
     when(requestMock.getRequestPath()).thenReturn(requestPath);
   }
@@ -181,9 +180,6 @@ public class BearerAuthorizationInterceptorTest {
   @Test
   public void authorizeRequestWellKnown() throws IOException {
     noAuthRequestSetup(BearerAuthorizationInterceptor.WELL_KNOWN_CONF_PATH);
-    HttpServletRequest servletRequestMock = Mockito.mock(HttpServletRequest.class);
-    when(requestMock.getServletRequest()).thenReturn(servletRequestMock);
-    when(servletRequestMock.getProtocol()).thenReturn("HTTP/1.1");
     URL idpUrl = Resources.getResource("idp_keycloak_config.json");
     String testIdpConfig = Resources.toString(idpUrl, StandardCharsets.UTF_8);
     when(tokenVerifierMock.getWellKnownConfig()).thenReturn(testIdpConfig);
@@ -287,7 +283,7 @@ public class BearerAuthorizationInterceptorTest {
           }
 
           public RequestMutation getRequestMutation(RequestDetailsReader requestDetailsReader) {
-            return RequestMutation.builder().queryParams(paramMutations).build();
+            return RequestMutation.builder().additionalQueryParams(paramMutations).build();
           }
 
           public String postProcess(
@@ -305,6 +301,43 @@ public class BearerAuthorizationInterceptorTest {
     assertThat(
         requestDetails.getParameters().get("param3"),
         arrayContainingInAnyOrder("param3-value2", "param3-value1"));
+  }
+
+  @Test
+  public void mutateRequestRemoveQueryParams() {
+
+    List<String> queryParamsToRemove = new ArrayList<>();
+    queryParamsToRemove.add("param1");
+
+    ServletRequestDetails requestDetails = new ServletRequestDetails();
+    requestDetails.addParameter("param1", new String[] {"param1-value1"});
+    requestDetails.addParameter("param2", new String[] {"param2-value1"});
+
+    AccessDecision mutableAccessDecision =
+        new AccessDecision() {
+          public boolean canAccess() {
+            return true;
+          }
+
+          public RequestMutation getRequestMutation(RequestDetailsReader requestDetailsReader) {
+            RequestMutation requestMutation = RequestMutation.builder().build();
+            requestMutation.getDiscardQueryParams().addAll(queryParamsToRemove);
+            return requestMutation;
+          }
+
+          public String postProcess(
+              RequestDetailsReader requestDetailsReader, HttpResponse response) throws IOException {
+            return null;
+          }
+        };
+    assertThat(requestDetails.getParameters().size(), Matchers.equalTo(2));
+
+    testInstance.mutateRequest(requestDetails, mutableAccessDecision);
+
+    assertThat(requestDetails.getParameters().size(), Matchers.equalTo(1));
+
+    assertThat(
+        requestDetails.getParameters().get("param2"), arrayContainingInAnyOrder("param2-value1"));
   }
 
   @Test
