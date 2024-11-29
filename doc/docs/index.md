@@ -1,32 +1,55 @@
 # FHIR Info Gateway
-The Info Gateway is a reverse proxy which controls client access to FHIR resources on a server by checking requests for authorization to a FHIR URL or search query. 
 
-It makes it easier for developers to enforce organizational role based access control (RBAC) policies when working with FHIR data.
+The Info Gateway is a reverse proxy which controls client access to FHIR
+resources on a server. It works by inspecting FHIR requests and verifying that
+the client is authorized to access the requested resources.
 
-* The Info Gateway enables authorization (AT) and access-control (ACL) between a client application and a FHIR server when used along with any OpenID Connect compliant Identity Provider (IdP) and Authorization server (AuthZ). 
-* It currently supports Keycloak as the IDP+AuthZ provider and has been tested with HAPI FHIR and Google Cloud Healthcare API FHIR store as the FHIR server.
+It makes it easier for developers to enforce various forms of authorization
+policies including organizational role based access control (RBAC) policies
+when working with FHIR data.
+
+* To enable authorization and access-control (ACL) policy enforcement between a
+  client application and a FHIR server, the Info Gateway is used along with an
+  Identity Provider (IDP) and Authorization server (AuthZ).
+* The IDP can be a generic OpenID Connect (OIDC) compliant service or a special
+  purpose one.
+* The IDP+AuthZ should provide a JSON Web Token (JWT) to the client. The client
+  uses this as a Bearer access-token (AT) when sending FHIR requests.
+* A sample end-to-end implementation with Keycloak as the IDP+AuthZ service is
+  provided and has been tested with HAPI FHIR and Google Cloud Healthcare
+  FHIR-store as the FHIR server.
 
 ![FHIR Info Gateway](images/Info_Gateway_Overview.png)
 
 ## Key Features
-Key features of the Info Gateway features include:
+Key features of the Info Gateway include:
 
-* A stand-alone service that can work with any FHIR compliant servers (e.g., a HAPI FHIR server, GCP FHIR store, etc.)
-* A pluggable architecture for defining an access-checkers to allow for implementation configurability
-* Query filtering to block/allow specific queries such as for disabling joins
+* A stand-alone service that can work with any FHIR compliant servers. 
+* A pluggable architecture for defining an access-checker to allow for
+  implementation configurability.
+* Query filtering to block/allow specific queries.
+* Post-processing of the results returned by the FHIR-server, for example to
+  remove sensitive information.
+* A generic interface for implementing custom endpoints, e.g., a sync endpoint
+  to return updates for all patients assigned to a health-worker.
 
 ## Common use cases
-The Info Gateway is designed to solve for a generic problem, that is, access control for **any client**. 
 
-Common use cases include:
+The Info Gateway is designed to solve for a generic problem, that is, access
+control for **any client** and **any FHIR server**.
 
-1. Web based dashboard used by program admins
+Common access-check use-cases include:
 
-2. For a mobile app used by commnunity based frontline health workers possibly with offline support
+1. For a mobile app used by community based front-line health workers possibly
+   with offline support
+2. Web based dashboard used by program admins
+3. For a personal health record app used by patients or caregivers
+4. To enable SMART-on-FHIR apps for patient or system level scopes
 
-3. For a personal health record app used by patients or care-givers
-
-4. To enable SMART-on-FHIR for patient or system level scopes
+FHIR Info Gateway is implemented as a "FHIR facade", i.e., it is a FHIR server
+itself which is implemented using the
+[HAPI FHIR Plain Server](https://hapifhir.io/hapi-fhir/docs/server_plain/introduction.html)
+library:
 
 ![FHIR Info Gateway](images/Info_Gateway_Use_Cases.png)
 

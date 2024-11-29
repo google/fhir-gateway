@@ -52,6 +52,7 @@ nav:
   - Tutorials: 
     - 'Run the Info Gateway in Docker' : 'tutorial_docker.md'
     - 'Create an access checker' : 'tutorial_first_access_checker.md'
+  - Design: 'design.md'
   - Community:
     - 'Support' : 'support.md'
     - 'Contributing': 'contribute.md'

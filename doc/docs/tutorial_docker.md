@@ -68,6 +68,10 @@ running on your local machine.
     and [`patient`](https://github.com/google/fhir-gateway/blob/main/plugins/src/main/java/com/google/fhir/gateway/plugin/PatientAccessChecker.java)
     example access-checkers.
 
+!!! tip "GCP Note"
+
+    If the FHIR server is GCP FHIR-store and the gateway is not run on a VM with proper service account (e.g., running on a localhost), you need to pass GCP credentials to it, for example by mapping the `.config/gcloud` volume (i.e., add `-v ~/.config/gcloud:/root/.config/gcloud` to the above command).
+
 ## Examine the sample Keycloak configuration
 
 In this section you will review the Keycloak settings relevant to use FHIR
