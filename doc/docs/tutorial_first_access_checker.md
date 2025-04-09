@@ -4,16 +4,16 @@ In this guide you will create your own access checker plugin.
 
 ## Implement the `AccessCheckerFactory` interface
 
-To create your own access checker plugin, create an implementation of
-the [`AccessCheckerFactory` interface](https://github.com/google/fhir-gateway/blob/main/server/src/main/java/com/google/fhir/gateway/interfaces/AccessCheckerFactory.java)
+To create your own access checker plugin, create an implementation of the
+[`AccessCheckerFactory` interface](https://github.com/google/fhir-gateway/blob/main/server/src/main/java/com/google/fhir/gateway/interfaces/AccessCheckerFactory.java)
 annotated with a `@Named(value = "name")` annotation defining the name of the
 plugin.
 
-The most important parts are to implement a
-custom [`AccessChecker`](https://github.com/google/fhir-gateway/blob/main/server/src/main/java/com/google/fhir/gateway/interfaces/AccessChecker.java)
+The most important parts are to implement a custom
+[`AccessChecker`](https://github.com/google/fhir-gateway/blob/main/server/src/main/java/com/google/fhir/gateway/interfaces/AccessChecker.java)
 to be returned by the factory and its `checkAccess` function which specifies if
-access is granted or not by returning
-an [`AccessDecision`](https://github.com/google/fhir-gateway/blob/main/server/src/main/java/com/google/fhir/gateway/interfaces/AccessDecision.java).
+access is granted or not by returning an
+[`AccessDecision`](https://github.com/google/fhir-gateway/blob/main/server/src/main/java/com/google/fhir/gateway/interfaces/AccessDecision.java).
 
 ## Create a new class
 
@@ -90,10 +90,12 @@ public class MyAccessChecker implements AccessChecker {
 ```
 
 ## Rebuild to include the plugin
+
 Once you're done implementing your access checker plugin, rebuild using
 `mvn package` from the root of the project to include the plugin, set the
 access-checker using e.g. `export ACCESS_CHECKER=sample`
 
 ## Run the gateway
+
 Run the gateway using e.g.
 `java -jar exec/target/exec-0.1.0.jar --server.port=8080`.
