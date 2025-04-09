@@ -1,8 +1,8 @@
 # Run the Info Gateway in Docker
 
-In this guide, you will learn how to run FHIR Info Gateway in a Docker
-image, and see it work in concert with a sample Keycloak and HAPI FHIR server
-running on your local machine. We assume that
+In this guide, you will learn how to run FHIR Info Gateway in a Docker image,
+and see it work in concert with a sample Keycloak and HAPI FHIR server running
+on your local machine. We assume that
 [Docker](https://docs.docker.com/get-docker/) and
 [Docker Compose](https://docs.docker.com/compose/) are installed. The sample
 commands are shown on a Linux/shell environment and may need to be adjusted for
@@ -14,53 +14,58 @@ your environment.
 
 ## Start the Docker images
 
-1. Clone
-   the [FHIR Info Gateway repo from GitHub](https://github.com/google/fhir-gateway).
+1. Clone the
+   [FHIR Info Gateway repo from GitHub](https://github.com/google/fhir-gateway).
 2. Open a terminal window and `cd` to the directory where you cloned the repo.
 3. Bring up the sample Keycloak service using `docker compose`.
+
    ```shell
    docker compose -f docker/keycloak/config-compose.yaml up
    ```
+
    This runs an instance of [Keycloak](https://www.keycloak.org/) with
    [SoF extension](https://github.com/Alvearie/keycloak-extensions-for-fhir),
    preloaded with a test configuration. It is accessible at
    `http://localhost:9080`.
 
-4.  Run the sample HAPI FHIR server Docker image.
-    ```shell
-    docker run -p 8099:8080 us-docker.pkg.dev/fhir-proxy-build/stable/hapi-synthea:latest
-    ```
-    The server is preloaded with synthetic patient data and a FHIR
-    `List/patient-list-example` resource.
+4. Run the sample HAPI FHIR server Docker image.
 
-5.  Run the FHIR Information Gateway Docker image with the `list` access
-    checker.
-    ```shell
-    docker run \
-      -e TOKEN_ISSUER=http://localhost:9080/auth/realms/test \
-      -e PROXY_TO=http://localhost:8099/fhir \
-      -e BACKEND_TYPE=HAPI \
-      -e RUN_MODE=PROD \
-      -e ACCESS_CHECKER=list \
-      --network=host \
-      us-docker.pkg.dev/fhir-proxy-build/stable/fhir-gateway:latest
-    ```
+   ```shell
+   docker run -p 8099:8080 us-docker.pkg.dev/fhir-proxy-build/stable/hapi-synthea:latest
+   ```
+
+   The server is preloaded with synthetic patient data and a FHIR
+   `List/patient-list-example` resource.
+
+5. Run the FHIR Information Gateway Docker image with the `list` access checker.
+   ```shell
+   docker run \
+     -e TOKEN_ISSUER=http://localhost:9080/auth/realms/test \
+     -e PROXY_TO=http://localhost:8099/fhir \
+     -e BACKEND_TYPE=HAPI \
+     -e RUN_MODE=PROD \
+     -e ACCESS_CHECKER=list \
+     --network=host \
+     us-docker.pkg.dev/fhir-proxy-build/stable/fhir-gateway:latest
+   ```
 
 Several environment variables are used to configure FHIR Information Gateway:
 
-* `TOKEN_ISSUER`: The URL of the token issuer. For Keycloak this is typically
+- `TOKEN_ISSUER`: The URL of the token issuer. For Keycloak this is typically
   `http://{keycloak-host}:{keycloak-port}/auth/realms/{realm-name}`.
-* `PROXY_TO`: The [Service Base URL](https://build.fhir.org/http.html#root) of
+- `PROXY_TO`: The [Service Base URL](https://build.fhir.org/http.html#root) of
   the FHIR server that FHIR Access Proxy communicates with.
-* `BACKEND_TYPE`: One of `HAPI` for a HAPI FHIR Server or `GCP` for a Cloud
+- `BACKEND_TYPE`: One of `HAPI` for a HAPI FHIR Server or `GCP` for a Cloud
   Healthcare FHIR-store.
-* `RUN_MODE`: One of `PROD` or `DEV`. DEV removes validation of the issuer URL,
+- `RUN_MODE`: One of `PROD` or `DEV`. DEV removes validation of the issuer URL,
   which is useful when using the docker image with an Android emulator as the
-  emulator runs on its own virtual network and sees a different address than
-  the host.
-* `ACCESS_CHECKER`:  The access-checker plugin to use. The Docker image includes
-  the [`list`](https://github.com/google/fhir-gateway/blob/main/plugins/src/main/java/com/google/fhir/gateway/plugin/ListAccessChecker.java)
-  and [`patient`](https://github.com/google/fhir-gateway/blob/main/plugins/src/main/java/com/google/fhir/gateway/plugin/PatientAccessChecker.java)
+  emulator runs on its own virtual network and sees a different address than the
+  host.
+- `ACCESS_CHECKER`: The access-checker plugin to use. The Docker image includes
+  the
+  [`list`](https://github.com/google/fhir-gateway/blob/main/plugins/src/main/java/com/google/fhir/gateway/plugin/ListAccessChecker.java)
+  and
+  [`patient`](https://github.com/google/fhir-gateway/blob/main/plugins/src/main/java/com/google/fhir/gateway/plugin/PatientAccessChecker.java)
   example access-checkers.
 
 !!! tip "GCP Note"
@@ -80,14 +85,13 @@ Information Gateway with the sample `list` access checker plugin.
     user `Testuser`.
 5.  Select the **Attributes** tab. Note the attribute `patient_list` with value
     `patient-list-example`. The client `my-fhir-client` has a corresponding
-    [User Attribute
-    mapper](https://www.keycloak.org/docs/latest/server_admin/#_protocol-mappers)
+    [User Attribute mapper](https://www.keycloak.org/docs/latest/server_admin/#_protocol-mappers)
     to add this as a claim to the access token JWT, which you can see under
     **Clients > my-fhir-client > Mappers > list-mapper**.
 6.  `patient-list-example` is the ID of a FHIR List resource which lists all the
     Patient resources the user can access. Open
     `http://localhost:8099/fhir/List/patient-list-example` to see the list
-    referencing two Patients: 
+    referencing two Patients:
 
     ```json
     ...
@@ -144,5 +148,5 @@ Information Gateway with the sample `list` access checker plugin.
     'http://localhost:8080/fhir/Patient/3'
     ```
 
-    You should get a response of `User is not authorized to GET
-    http://localhost:8080/fhir/Patient/3`.
+    You should get a response of
+    `User is not authorized to GET http://localhost:8080/fhir/Patient/3`.
