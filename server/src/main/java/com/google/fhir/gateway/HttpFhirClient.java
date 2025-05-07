@@ -87,7 +87,7 @@ public abstract class HttpFhirClient {
           "x-forwarded-for",
           "x-forwarded-host");
 
-  protected abstract String getBaseUrl();
+  public abstract String getBaseUrl();
 
   protected abstract URI getUriForResource(String resourcePath) throws URISyntaxException;
 

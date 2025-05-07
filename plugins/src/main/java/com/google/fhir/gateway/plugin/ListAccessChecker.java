@@ -17,6 +17,7 @@ package com.google.fhir.gateway.plugin;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.rest.api.RequestTypeEnum;
+import ca.uhn.fhir.rest.client.api.IGenericClient;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -35,6 +36,7 @@ import com.google.fhir.gateway.interfaces.AccessDecision;
 import com.google.fhir.gateway.interfaces.NoOpAccessDecision;
 import com.google.fhir.gateway.interfaces.PatientFinder;
 import com.google.fhir.gateway.interfaces.RequestDetailsReader;
+import com.google.fhir.gateway.plugin.audit.BalpAccessDecision;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.Objects;
@@ -61,16 +63,19 @@ public class ListAccessChecker implements AccessChecker {
   private final String patientListId;
   private final PatientFinder patientFinder;
   private final Escaper PARAM_ESCAPER = UrlEscapers.urlFormParameterEscaper();
+  private final BalpAccessDecision balpAccessDecision;
 
   private ListAccessChecker(
       HttpFhirClient httpFhirClient,
       String patientListId,
       FhirContext fhirContext,
-      PatientFinder patientFinder) {
+      PatientFinder patientFinder,
+      BalpAccessDecision balpAccessDecision) {
     this.fhirContext = fhirContext;
     this.httpFhirClient = httpFhirClient;
     this.patientListId = patientListId;
     this.patientFinder = patientFinder;
+    this.balpAccessDecision = balpAccessDecision;
   }
 
   /**
@@ -103,6 +108,7 @@ public class ListAccessChecker implements AccessChecker {
     }
     return false;
   }
+
   // Note this returns true iff at least one of the patient IDs is found in the associated list.
   // The rationale is that a user should have access to a resource iff they are authorized to access
   // at least one of the patients referenced in that resource. This is a subjective decision, so we
@@ -186,7 +192,7 @@ public class ListAccessChecker implements AccessChecker {
     // There should be a patient id in search params; the param name is based on the resource.
     if (FhirUtil.isSameResourceType(requestDetails.getResourceName(), ResourceType.List)) {
       if (patientListId.equals(FhirUtil.getIdOrNull(requestDetails))) {
-        return NoOpAccessDecision.accessGranted();
+        return balpAccessDecision.withAccess(NoOpAccessDecision.accessGranted());
       }
       return NoOpAccessDecision.accessDenied();
     }
@@ -199,11 +205,13 @@ public class ListAccessChecker implements AccessChecker {
   private AccessDecision processPost(RequestDetailsReader requestDetails) {
     // We have decided to let clients add new patients while understanding its security risks.
     if (FhirUtil.isSameResourceType(requestDetails.getResourceName(), ResourceType.Patient)) {
-      return AccessGrantedAndUpdateList.forPatientResource(
-          patientListId, httpFhirClient, fhirContext);
+      return balpAccessDecision.withAccess(
+          AccessGrantedAndUpdateList.forPatientResource(
+              patientListId, httpFhirClient, fhirContext));
     }
     Set<String> patientIds = patientFinder.findPatientsInResource(requestDetails);
-    return new NoOpAccessDecision(serverListIncludesAnyPatient(patientIds));
+    return balpAccessDecision.withAccess(
+        new NoOpAccessDecision(serverListIncludesAnyPatient(patientIds)));
   }
 
   private AccessDecision processPut(RequestDetailsReader requestDetails) throws IOException {
@@ -213,9 +221,10 @@ public class ListAccessChecker implements AccessChecker {
         return AccessGrantedAndUpdateList.forPatientResource(
             patientListId, httpFhirClient, fhirContext);
       }
-      return accessDecision;
+      return balpAccessDecision.withAccess(accessDecision);
     }
-    return checkNonPatientAccessInUpdate(requestDetails, RequestTypeEnum.PUT);
+    return balpAccessDecision.withAccess(
+        checkNonPatientAccessInUpdate(requestDetails, RequestTypeEnum.PUT));
   }
 
   private AccessDecision processPatch(RequestDetailsReader requestDetails) throws IOException {
@@ -225,9 +234,10 @@ public class ListAccessChecker implements AccessChecker {
         logger.error("Creating a new Patient via PATCH is not allowed");
         return NoOpAccessDecision.accessDenied();
       }
-      return accessDecision;
+      return balpAccessDecision.withAccess(accessDecision);
     }
-    return checkNonPatientAccessInUpdate(requestDetails, RequestTypeEnum.PATCH);
+    return balpAccessDecision.withAccess(
+        checkNonPatientAccessInUpdate(requestDetails, RequestTypeEnum.PATCH));
   }
 
   private AccessDecision processDelete(RequestDetailsReader requestDetails) {
@@ -243,7 +253,8 @@ public class ListAccessChecker implements AccessChecker {
     Set<String> patientIds = patientFinder.findPatientsFromParams(requestDetails);
     Set<String> patientQueries = Sets.newHashSet();
     patientIds.forEach(patientId -> patientQueries.add(String.format("Patient/%s", patientId)));
-    return new NoOpAccessDecision(serverListIncludesAllPatients(patientQueries));
+    return balpAccessDecision.withAccess(
+        new NoOpAccessDecision(serverListIncludesAllPatients(patientQueries)));
   }
 
   private AccessDecision checkNonPatientAccessInUpdate(
@@ -304,7 +315,7 @@ public class ListAccessChecker implements AccessChecker {
     Set<String> putPatientIds = patientRequestsInBundle.getUpdatedPatients();
 
     if (!createPatients && putPatientIds.isEmpty()) {
-      return NoOpAccessDecision.accessGranted();
+      return balpAccessDecision.withAccess(NoOpAccessDecision.accessGranted());
     }
 
     if (putPatientIds.isEmpty()) {
@@ -400,7 +411,15 @@ public class ListAccessChecker implements AccessChecker {
         FhirContext fhirContext,
         PatientFinder patientFinder) {
       String patientListId = getListId(jwt);
-      return new ListAccessChecker(httpFhirClient, patientListId, fhirContext, patientFinder);
+
+      // Assumes Audit repository FHIR Server is using same HAPI FHIR version (otherwise we need to
+      // canonicalize)
+      IGenericClient genericClient =
+          fhirContext.newRestfulGenericClient(httpFhirClient.getBaseUrl());
+
+      BalpAccessDecision balpAccessDecision = new BalpAccessDecision(genericClient);
+      return new ListAccessChecker(
+          httpFhirClient, patientListId, fhirContext, patientFinder, balpAccessDecision);
     }
   }
 }

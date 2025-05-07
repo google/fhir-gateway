@@ -20,12 +20,15 @@ import ca.uhn.fhir.interceptor.api.Hook;
 import ca.uhn.fhir.interceptor.api.Interceptor;
 import ca.uhn.fhir.interceptor.api.Pointcut;
 import ca.uhn.fhir.rest.api.Constants;
+import ca.uhn.fhir.rest.api.RestOperationTypeEnum;
 import ca.uhn.fhir.rest.api.server.IRestfulResponse;
 import ca.uhn.fhir.rest.api.server.RequestDetails;
+import ca.uhn.fhir.rest.client.api.IGenericClient;
 import ca.uhn.fhir.rest.server.RestfulServer;
 import ca.uhn.fhir.rest.server.exceptions.AuthenticationException;
 import ca.uhn.fhir.rest.server.exceptions.ForbiddenOperationException;
 import ca.uhn.fhir.rest.server.servlet.ServletRequestDetails;
+import ca.uhn.fhir.storage.interceptor.balp.BalpAuditCaptureInterceptor;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -38,11 +41,14 @@ import java.io.IOException;
 import java.io.Reader;
 import java.io.StringReader;
 import java.io.Writer;
+import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
+import org.hl7.fhir.instance.model.api.IBaseResource;
+import org.hl7.fhir.r4.model.DomainResource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.util.CollectionUtils;
@@ -158,6 +164,37 @@ public class BearerAuthorizationInterceptor {
       String content = null;
       if (HttpUtil.isResponseValid(response)) {
         try {
+          // Request was successful so record Audit Event
+
+          if (outcome.getBalpAuditEventSink() != null
+              && outcome.getBalpAuditContextService() != null) {
+
+            BalpAuditCaptureInterceptor balpInterceptor =
+                new BalpAuditCaptureInterceptor(
+                    outcome.getBalpAuditEventSink(), outcome.getBalpAuditContextService());
+
+            // PoC - for now processing non-Bundle requests only
+            switch (requestDetails.getRequestType()) {
+              case POST:
+                servletDetails.setRestOperationType(RestOperationTypeEnum.CREATE);
+                balpInterceptor.hookStoragePrecommitResourceCreated(
+                    this.getResource(requestDetails), servletDetails);
+                break;
+              case PUT:
+                servletDetails.setRestOperationType(RestOperationTypeEnum.UPDATE);
+                IBaseResource oldResource = this.fetchStoredResource(requestDetails);
+                balpInterceptor.hookStoragePrecommitResourceUpdated(
+                    oldResource, this.getResource(requestDetails), servletDetails);
+                break;
+              case DELETE:
+                servletDetails.setRestOperationType(RestOperationTypeEnum.DELETE);
+                balpInterceptor.hookStoragePrecommitResourceDeleted(
+                    this.getResource(requestDetails), servletDetails);
+                break;
+              default:
+                break;
+            }
+          }
           // For post-processing rationale/example see b/207589782#comment3.
           content = outcome.postProcess(new RequestDetailsToReader(requestDetails), response);
         } catch (Exception e) {
@@ -203,6 +240,47 @@ public class BearerAuthorizationInterceptor {
 
     // The request processing stops here, hence returning false.
     return false;
+  }
+
+  private IBaseResource getResource(RequestDetails requestDetails) {
+    String jsonRequestBody =
+        new String(requestDetails.getRequestContentsIfLoaded(), StandardCharsets.UTF_8);
+    IBaseResource resource = server.getFhirContext().newJsonParser().parseResource(jsonRequestBody);
+
+    if (resource instanceof DomainResource) {
+      return resource;
+    }
+    return null;
+  }
+
+  private IBaseResource fetchStoredResource(RequestDetails requestDetails) {
+    IGenericClient genericClient =
+        server.getFhirContext().newRestfulGenericClient(fhirClient.getBaseUrl());
+    IBaseResource current =
+        genericClient
+            .read()
+            .resource(
+                server
+                    .getFhirContext()
+                    .getResourceDefinition(requestDetails.getResourceName())
+                    .getImplementingClass())
+            .withId(requestDetails.getId())
+            .execute();
+    String currentVersion = current.getMeta().getVersionId();
+    int prevVersion = Integer.parseInt(currentVersion) - 1;
+
+    IBaseResource previous =
+        genericClient
+            .read()
+            .resource(
+                server
+                    .getFhirContext()
+                    .getResourceDefinition(requestDetails.getResourceName())
+                    .getImplementingClass())
+            .withIdAndVersion(requestDetails.getId().getIdPart(), String.valueOf(prevVersion))
+            .execute();
+
+    return previous;
   }
 
   private boolean sendGzippedResponse(ServletRequestDetails requestDetails) {
