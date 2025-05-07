@@ -23,7 +23,7 @@ public class BalpAccessDecision implements AccessDecision {
 
   @Override
   public boolean canAccess() {
-    return true; // temp testing TODO TO DO
+    return accessDecision.canAccess();
   }
 
   @Override
