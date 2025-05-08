@@ -18,9 +18,9 @@ import org.jetbrains.annotations.NotNull;
 public class BalpAuditContextService implements IBalpAuditContextServices {
 
   private static final String BEARER_PREFIX = "Bearer ";
-  private static final String CLAIM_NAME = "name ";
-  private static final String CLAIM_PREFERRED_NAME = "preferred_username ";
-  private static final String CLAIM_SUBJECT = "sub ";
+  private static final String CLAIM_NAME = "name";
+  private static final String CLAIM_PREFERRED_NAME = "preferred_username";
+  private static final String CLAIM_SUBJECT = "sub";
 
   @Override
   public @NotNull Reference getAgentClientWho(RequestDetails requestDetails) {
