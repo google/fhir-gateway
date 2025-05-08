@@ -28,13 +28,13 @@ public class BalpAccessDecision implements AccessDecision {
 
   @Override
   public @Nullable RequestMutation getRequestMutation(RequestDetailsReader requestDetailsReader) {
-    return null;
+    return accessDecision.getRequestMutation(requestDetailsReader);
   }
 
   @Override
   public String postProcess(RequestDetailsReader request, HttpResponse response)
       throws IOException {
-    return "";
+    return accessDecision.postProcess(request, response);
   }
 
   @Override

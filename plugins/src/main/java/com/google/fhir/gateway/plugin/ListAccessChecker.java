@@ -199,7 +199,8 @@ public class ListAccessChecker implements AccessChecker {
     Set<String> patientIds = patientFinder.findPatientsFromParams(requestDetails);
     Set<String> patientQueries = Sets.newHashSet();
     patientIds.forEach(patientId -> patientQueries.add(String.format("Patient/%s", patientId)));
-    return new NoOpAccessDecision(serverListIncludesAllPatients(patientQueries));
+    return balpAccessDecision.withAccess(
+        new NoOpAccessDecision(serverListIncludesAllPatients(patientQueries)));
   }
 
   private AccessDecision processPost(RequestDetailsReader requestDetails) {
@@ -218,8 +219,9 @@ public class ListAccessChecker implements AccessChecker {
     if (FhirUtil.isSameResourceType(requestDetails.getResourceName(), ResourceType.Patient)) {
       AccessDecision accessDecision = checkPatientAccessInUpdate(requestDetails);
       if (accessDecision == null) {
-        return AccessGrantedAndUpdateList.forPatientResource(
-            patientListId, httpFhirClient, fhirContext);
+        return balpAccessDecision.withAccess(
+            AccessGrantedAndUpdateList.forPatientResource(
+                patientListId, httpFhirClient, fhirContext));
       }
       return balpAccessDecision.withAccess(accessDecision);
     }
