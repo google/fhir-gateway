@@ -36,7 +36,7 @@ public final class GenericFhirClient extends HttpFhirClient {
   }
 
   @Override
-  protected String getBaseUrl() {
+  public String getBaseUrl() {
     return genericFhirStore;
   }
 
