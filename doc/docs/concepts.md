@@ -6,9 +6,9 @@ These are some common terminologies that are important when dealing with access
 control in general:
 
 | Term                                                    | Description                                                                                                              |
-|---------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------|
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | Authentication and Identity Provider (IDP)              | Who the user is. Establishing the identity can be done through a shared service (e.g., Google, GitHub) or a special one. |
-| Authorization (AuthZ)                                   | Given the identity, what can a user access? Has context specific pieces (e.g., scopes)                                   | 
+| Authorization (AuthZ)                                   | Given the identity, what can a user access? Has context specific pieces (e.g., scopes)                                   |
 | Access-control                                          | How to make sure users access authorized resources only. This is the **core focus of the info gateway**.                 |
 | Client app                                              | An app which needs to access FHIR resources on behalf of a user.                                                         |
 | User                                                    | The user that is using the app; this is the identity being "authenticated".                                              |
@@ -16,10 +16,10 @@ control in general:
 | OAuth2.0                                                | A standard to grant access to an application on behalf of a user.                                                        |
 | [SMART-on-FHIR](https://hl7.org/fhir/smart-app-launch/) | Defines workflows that an application can use to securely request and access FHIR data.                                  |
 
-The following picture helps to visualise the relationship of these concepts.
-A client app (e.g., a SMART-on-FHIR app) should first use a process to fetch an
-_"access token"_ from the IDP+AuthZ service. For example, this process might
-be OAuth's
+The following picture helps to visualise the relationship of these concepts. A
+client app (e.g., a SMART-on-FHIR app) should first use a process to fetch an
+_"access token"_ from the IDP+AuthZ service. For example, this process might be
+OAuth's
 [Authorization Code Flow](https://auth0.com/docs/get-started/authentication-and-authorization-flow/authorization-code-flow).
 This token is then provided on each request to the access-control gateway when
 accessing FHIR resources.
@@ -28,10 +28,10 @@ accessing FHIR resources.
 
 ## Info Gateway Modules
 
-The Info Gateway consists of a core, which is in
-the [`server`](https://github.com/google/fhir-gateway/tree/main/server) module,
-and a set of _access-checker_ plugins, which can be implemented by third parties
-and added to the proxy server. Two sample plugins are implemented in the
+The Info Gateway consists of a core, which is in the
+[`server`](https://github.com/google/fhir-gateway/tree/main/server) module, and
+a set of _access-checker_ plugins, which can be implemented by third parties and
+added to the proxy server. Two sample plugins are implemented in the
 [`plugins`](https://github.com/google/fhir-gateway/tree/main/plugins) module.
 
 There is also a sample
@@ -41,10 +41,10 @@ also has examples for implementing custom end-points.
 
 **Notes:**
 
-* [1] Spring Boot is not a requirement for using FHIR Info Gateway; we just use
+- [1] Spring Boot is not a requirement for using FHIR Info Gateway; we just use
   it to simplify the
   [MainApp](https://github.com/google/fhir-gateway/tree/main/exec/src/main/java/com/google/fhir/gateway/MainApp.java).
-* [2] The only Spring-related requirement is to do a
+- [2] The only Spring-related requirement is to do a
   [@ComponentScan](https://docs.spring.io/spring-framework/docs/current/javadoc-api/org/springframework/context/annotation/ComponentScan.html)
   to find all access-checker plugins in the classpath.
 
@@ -53,14 +53,17 @@ also has examples for implementing custom end-points.
 The configuration parameters are provided through environment variables:
 
 - `PROXY_TO`: The base url of the FHIR server e.g.:
+
   ```shell
   export PROXY_TO=https://example.com/fhir
   ```
 
 - `TOKEN_ISSUER`: The URL of the access token issuer, e.g.:
+
   ```shell
   export TOKEN_ISSUER=http://localhost:9080/auth/realms/test
   ```
+
   The above example is based on the default config of a test IDP+AuthZ
   [Keycloak](https://www.keycloak.org/) server. To see how this server is
   configured, check the
@@ -68,6 +71,7 @@ The configuration parameters are provided through environment variables:
   directory. If you want to use a SMART-on-FHIR (SoF) app use this realm instead
   which is based on Keycloak's
   [SoF extension](https://github.com/Alvearie/keycloak-extensions-for-fhir):
+
   ```shell
   export TOKEN_ISSUER=http://localhost:9080/auth/realms/test-smart
   ```
@@ -76,12 +80,14 @@ The configuration parameters are provided through environment variables:
   (see [plugins](https://github.com/google/fhir-gateway/tree/main/plugins) for
   details) and this variable should be set to the name of the plugin to use. For
   example, to use one of the sample plugins use one of:
+
   ```shell
   export ACCESS_CHECKER=list
   export ACCESS_CHECKER=patient
   ```
-  For more information on how access-checkers work and building your own,
-  see [section on access checkers](#access-checkers).
+
+  For more information on how access-checkers work and building your own, see
+  [section on access checkers](#access-checkers).
 
 - `ALLOWED_QUERIES_FILE`: A list of URL requests that should bypass the access
   checker and always be allowed.
@@ -90,10 +96,12 @@ The configuration parameters are provided through environment variables:
   intended use of this checker is to override all other access-checkers for
   certain user-defined criteria. The user defines their criteria in a config
   file and if the URL query matches an entry in the config file, access is
-  granted. [`AllowedQueriesConfig`](https://github.com/google/fhir-gateway/blob/main/server/src/main/java/com/google/fhir/gateway/AllowedQueriesConfig.java)
+  granted.
+  [`AllowedQueriesConfig`](https://github.com/google/fhir-gateway/blob/main/server/src/main/java/com/google/fhir/gateway/AllowedQueriesConfig.java)
   shows all the supported configurations. An example config file is
   [`hapi_page_url_allowed_queries.json`](https://github.com/google/fhir-gateway/blob/main/resources/hapi_page_url_allowed_queries.json).
   To use this file with `ALLOWED_QUERIES_FILE`:
+
   ```shell
   export ALLOWED_QUERIES_FILE="resources/hapi_page_url_allowed_queries.json"
   ```
@@ -117,7 +125,9 @@ access-checkers. For example,
 can be used to limit access to a certain set of patients.
 
 ### Patient access checker plugin
-The [`PatientAccessChecker` plugin](https://github.com/google/fhir-gateway/blob/main/plugins/src/main/java/com/google/fhir/gateway/plugin/PatientAccessChecker.java)
+
+The
+[`PatientAccessChecker` plugin](https://github.com/google/fhir-gateway/blob/main/plugins/src/main/java/com/google/fhir/gateway/plugin/PatientAccessChecker.java)
 can be used if the client is a SMART-on-FHIR app that uses the
 [standalone app launch flow](https://www.hl7.org/fhir/smart-app-launch/app-launch.html#launch-app-standalone-launch).
 It expects a `patient_id` claim in the access-token and limits access to FHIR
@@ -127,13 +137,14 @@ resources that belong to that patient. It supports
 
 ### Explore the List access checker plugin
 
-The [`ListAccessChecker` plugin](https://github.com/google/fhir-gateway/blob/main/plugins/src/main/java/com/google/fhir/gateway/plugin/ListAccessChecker.java)
+The
+[`ListAccessChecker` plugin](https://github.com/google/fhir-gateway/blob/main/plugins/src/main/java/com/google/fhir/gateway/plugin/ListAccessChecker.java)
 is a simple example of list-based access control. It works by assigning each
 user a [FHIR `List` resource](https://www.hl7.org/fhir/list.html) which contains
 a list of references of `Patient` resources that the user should have access to.
-When a client makes a request to FHIR Information Gateway,
-the `ListAccessChecker` grants access if all patients that are referenced in
-the query are on the user's patient access list.
+When a client makes a request to FHIR Information Gateway, the
+`ListAccessChecker` grants access if all patients that are referenced in the
+query are on the user's patient access list.
 
 The plugin expects the patient `List` resource's ID to be included as the value
 to a claim named `patient_list` in the access token used to authorize requests
@@ -166,16 +177,14 @@ logic; so they are removed in this example):
     "email_verified": false,
     "patient_list": "patient-list-example",
     "preferred_username": "testuser",
-    "group": [
-      "fhirUser"
-    ]
+    "group": ["fhirUser"]
   }
 }
 ```
 
-Here `patient_list` equals `patient-list-example`, so if your FHIR server is
-at `http://localhost:8099/fhir/` then this user's patient access list resource
-is `http://localhost:8099/fhir/List/patient-list-example`.
+Here `patient_list` equals `patient-list-example`, so if your FHIR server is at
+`http://localhost:8099/fhir/` then this user's patient access list resource is
+`http://localhost:8099/fhir/List/patient-list-example`.
 
 The decoded JWT is passed to the
 [`AccessCheckerFactory`](https://github.com/google/fhir-gateway/blob/main/server/src/main/java/com/google/fhir/gateway/interfaces/AccessCheckerFactory.java)
@@ -198,4 +207,5 @@ In this case, implement your own version of
 The `ListAccessChecker` allows clients to create new `Patient` resources without
 restriction (always allow access), and then as a post-processing step adds the
 new Patient id to the client's patient access list. You can see this implemented
-in [`AccessGrantedAndUpdateList`](https://github.com/google/fhir-access-proxy/blob/main/plugins/src/main/java/com/google/fhir/gateway/plugin/AccessGrantedAndUpdateList.java).
+in
+[`AccessGrantedAndUpdateList`](https://github.com/google/fhir-access-proxy/blob/main/plugins/src/main/java/com/google/fhir/gateway/plugin/AccessGrantedAndUpdateList.java).

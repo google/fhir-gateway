@@ -2,7 +2,7 @@
 
 !!! tip "Quick Start Guide"
 
-    The easiest way to get started is to follow the ["Run the Info Gateway in Docker" guide](tutorial_docker.md). 
+    The easiest way to get started is to follow the ["Run the Info Gateway in Docker" guide](tutorial_docker.md).
 
 ## Building from source
 
@@ -29,9 +29,9 @@ java -Dloader.path="PATH-TO-ADDITIONAL-PLUGINGS/custom-plugins.jar" \
 ```
 
 The plugin library can be swapped with any third party access-checker as
-described in
-the [plugins](https://github.com/google/fhir-gateway/tree/main/plugins)
-directory. Learn more about [AccessCheckers](concepts.md#access-checkers).
+described in the
+[plugins](https://github.com/google/fhir-gateway/tree/main/plugins) directory.
+Learn more about [AccessCheckers](concepts.md#access-checkers).
 
 ## Gateway to server access
 
@@ -39,12 +39,13 @@ The proxy must be able to send FHIR queries to the FHIR server. The FHIR server
 must be configured to accept connections from the proxy while rejecting most
 other requests.
 
-If you use
-a [GCP FHIR store](https://cloud.google.com/healthcare-api/docs/concepts/fhir)
-you have the following options:
+If you use a
+[GCP FHIR store](https://cloud.google.com/healthcare-api/docs/concepts/fhir) you
+have the following options:
 
 - If you have access to the FHIR store, you can use your own credentials by
-  doing [application-default login](https://cloud.google.com/sdk/gcloud/reference/auth/application-default/login).
+  doing
+  [application-default login](https://cloud.google.com/sdk/gcloud/reference/auth/application-default/login).
   This is useful when testing the proxy on your local machine, and you have
   access to the FHIR server through your credentials.
 
@@ -65,8 +66,8 @@ you have the following options:
     Take a moment to review the [configuration parameters](concepts.md#configuration-parameters).
 
 Once you have set all the above, you can run the proxy server. The sample `exec`
-module uses [Apache Tomcat](https://tomcat.apache.org/)
-through [Spring Boot](https://spring.io/projects/spring-boot) and the usual
+module uses [Apache Tomcat](https://tomcat.apache.org/) through
+[Spring Boot](https://spring.io/projects/spring-boot) and the usual
 configuration parameters apply, e.g., to run on port 8081:
 
 ```shell
@@ -82,12 +83,12 @@ java -jar exec/target/exec-0.1.0.jar --server.port=8081
 In this section we assume that a Keycloak instance is set up using the sample
 docker setup provided
 [here](https://github.com/google/fhir-gateway/blob/main/docker/keycloak/config-compose.yaml).
-If you have a different IDP+AuthZ setup, you need to adjust the parameters
-below accordingly.
+If you have a different IDP+AuthZ setup, you need to adjust the parameters below
+accordingly.
 
-Once the gateway is running, we first need to fetch an access token from
-the `TOKEN_ISSUER`; you need the test server's `username` and `password` plus
-the `client_id`:
+Once the gateway is running, we first need to fetch an access token from the
+`TOKEN_ISSUER`; you need the test server's `username` and `password` plus the
+`client_id`:
 
 ```shell
 $ curl -X POST -d 'client_id=CLIENT_ID' -d 'username=testuser' \
@@ -118,7 +119,8 @@ used and the `ACCESS_TOKEN` claims.
 
 For example:
 
-* For `ACCESS_CHECKER=list` there should be a `patient_list` claim which is the
+- For `ACCESS_CHECKER=list` there should be a `patient_list` claim which is the
   ID of a `List` FHIR resource with all the patients that this user has access
   to.
-* For `ACCESS_CHECKER=patient`, there should be a `patient_id` claim with a valid Patient resource ID.
+- For `ACCESS_CHECKER=patient`, there should be a `patient_id` claim with a
+  valid Patient resource ID.

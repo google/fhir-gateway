@@ -5,32 +5,33 @@ resources on a server. It works by inspecting FHIR requests and verifying that
 the client is authorized to access the requested resources.
 
 It makes it easier for developers to enforce various forms of authorization
-policies including organizational role based access control (RBAC) policies
-when working with FHIR data.
+policies including organizational role based access control (RBAC) policies when
+working with FHIR data.
 
-* To enable authorization and access-control (ACL) policy enforcement between a
+- To enable authorization and access-control (ACL) policy enforcement between a
   client application and a FHIR server, the Info Gateway is used along with an
   Identity Provider (IDP) and Authorization server (AuthZ).
-* The IDP can be a generic OpenID Connect (OIDC) compliant service or a special
+- The IDP can be a generic OpenID Connect (OIDC) compliant service or a special
   purpose one.
-* The IDP+AuthZ should provide a JSON Web Token (JWT) to the client. The client
+- The IDP+AuthZ should provide a JSON Web Token (JWT) to the client. The client
   uses this as a Bearer access-token (AT) when sending FHIR requests.
-* A sample end-to-end implementation with Keycloak as the IDP+AuthZ service is
+- A sample end-to-end implementation with Keycloak as the IDP+AuthZ service is
   provided and has been tested with HAPI FHIR and Google Cloud Healthcare
   FHIR-store as the FHIR server.
 
 ![FHIR Info Gateway](images/Info_Gateway_Overview.png)
 
 ## Key Features
+
 Key features of the Info Gateway include:
 
-* A stand-alone service that can work with any FHIR compliant servers. 
-* A pluggable architecture for defining an access-checker to allow for
+- A stand-alone service that can work with any FHIR compliant servers.
+- A pluggable architecture for defining an access-checker to allow for
   implementation configurability.
-* Query filtering to block/allow specific queries.
-* Post-processing of the results returned by the FHIR-server, for example to
+- Query filtering to block/allow specific queries.
+- Post-processing of the results returned by the FHIR-server, for example to
   remove sensitive information.
-* A generic interface for implementing custom endpoints, e.g., a sync endpoint
+- A generic interface for implementing custom endpoints, e.g., a sync endpoint
   to return updates for all patients assigned to a health-worker.
 
 ## Common use cases
@@ -52,4 +53,3 @@ itself which is implemented using the
 library:
 
 ![FHIR Info Gateway](images/Info_Gateway_Use_Cases.png)
-
