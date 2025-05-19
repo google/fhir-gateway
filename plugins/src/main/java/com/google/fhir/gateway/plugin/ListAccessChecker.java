@@ -103,6 +103,7 @@ public class ListAccessChecker implements AccessChecker {
     }
     return false;
   }
+
   // Note this returns true iff at least one of the patient IDs is found in the associated list.
   // The rationale is that a user should have access to a resource iff they are authorized to access
   // at least one of the patients referenced in that resource. This is a subjective decision, so we
