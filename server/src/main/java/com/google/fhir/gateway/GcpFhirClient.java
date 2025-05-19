@@ -47,7 +47,7 @@ public class GcpFhirClient extends HttpFhirClient {
   }
 
   @Override
-  protected String getBaseUrl() {
+  public String getBaseUrl() {
     return gcpFhirStore;
   }
 

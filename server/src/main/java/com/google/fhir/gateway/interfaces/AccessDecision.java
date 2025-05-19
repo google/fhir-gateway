@@ -15,6 +15,8 @@
  */
 package com.google.fhir.gateway.interfaces;
 
+import ca.uhn.fhir.storage.interceptor.balp.IBalpAuditContextServices;
+import ca.uhn.fhir.storage.interceptor.balp.IBalpAuditEventSink;
 import java.io.IOException;
 import javax.annotation.Nullable;
 import org.apache.http.HttpResponse;
@@ -55,4 +57,14 @@ public interface AccessDecision {
    *     content in memory whenever it is not needed for post-processing.
    */
   String postProcess(RequestDetailsReader request, HttpResponse response) throws IOException;
+
+  @Nullable
+  default IBalpAuditEventSink getBalpAuditEventSink() {
+    return null;
+  }
+
+  @Nullable
+  default IBalpAuditContextServices getBalpAuditContextService() {
+    return null;
+  }
 }

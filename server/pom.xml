@@ -67,6 +67,13 @@
       <version>${hapifhir_version}</version>
     </dependency>
 
+    <!-- Used for Audit Event logging using BALP  -->
+    <dependency>
+      <groupId>ca.uhn.hapi.fhir</groupId>
+      <artifactId>hapi-fhir-storage</artifactId>
+      <version>8.0.0</version>
+    </dependency>
+
     <!-- Needed for JEE/Servlet support -->
     <dependency>
       <groupId>jakarta.servlet</groupId>
