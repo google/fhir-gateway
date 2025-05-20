@@ -92,8 +92,8 @@ public class PatientAccessChecker implements AccessChecker {
       case POST:
         return processPost(requestDetails);
       case PUT:
-        // TODO(https://github.com/google/fhir-gateway/issues/88): Support update as create
-        // operation
+      // TODO(https://github.com/google/fhir-gateway/issues/88): Support update as create
+      // operation
       case PATCH:
         return processUpdate(requestDetails);
       case DELETE:
