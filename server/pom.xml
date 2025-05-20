@@ -109,7 +109,7 @@
     <dependency>
       <groupId>com.google.auth</groupId>
       <artifactId>google-auth-library-oauth2-http</artifactId>
-      <version>1.33.1</version>
+      <version>1.35.0</version>
     </dependency>
 
     <!-- For HTTP Client -->
@@ -138,7 +138,7 @@
     <dependency>
       <groupId>org.fhir</groupId>
       <artifactId>ucum</artifactId>
-      <version>1.0.9</version>
+      <version>1.0.10</version>
     </dependency>
 
     <!-- Gson -->
