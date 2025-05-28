@@ -21,6 +21,7 @@ import ca.uhn.fhir.rest.server.ApacheProxyAddressStrategy;
 import ca.uhn.fhir.rest.server.RestfulServer;
 import ca.uhn.fhir.rest.server.interceptor.CorsInterceptor;
 import com.google.fhir.gateway.interfaces.AccessCheckerFactory;
+import com.google.fhir.gateway.interfaces.AuditEventHelper;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import java.io.IOException;
@@ -68,13 +69,19 @@ public class FhirProxyServer extends RestfulServer {
       AccessCheckerFactory checkerFactory = chooseAccessCheckerFactory();
       HttpFhirClient httpFhirClient = FhirClientFactory.createFhirClientFromEnvVars();
       TokenVerifier tokenVerifier = TokenVerifier.createFromEnvVars();
+
+      AuditEventHelper auditEventHelper =
+          AuditEventHelperImpl.createNewInstance(
+              this.getFhirContext(), httpFhirClient.getBaseUrl());
+
       registerInterceptor(
           new BearerAuthorizationInterceptor(
               httpFhirClient,
               tokenVerifier,
               this,
               checkerFactory,
-              new AllowedQueriesChecker(System.getenv(ALLOWED_QUERIES_FILE_ENV))));
+              new AllowedQueriesChecker(System.getenv(ALLOWED_QUERIES_FILE_ENV)),
+              auditEventHelper));
     } catch (IOException e) {
       ExceptionUtil.throwRuntimeExceptionAndLog(logger, "IOException while initializing", e);
     }

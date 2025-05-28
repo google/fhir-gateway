@@ -15,9 +15,14 @@
  */
 package com.google.fhir.gateway.interfaces;
 
+import com.google.fhir.gateway.JwtUtil;
 import java.io.IOException;
 import javax.annotation.Nullable;
 import org.apache.http.HttpResponse;
+import org.apache.http.util.TextUtils;
+import org.hl7.fhir.r4.model.Identifier;
+import org.hl7.fhir.r4.model.Reference;
+import org.hl7.fhir.r4.model.ResourceType;
 
 public interface AccessDecision {
 
@@ -55,4 +60,38 @@ public interface AccessDecision {
    *     content in memory whenever it is not needed for post-processing.
    */
   String postProcess(RequestDetailsReader request, HttpResponse response) throws IOException;
+
+  /**
+   * Returns a Reference to the user that performed the audit event action.
+   *
+   * <p>The Gateway expects a standard JWT token issued after authentication. We can therefore by
+   * default extract enough claims to confirm to the minimal audit event pattern as defined by the
+   * IHE Basic Audit Logging Profiles IG
+   *
+   * <p>A user may override this method in their AccessDecision and return a custom Reference with
+   * additional (or less) information e.g. using {@link Reference}.setReference() to provide the
+   * actual Practitioner resource id
+   *
+   * @param request the client to server request details
+   * @return the {@link Reference} to the user
+   */
+  @Nullable
+  default Reference getUserWho(RequestDetailsReader request) {
+    String name =
+        JwtUtil.getClaimFromRequestDetails(
+            request,
+            JwtUtil.CLAIM_IHE_IUA_SUBJECT_NAME); // First try with the IHE IUA claim name defined by
+    // BALP IG before Keycloak default
+    name =
+        TextUtils.isEmpty(name)
+            ? JwtUtil.getClaimFromRequestDetails(request, JwtUtil.CLAIM_NAME)
+            : "";
+    String subject = JwtUtil.getClaimFromRequestDetails(request, JwtUtil.CLAIM_SUBJECT);
+    String issuer = JwtUtil.getClaimFromRequestDetails(request, JwtUtil.CLAIM_ISSUER);
+
+    return new Reference()
+        .setType(ResourceType.Practitioner.name())
+        .setDisplay(name)
+        .setIdentifier(new Identifier().setSystem(issuer).setValue(subject));
+  }
 }

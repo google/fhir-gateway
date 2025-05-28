@@ -16,9 +16,11 @@
 package com.google.fhir.gateway;
 
 import ca.uhn.fhir.context.FhirContext;
+import ca.uhn.fhir.rest.api.Constants;
 import ca.uhn.fhir.rest.api.RequestTypeEnum;
 import ca.uhn.fhir.rest.api.RestOperationTypeEnum;
 import ca.uhn.fhir.rest.api.server.RequestDetails;
+import ca.uhn.fhir.rest.server.servlet.ServletRequestDetails;
 import com.google.fhir.gateway.interfaces.RequestDetailsReader;
 import java.nio.charset.Charset;
 import java.util.List;
@@ -32,6 +34,7 @@ public class RequestDetailsToReader implements RequestDetailsReader {
 
   RequestDetailsToReader(RequestDetails requestDetails) {
     this.requestDetails = requestDetails;
+    configureOperationType(); // set a FHIR contextual operation type
   }
 
   public String getRequestId() {
@@ -102,5 +105,33 @@ public class RequestDetailsToReader implements RequestDetailsReader {
 
   public byte[] loadRequestContents() {
     return requestDetails.loadRequestContents();
+  }
+
+  @Override
+  public String getServletRequestRemoteAddr() {
+    return ((ServletRequestDetails) requestDetails).getServletRequest().getRemoteAddr();
+  }
+
+  private void configureOperationType() {
+    if (RequestTypeEnum.PATCH.name().equals(requestDetails.getRequestType().name())) {
+      requestDetails.setRestOperationType(RestOperationTypeEnum.PATCH);
+    } else if (RequestTypeEnum.PUT.name().equals(requestDetails.getRequestType().name())) {
+      requestDetails.setRestOperationType(RestOperationTypeEnum.UPDATE);
+    } else if (RequestTypeEnum.GET.name().equals(requestDetails.getRequestType().name())) {
+      if (requestDetails.getId() != null && requestDetails.getId().hasVersionIdPart()) {
+        requestDetails.setRestOperationType(RestOperationTypeEnum.VREAD);
+      } else if (requestDetails.getId() != null && !requestDetails.getId().hasVersionIdPart()) {
+        requestDetails.setRestOperationType(RestOperationTypeEnum.READ);
+      } else if (requestDetails.getId() == null
+          && requestDetails.getParameters().containsKey(Constants.PARAM_PAGINGACTION)) {
+        requestDetails.setRestOperationType(RestOperationTypeEnum.GET_PAGE);
+      } else {
+        requestDetails.setRestOperationType(RestOperationTypeEnum.SEARCH_TYPE);
+      }
+    } else if (RequestTypeEnum.POST.name().equals(requestDetails.getRequestType().name())) {
+      requestDetails.setRestOperationType(RestOperationTypeEnum.CREATE);
+    } else if (RequestTypeEnum.DELETE.name().equals(requestDetails.getRequestType().name())) {
+      requestDetails.setRestOperationType(RestOperationTypeEnum.DELETE);
+    }
   }
 }

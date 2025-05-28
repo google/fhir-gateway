@@ -1,0 +1,352 @@
+package com.google.fhir.gateway;
+
+import ca.uhn.fhir.context.FhirContext;
+import ca.uhn.fhir.context.RuntimeResourceDefinition;
+import ca.uhn.fhir.context.RuntimeSearchParam;
+import ca.uhn.fhir.rest.client.api.IGenericClient;
+import ca.uhn.fhir.storage.interceptor.balp.BalpConstants;
+import ca.uhn.fhir.storage.interceptor.balp.BalpProfileEnum;
+import ca.uhn.fhir.util.FhirTerser;
+import com.google.fhir.gateway.interfaces.AuditEventHelper;
+import com.google.fhir.gateway.interfaces.RequestDetailsReader;
+import jakarta.annotation.Nonnull;
+import java.util.*;
+import java.util.stream.Collectors;
+import org.hl7.fhir.instance.model.api.IBaseResource;
+import org.hl7.fhir.instance.model.api.IIdType;
+import org.hl7.fhir.r4.model.*;
+import org.hl7.fhir.r4.model.codesystems.CompartmentType;
+
+public class AuditEventHelperImpl implements AuditEventHelper {
+
+  private final IGenericClient iGenericClient;
+  private final PatientFinderImp patientFinder;
+
+  private AuditEventHelperImpl(FhirContext fhirContext, String baseUrl) {
+    this.iGenericClient = fhirContext.newRestfulGenericClient(baseUrl);
+    this.patientFinder = PatientFinderImp.getInstance(fhirContext);
+  }
+
+  @Override
+  public void processAuditEvents(
+      RequestDetailsReader requestDetailsReader,
+      String serverContentResponse,
+      Reference agentUserWho) {
+
+    List<AuditEvent> auditEventList = new ArrayList<>();
+
+    List<IBaseResource> resources = extractFhirResources(serverContentResponse);
+
+    switch (requestDetailsReader.getRestOperationType()) {
+      case SEARCH_TYPE:
+      case SEARCH_SYSTEM:
+      case GET_PAGE:
+        for (IBaseResource resource : resources) {
+          Set<String> patientIds =
+              resource instanceof DomainResource
+                  ? getPatientCompartmentOwners((DomainResource) resource)
+                  : Set.of();
+
+          if (!patientIds.isEmpty()) {
+            auditEventList.add(
+                createAuditEventSearch(
+                    requestDetailsReader,
+                    (DomainResource) resource,
+                    BalpProfileEnum.PATIENT_QUERY,
+                    agentUserWho,
+                    patientIds));
+          } else {
+            // TODO investigate if we need to record a resource type that is NOT a DomainResource
+            if (resource instanceof DomainResource)
+              auditEventList.add(
+                  createAuditEventSearch(
+                      requestDetailsReader,
+                      (DomainResource) resource,
+                      BalpProfileEnum.BASIC_QUERY,
+                      agentUserWho,
+                      null));
+          }
+        }
+        break;
+
+      case READ:
+      case VREAD:
+        if (!resources.isEmpty()
+            && resources.get(0)
+                instanceof DomainResource) { // Skip non DomainResources, see TODO above
+
+          DomainResource resource = (DomainResource) resources.get(0);
+
+          Set<String> patientIds = getPatientCompartmentOwners(resource);
+
+          if (!patientIds.isEmpty()) {
+            auditEventList.add(
+                createAuditEventCRUD(
+                    requestDetailsReader,
+                    resource,
+                    BalpProfileEnum.PATIENT_READ,
+                    agentUserWho,
+                    patientIds));
+          } else {
+            auditEventList.add(
+                createAuditEventCRUD(
+                    requestDetailsReader,
+                    resource,
+                    BalpProfileEnum.BASIC_READ,
+                    agentUserWho,
+                    null));
+          }
+        }
+
+        break;
+
+      case CREATE:
+        if (!resources.isEmpty() && resources.get(0) instanceof DomainResource) {
+
+          DomainResource resource = (DomainResource) resources.get(0);
+
+          Set<String> patientIds = getPatientCompartmentOwners(resource);
+
+          if (!patientIds.isEmpty()) {
+            auditEventList.add(
+                createAuditEventCRUD(
+                    requestDetailsReader,
+                    resource,
+                    BalpProfileEnum.PATIENT_CREATE,
+                    agentUserWho,
+                    patientIds));
+          } else {
+            auditEventList.add(
+                createAuditEventCRUD(
+                    requestDetailsReader,
+                    resource,
+                    BalpProfileEnum.BASIC_CREATE,
+                    agentUserWho,
+                    null));
+          }
+        }
+        break;
+
+      case UPDATE:
+        if (!resources.isEmpty() && resources.get(0) instanceof DomainResource) {
+
+          DomainResource resource = (DomainResource) resources.get(0);
+
+          Set<String> patientIds = getPatientCompartmentOwners(resource);
+
+          if (!patientIds.isEmpty()) {
+            auditEventList.add(
+                createAuditEventCRUD(
+                    requestDetailsReader,
+                    resource,
+                    BalpProfileEnum.PATIENT_UPDATE,
+                    agentUserWho,
+                    patientIds));
+          } else {
+            auditEventList.add(
+                createAuditEventCRUD(
+                    requestDetailsReader,
+                    resource,
+                    BalpProfileEnum.BASIC_UPDATE,
+                    agentUserWho,
+                    null));
+          }
+        }
+        break;
+
+      case DELETE:
+        //  auditEventList = generateAuditEventsDeleted(requestDetailsReader);
+        break;
+
+      default:
+        break;
+    }
+
+    for (AuditEvent auditEvent : auditEventList) {
+      this.iGenericClient.create().resource(auditEvent).encodedJson().execute();
+    }
+  }
+
+  private AuditEvent.AuditEventOutcome mapOutcomeErrorCode(
+      OperationOutcome.IssueSeverity issueSeverity) {
+    AuditEvent.AuditEventOutcome errorCode = null;
+    if (OperationOutcome.IssueSeverity.FATAL.equals(issueSeverity)) {
+
+      errorCode = AuditEvent.AuditEventOutcome._12;
+    } else if (OperationOutcome.IssueSeverity.ERROR.equals(issueSeverity)) {
+
+      errorCode = AuditEvent.AuditEventOutcome._8;
+    } else if (OperationOutcome.IssueSeverity.WARNING.equals(issueSeverity)) {
+
+      errorCode = AuditEvent.AuditEventOutcome._4;
+    } else if (OperationOutcome.IssueSeverity.INFORMATION.equals(issueSeverity)) {
+
+      errorCode = AuditEvent.AuditEventOutcome._0;
+    }
+    return errorCode;
+  }
+
+  private List<IBaseResource> extractFhirResources(String serverContentResponse) {
+    List<IBaseResource> resourceList = new ArrayList<>();
+
+    IBaseResource responseResource =
+        this.iGenericClient.getFhirContext().newJsonParser().parseResource(serverContentResponse);
+
+    if (responseResource instanceof Bundle) {
+
+      resourceList =
+          ((Bundle) responseResource)
+              .getEntry().stream()
+                  .map(Bundle.BundleEntryComponent::getResource)
+                  .collect(Collectors.toList());
+
+    } else {
+      resourceList.add(responseResource);
+    }
+
+    return resourceList;
+  }
+
+  private Set<String> getCompartmentOwners(
+      Resource resource, CompartmentType compartmentType, FhirContext fhirContext) {
+
+    Set<String> compartmentOwnerIds = new TreeSet<>();
+
+    RuntimeResourceDefinition resourceDefinition = fhirContext.getResourceDefinition(resource);
+    if (resourceDefinition.getName().equals(compartmentType.getDisplay())) {
+      compartmentOwnerIds.add(extractLogicalId(resource));
+    } else {
+      List<RuntimeSearchParam> compartmentSearchParameters =
+          resourceDefinition.getSearchParamsForCompartmentName(compartmentType.getDisplay());
+      if (!compartmentSearchParameters.isEmpty()) {
+        FhirTerser terser = fhirContext.newTerser();
+        terser
+            .getCompartmentOwnersForResource(compartmentType.getDisplay(), resource, Set.of())
+            .stream()
+            .map(IIdType::getValue)
+            .forEach(compartmentOwnerIds::add);
+      }
+    }
+    return compartmentOwnerIds;
+  }
+
+  private String extractLogicalId(Resource resource) {
+    return resource.getResourceType() + "/" + resource.getIdElement().getIdPart();
+  }
+
+  private Set<String> getPatientCompartmentOwners(DomainResource resource) {
+    return getCompartmentOwners(resource, CompartmentType.PATIENT, iGenericClient.getFhirContext());
+  }
+
+  private AuditEventBuilder initBaseAuditEventBuilder(
+      RequestDetailsReader requestDetailsReader,
+      BalpProfileEnum balpProfile,
+      Reference agentUserWho) {
+
+    AuditEventBuilder auditEventBuilder = new AuditEventBuilder();
+    auditEventBuilder.restOperationType(requestDetailsReader.getRestOperationType());
+    auditEventBuilder.agentUserPolicy(
+        JwtUtil.getClaimFromRequestDetails(requestDetailsReader, JwtUtil.CLAIM_JWT_ID));
+    auditEventBuilder.auditEventAction(balpProfile.getAction());
+    auditEventBuilder.agentClientTypeCoding(balpProfile.getAgentClientTypeCoding());
+    auditEventBuilder.agentServerTypeCoding(balpProfile.getAgentServerTypeCoding());
+    auditEventBuilder.profileUrl(balpProfile.getProfileUrl());
+    auditEventBuilder.fhirServerBaseUrl(requestDetailsReader.getFhirServerBase());
+    auditEventBuilder.requestId(requestDetailsReader.getRequestId());
+    auditEventBuilder.network(
+        AuditEventBuilder.Network.builder()
+            .address(requestDetailsReader.getServletRequestRemoteAddr())
+            .type(BalpConstants.AUDIT_EVENT_AGENT_NETWORK_TYPE_IP_ADDRESS)
+            .build());
+    auditEventBuilder.agentUserWho(agentUserWho);
+
+    return auditEventBuilder;
+  }
+
+  @Nonnull
+  private AuditEvent createAuditEventSearch(
+      RequestDetailsReader requestDetailsReader,
+      Resource resource,
+      BalpProfileEnum balpProfile,
+      Reference agentUserWho,
+      Set<String> compartmentOwners) {
+
+    AuditEventBuilder auditEventBuilder =
+        initBaseAuditEventBuilder(requestDetailsReader, balpProfile, agentUserWho);
+
+    if (resource instanceof OperationOutcome) {
+
+      OperationOutcome.OperationOutcomeIssueComponent outcomeIssueComponent =
+          ((OperationOutcome) resource).getIssueFirstRep();
+
+      String errorDescription =
+          outcomeIssueComponent.getDetails().getText() != null
+              ? outcomeIssueComponent.getDetails().getText()
+              : outcomeIssueComponent.getDiagnostics();
+      auditEventBuilder.outcome(
+          AuditEventBuilder.Outcome.builder()
+              .code(mapOutcomeErrorCode(outcomeIssueComponent.getSeverity()))
+              .description(errorDescription)
+              .build());
+
+    } else {
+
+      if (compartmentOwners != null && !compartmentOwners.isEmpty()) {
+        for (String owner : compartmentOwners) {
+          auditEventBuilder.addEntityWhat(balpProfile, true, owner);
+        }
+      }
+
+      if (!ResourceType.Patient.equals(resource.getResourceType())) {
+        auditEventBuilder.addEntityWhat(balpProfile, false, extractLogicalId(resource));
+      }
+
+      auditEventBuilder.addQuery(requestDetailsReader);
+    }
+
+    return auditEventBuilder.build();
+  }
+
+  private AuditEvent createAuditEventCRUD(
+      RequestDetailsReader requestDetailsReader,
+      Resource resource,
+      BalpProfileEnum balpProfile,
+      Reference agentUserWho,
+      Set<String> compartmentOwners) {
+
+    AuditEventBuilder auditEventBuilder =
+        initBaseAuditEventBuilder(requestDetailsReader, balpProfile, agentUserWho);
+    if (resource instanceof OperationOutcome) {
+
+      OperationOutcome.OperationOutcomeIssueComponent outcomeIssueComponent =
+          ((OperationOutcome) resource).getIssueFirstRep();
+
+      String errorDescription =
+          outcomeIssueComponent.getDetails().getText() != null
+              ? outcomeIssueComponent.getDetails().getText()
+              : outcomeIssueComponent.getDiagnostics();
+      auditEventBuilder.outcome(
+          AuditEventBuilder.Outcome.builder()
+              .code(mapOutcomeErrorCode(outcomeIssueComponent.getSeverity()))
+              .description(errorDescription)
+              .build());
+
+    } else {
+      if (compartmentOwners != null && !compartmentOwners.isEmpty()) {
+        for (String owner : compartmentOwners) {
+          auditEventBuilder.addEntityWhat(balpProfile, true, owner);
+        }
+      }
+
+      if (!ResourceType.Patient.equals(resource.getResourceType())) {
+        auditEventBuilder.addEntityWhat(balpProfile, false, extractLogicalId(resource));
+      }
+    }
+
+    return auditEventBuilder.build();
+  }
+
+  public static AuditEventHelper createNewInstance(FhirContext fhirContext, String baseUrl) {
+    return new AuditEventHelperImpl(fhirContext, baseUrl);
+  }
+}

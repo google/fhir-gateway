@@ -32,17 +32,20 @@ import com.google.common.base.Preconditions;
 import com.google.fhir.gateway.interfaces.AccessChecker;
 import com.google.fhir.gateway.interfaces.AccessCheckerFactory;
 import com.google.fhir.gateway.interfaces.AccessDecision;
+import com.google.fhir.gateway.interfaces.AuditEventHelper;
 import com.google.fhir.gateway.interfaces.RequestDetailsReader;
 import com.google.fhir.gateway.interfaces.RequestMutation;
 import java.io.IOException;
 import java.io.Reader;
 import java.io.StringReader;
+import java.io.StringWriter;
 import java.io.Writer;
 import java.util.Locale;
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
+import org.hl7.fhir.r4.model.Reference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.util.CollectionUtils;
@@ -70,13 +73,15 @@ public class BearerAuthorizationInterceptor {
   private final HttpFhirClient fhirClient;
   private final AccessCheckerFactory accessFactory;
   private final AllowedQueriesChecker allowedQueriesChecker;
+  private final AuditEventHelper auditEventHelper;
 
   BearerAuthorizationInterceptor(
       HttpFhirClient fhirClient,
       TokenVerifier tokenVerifier,
       RestfulServer server,
       AccessCheckerFactory accessFactory,
-      AllowedQueriesChecker allowedQueriesChecker)
+      AllowedQueriesChecker allowedQueriesChecker,
+      AuditEventHelper auditEventHelper)
       throws IOException {
     Preconditions.checkNotNull(fhirClient);
     Preconditions.checkNotNull(server);
@@ -85,6 +90,7 @@ public class BearerAuthorizationInterceptor {
     this.tokenVerifier = tokenVerifier;
     this.accessFactory = accessFactory;
     this.allowedQueriesChecker = allowedQueriesChecker;
+    this.auditEventHelper = auditEventHelper;
     logger.info("Created proxy to the FHIR store " + this.fhirClient.getBaseUrl());
   }
 
@@ -120,6 +126,7 @@ public class BearerAuthorizationInterceptor {
       ExceptionUtil.throwRuntimeExceptionAndLog(
           logger, "Cannot create an AccessChecker!", AuthenticationException.class);
     }
+
     AccessDecision outcome = accessChecker.checkAccess(requestDetailsReader);
     if (!outcome.canAccess()) {
       ExceptionUtil.throwRuntimeExceptionAndLog(
@@ -146,6 +153,7 @@ public class BearerAuthorizationInterceptor {
       serveWellKnown(servletDetails);
       return false;
     }
+    RequestDetailsReader requestDetailsReader = null;
     AccessDecision outcome = checkAuthorization(requestDetails);
     mutateRequest(requestDetails, outcome);
     logger.debug("Authorized request path " + requestPath);
@@ -159,7 +167,8 @@ public class BearerAuthorizationInterceptor {
       if (HttpUtil.isResponseValid(response)) {
         try {
           // For post-processing rationale/example see b/207589782#comment3.
-          content = outcome.postProcess(new RequestDetailsToReader(requestDetails), response);
+          requestDetailsReader = new RequestDetailsToReader(requestDetails);
+          content = outcome.postProcess(requestDetailsReader, response);
         } catch (Exception e) {
           // Note this is after a successful fetch/update of the FHIR store. That success must be
           // passed to the client even if the access related post-processing fails.
@@ -192,12 +201,28 @@ public class BearerAuthorizationInterceptor {
       } else {
         reader = HttpUtil.readerFromEntity(entity);
       }
+
+      Reference agentUserWho = outcome.getUserWho(requestDetailsReader);
+      if (agentUserWho != null) {
+
+        StringWriter responseStringWriter = new StringWriter();
+        reader.transferTo(responseStringWriter);
+        String responseStringContent = responseStringWriter.toString();
+
+        auditEventHelper.processAuditEvents(
+            requestDetailsReader, responseStringContent, agentUserWho);
+
+        reader = new StringReader(responseStringContent);
+      }
+
       replaceAndCopyResponse(reader, writer, server.getServerBaseForRequest(servletDetails));
+
     } catch (IOException e) {
       logger.error(
-          String.format(
-              "Exception for resource %s method %s with error: %s",
-              requestPath, servletDetails.getServletRequest().getMethod(), e));
+          "Exception for resource {} method {} with error: {}",
+          requestPath,
+          servletDetails.getServletRequest().getMethod(),
+          e.getMessage());
       ExceptionUtil.throwRuntimeExceptionAndLog(logger, e.getMessage(), e);
     }
 
