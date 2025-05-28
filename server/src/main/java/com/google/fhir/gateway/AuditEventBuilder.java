@@ -38,7 +38,16 @@ public class AuditEventBuilder {
   private Coding agentClientTypeCoding;
   private Network network;
   private Outcome outcome;
+  private final Date startTime;
   private final List<AuditEvent.AuditEventEntityComponent> auditEventEntityList = new ArrayList<>();
+
+  private AuditEventBuilder() {
+    this.startTime = null;
+  }
+
+  public AuditEventBuilder(Date startTime) {
+    this.startTime = startTime;
+  }
 
   public AuditEventBuilder agentUserWho(Reference agentUserWho) {
     this.agentUserWho = agentUserWho;
@@ -251,8 +260,7 @@ public class AuditEventBuilder {
     entityTransaction.getWhat().getIdentifier().setValue(this.requestId);
 
     Period period = new Period();
-    period.setStart(new Date()); // TODO Fix
-    period.setEnd(new Date());
+    period.setStart(this.startTime);
     auditEvent.setPeriod(period);
 
     for (AuditEvent.AuditEventEntityComponent auditEventEntityComponent : auditEventEntityList) {

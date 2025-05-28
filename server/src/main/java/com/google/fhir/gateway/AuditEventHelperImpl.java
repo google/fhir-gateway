@@ -21,10 +21,12 @@ public class AuditEventHelperImpl implements AuditEventHelper {
 
   private final IGenericClient iGenericClient;
   private final PatientFinderImp patientFinder;
+  private final Date startTime;
 
   private AuditEventHelperImpl(FhirContext fhirContext, String baseUrl) {
     this.iGenericClient = fhirContext.newRestfulGenericClient(baseUrl);
     this.patientFinder = PatientFinderImp.getInstance(fhirContext);
+    this.startTime = new Date();
   }
 
   @Override
@@ -163,6 +165,7 @@ public class AuditEventHelperImpl implements AuditEventHelper {
     }
 
     for (AuditEvent auditEvent : auditEventList) {
+      auditEvent.getPeriod().setEnd(new Date());
       this.iGenericClient.create().resource(auditEvent).encodedJson().execute();
     }
   }
@@ -243,7 +246,7 @@ public class AuditEventHelperImpl implements AuditEventHelper {
       BalpProfileEnum balpProfile,
       Reference agentUserWho) {
 
-    AuditEventBuilder auditEventBuilder = new AuditEventBuilder();
+    AuditEventBuilder auditEventBuilder = new AuditEventBuilder(this.startTime);
     auditEventBuilder.restOperationType(requestDetailsReader.getRestOperationType());
     auditEventBuilder.agentUserPolicy(
         JwtUtil.getClaimFromRequestDetails(requestDetailsReader, JwtUtil.CLAIM_JWT_ID));
