@@ -81,7 +81,7 @@ public interface AccessDecision {
         JwtUtil.getClaimFromRequestDetails(
             request,
             JwtUtil.CLAIM_IHE_IUA_SUBJECT_NAME); // First try with the IHE IUA claim name defined by
-    // BALP IG before Keycloak default
+    // BALP IG before OpenID connect/Keycloak default
     name =
         TextUtils.isEmpty(name)
             ? JwtUtil.getClaimFromRequestDetails(request, JwtUtil.CLAIM_NAME)

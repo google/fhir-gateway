@@ -26,9 +26,11 @@ import org.apache.http.HttpHeaders;
 public class JwtUtil {
   public static final String CLAIM_NAME = "name";
   public static final String CLAIM_IHE_IUA_SUBJECT_NAME = "subject_name";
+  public static final String CLAIM_IHE_IUA_CLIENT_ID = "client_id";
   public static final String CLAIM_SUBJECT = "sub";
   public static final String CLAIM_JWT_ID = "jti";
   public static final String CLAIM_ISSUER = "iss";
+  public static final String CLAIM_AZP = "azp";
 
   public static String getClaimOrDie(DecodedJWT jwt, String claimName) {
     Claim claim = jwt.getClaim(claimName);

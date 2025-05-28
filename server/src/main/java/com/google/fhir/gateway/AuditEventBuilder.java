@@ -21,10 +21,6 @@ public class AuditEventBuilder {
   public static final String CS_BALP_BASIC_AUDIT_ENTITY_TYPE_CODE = "XrequestId";
 
   // TODO investigate whether we need to create a CodeSystem Enum
-  public static final String CS_INFO_GATEWAY_DEVICES = "http://fhir-info-gateway/devices";
-  public static final String CS_INFO_GATEWAY_DEVICES_CODE = "fhir-info-gateway";
-  public static final String CS_INFO_GATEWAY_DEVICES_DISPLAY = "FHIR Info Gateway";
-
   public static final String CS_INFO_GATEWAY_DELETED = "http://fhir-info-gateway/deleted";
 
   private Reference agentUserWho;
@@ -40,6 +36,7 @@ public class AuditEventBuilder {
   private Outcome outcome;
   private final Date startTime;
   private final List<AuditEvent.AuditEventEntityComponent> auditEventEntityList = new ArrayList<>();
+  private Reference agentClientWho;
 
   private AuditEventBuilder() {
     this.startTime = null;
@@ -101,6 +98,11 @@ public class AuditEventBuilder {
 
   public AuditEventBuilder outcome(Outcome outcome) {
     this.outcome = outcome;
+    return this;
+  }
+
+  public AuditEventBuilder agentClientWho(Reference agentClientWho) {
+    this.agentClientWho = agentClientWho;
     return this;
   }
 
@@ -219,20 +221,8 @@ public class AuditEventBuilder {
     auditEvent.getSource().getObserver().setDisplay(this.fhirServerBaseUrl);
 
     AuditEvent.AuditEventAgentComponent clientAgent = auditEvent.addAgent();
-
-    Reference agentClientWho =
-        new Reference()
-            .setType(ResourceType.Device.name())
-            .setDisplay(CS_INFO_GATEWAY_DEVICES_DISPLAY)
-            .setIdentifier(
-                new Identifier()
-                    .setSystem(CS_INFO_GATEWAY_DEVICES)
-                    .setValue(CS_INFO_GATEWAY_DEVICES_CODE));
-
-    clientAgent.setWho(agentClientWho);
+    clientAgent.setWho(this.agentClientWho);
     clientAgent.getType().addCoding(this.agentClientTypeCoding);
-    clientAgent.getWho().setDisplay(this.network.address);
-    clientAgent.getNetwork().setAddress(this.network.address).setType(this.network.type);
     clientAgent.setRequestor(false);
 
     AuditEvent.AuditEventAgentComponent serverAgent = auditEvent.addAgent();
@@ -251,6 +241,7 @@ public class AuditEventBuilder {
     userAgent.setWho(this.agentUserWho);
     userAgent.setRequestor(true);
     userAgent.addPolicy(this.agentUserPolicy);
+    userAgent.getNetwork().setAddress(this.network.address).setType(this.network.type);
 
     AuditEvent.AuditEventEntityComponent entityTransaction = auditEvent.addEntity();
     entityTransaction

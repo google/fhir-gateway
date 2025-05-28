@@ -6,5 +6,5 @@ public interface AuditEventHelper {
   void processAuditEvents(
       RequestDetailsReader requestDetailsReader,
       String serverContentResponseReader,
-      Reference userWho);
+      Reference agentUserWho);
 }

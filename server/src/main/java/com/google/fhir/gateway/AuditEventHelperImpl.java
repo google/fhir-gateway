@@ -12,6 +12,7 @@ import com.google.fhir.gateway.interfaces.RequestDetailsReader;
 import jakarta.annotation.Nonnull;
 import java.util.*;
 import java.util.stream.Collectors;
+import org.apache.http.util.TextUtils;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.instance.model.api.IIdType;
 import org.hl7.fhir.r4.model.*;
@@ -262,6 +263,7 @@ public class AuditEventHelperImpl implements AuditEventHelper {
             .type(BalpConstants.AUDIT_EVENT_AGENT_NETWORK_TYPE_IP_ADDRESS)
             .build());
     auditEventBuilder.agentUserWho(agentUserWho);
+    auditEventBuilder.agentClientWho(createAgentClientWhoRef(requestDetailsReader));
 
     return auditEventBuilder;
   }
@@ -347,6 +349,21 @@ public class AuditEventHelperImpl implements AuditEventHelper {
     }
 
     return auditEventBuilder.build();
+  }
+
+  private Reference createAgentClientWhoRef(RequestDetailsReader request) {
+    String clientId = JwtUtil.getClaimFromRequestDetails(request, JwtUtil.CLAIM_IHE_IUA_CLIENT_ID);
+    clientId =
+        TextUtils.isEmpty(clientId)
+            ? JwtUtil.getClaimFromRequestDetails(request, JwtUtil.CLAIM_AZP)
+            : "";
+    String issuer = JwtUtil.getClaimFromRequestDetails(request, JwtUtil.CLAIM_ISSUER);
+
+    return new Reference()
+        .setIdentifier(
+            new Identifier()
+                .setSystem(String.format("%s/oauth-client-id", issuer))
+                .setValue(clientId));
   }
 
   public static AuditEventHelper createNewInstance(FhirContext fhirContext, String baseUrl) {
