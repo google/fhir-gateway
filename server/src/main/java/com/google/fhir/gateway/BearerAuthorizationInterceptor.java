@@ -153,7 +153,6 @@ public class BearerAuthorizationInterceptor {
       serveWellKnown(servletDetails);
       return false;
     }
-    RequestDetailsReader requestDetailsReader = null;
     AccessDecision outcome = checkAuthorization(requestDetails);
     mutateRequest(requestDetails, outcome);
     logger.debug("Authorized request path " + requestPath);
@@ -164,10 +163,10 @@ public class BearerAuthorizationInterceptor {
       //   https://github.com/google/fhir-access-proxy/issues/66
 
       String content = null;
+      RequestDetailsReader requestDetailsReader = new RequestDetailsToReader(requestDetails);
       if (HttpUtil.isResponseValid(response)) {
         try {
           // For post-processing rationale/example see b/207589782#comment3.
-          requestDetailsReader = new RequestDetailsToReader(requestDetails);
           content = outcome.postProcess(requestDetailsReader, response);
         } catch (Exception e) {
           // Note this is after a successful fetch/update of the FHIR store. That success must be

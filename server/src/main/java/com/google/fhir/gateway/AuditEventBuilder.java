@@ -214,8 +214,14 @@ public class AuditEventBuilder {
         .setCode(this.restOperationType.getCode())
         .setDisplay(RestfulInteraction.fromCode(this.restOperationType.getCode()).getDisplay());
     auditEvent.setAction(this.auditEventAction);
-    auditEvent.setOutcome(
-        this.outcome != null ? this.outcome.code : AuditEvent.AuditEventOutcome._0);
+    if (this.outcome != null) {
+      auditEvent.setOutcome(this.outcome.code);
+      auditEvent.setOutcomeDesc(this.outcome.description);
+    } else {
+      auditEvent.setOutcome(AuditEvent.AuditEventOutcome._0);
+      auditEvent.setOutcomeDesc(AuditEvent.AuditEventOutcome._0.getDisplay());
+    }
+
     auditEvent.setRecorded(new Date());
 
     auditEvent.getSource().getObserver().setDisplay(this.fhirServerBaseUrl);

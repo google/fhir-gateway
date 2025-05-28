@@ -158,13 +158,66 @@ public class AuditEventHelperImpl implements AuditEventHelper {
         break;
 
       case DELETE:
-        //  auditEventList = generateAuditEventsDeleted(requestDetailsReader);
+
+        // NOTE: The success of processing of DELETE is heavily dependent on server validation
+        // policy e.g. If you have a permission list that references the resource being deleted, it
+        // breaks the delete operation. Like wise if you reference the resource in AuditEvent such
+        // as logging when you first created or updated it the operation breaks. In case of such an
+        // error, AuditEvent.outcome and AuditEvent.outcomeDesc are populated accordingly
+
+        // Also note, this Implementation only fully captures that a specific resource was deleted
+        // and by whom but not the compartment owner.
+        // With no access to the actual deleted resource we can't get the compartment owner unless
+        // the resource itself is a Patient. A crude way to get the owner would be to fetch the
+        // actual resource from the database first before creating the AuditEvent.
+        // TODO investigate a better to do this
+        String transientDeleteResourceRaw =
+            String.format(
+                "{ \"resourceType\": \"%s\", \"id\": \"%s\"}",
+                requestDetailsReader.getResourceName(), requestDetailsReader.getId().getIdPart());
+        IBaseResource transientDeleteResource =
+            iGenericClient
+                .getFhirContext()
+                .newJsonParser()
+                .parseResource(transientDeleteResourceRaw);
+
+        if (transientDeleteResource instanceof DomainResource) {
+          boolean serverError =
+              !resources.isEmpty() && resources.get(0) instanceof OperationOutcome;
+          DomainResource resource =
+              serverError
+                  ? (DomainResource) resources.get(0)
+                  : (DomainResource) transientDeleteResource;
+
+          Set<String> patientIds = getPatientCompartmentOwners(resource);
+
+          if (!patientIds.isEmpty()) {
+            auditEventList.add(
+                createAuditEventCRUD(
+                    requestDetailsReader,
+                    resource,
+                    BalpProfileEnum.PATIENT_DELETE,
+                    agentUserWho,
+                    patientIds));
+          } else {
+            auditEventList.add(
+                createAuditEventCRUD(
+                    requestDetailsReader,
+                    resource,
+                    BalpProfileEnum.BASIC_DELETE,
+                    agentUserWho,
+                    null));
+          }
+        }
+
         break;
 
       default:
         break;
     }
 
+    // TODO Investigate bulk saving (batch processing) instead to improve performance. We'll
+    // probably need a mechanism for chunking e.g. 100, 200, or 500 batch
     for (AuditEvent auditEvent : auditEventList) {
       auditEvent.getPeriod().setEnd(new Date());
       this.iGenericClient.create().resource(auditEvent).encodedJson().execute();
