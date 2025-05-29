@@ -7,27 +7,49 @@ import ca.uhn.fhir.rest.client.api.IGenericClient;
 import ca.uhn.fhir.storage.interceptor.balp.BalpConstants;
 import ca.uhn.fhir.storage.interceptor.balp.BalpProfileEnum;
 import ca.uhn.fhir.util.FhirTerser;
+import com.auth0.jwt.interfaces.DecodedJWT;
+import com.google.common.base.Strings;
 import com.google.fhir.gateway.interfaces.AuditEventHelper;
 import com.google.fhir.gateway.interfaces.RequestDetailsReader;
-import jakarta.annotation.Nonnull;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
-import org.apache.http.util.TextUtils;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.instance.model.api.IIdType;
-import org.hl7.fhir.r4.model.*;
+import org.hl7.fhir.r4.model.AuditEvent;
+import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.DomainResource;
+import org.hl7.fhir.r4.model.Identifier;
+import org.hl7.fhir.r4.model.OperationOutcome;
+import org.hl7.fhir.r4.model.Reference;
+import org.hl7.fhir.r4.model.Resource;
+import org.hl7.fhir.r4.model.ResourceType;
 import org.hl7.fhir.r4.model.codesystems.CompartmentType;
 
+// TODO unit test this class
 public class AuditEventHelperImpl implements AuditEventHelper {
 
   private final IGenericClient iGenericClient;
   private final PatientFinderImp patientFinder;
-  private final Date startTime;
+  private Date startTime;
+  private DecodedJWT decodedJWT;
 
   private AuditEventHelperImpl(FhirContext fhirContext, String baseUrl) {
     this.iGenericClient = fhirContext.newRestfulGenericClient(baseUrl);
     this.patientFinder = PatientFinderImp.getInstance(fhirContext);
-    this.startTime = new Date();
+  }
+
+  @Override
+  public void setPeriodStartTime(Date startTime) {
+    this.startTime = startTime;
+  }
+
+  @Override
+  public void setDecodedJwt(DecodedJWT decodedJwt) {
+    this.decodedJWT = decodedJwt;
   }
 
   @Override
@@ -52,7 +74,7 @@ public class AuditEventHelperImpl implements AuditEventHelper {
 
           if (!patientIds.isEmpty()) {
             auditEventList.add(
-                createAuditEventSearch(
+                createAuditEvent(
                     requestDetailsReader,
                     (DomainResource) resource,
                     BalpProfileEnum.PATIENT_QUERY,
@@ -62,7 +84,7 @@ public class AuditEventHelperImpl implements AuditEventHelper {
             // TODO investigate if we need to record a resource type that is NOT a DomainResource
             if (resource instanceof DomainResource)
               auditEventList.add(
-                  createAuditEventSearch(
+                  createAuditEvent(
                       requestDetailsReader,
                       (DomainResource) resource,
                       BalpProfileEnum.BASIC_QUERY,
@@ -84,7 +106,7 @@ public class AuditEventHelperImpl implements AuditEventHelper {
 
           if (!patientIds.isEmpty()) {
             auditEventList.add(
-                createAuditEventCRUD(
+                createAuditEvent(
                     requestDetailsReader,
                     resource,
                     BalpProfileEnum.PATIENT_READ,
@@ -92,7 +114,7 @@ public class AuditEventHelperImpl implements AuditEventHelper {
                     patientIds));
           } else {
             auditEventList.add(
-                createAuditEventCRUD(
+                createAuditEvent(
                     requestDetailsReader,
                     resource,
                     BalpProfileEnum.BASIC_READ,
@@ -103,7 +125,7 @@ public class AuditEventHelperImpl implements AuditEventHelper {
 
         break;
 
-      case CREATE:
+      case CREATE: // TODO handle case where the full resource is not returned (only ID)
         if (!resources.isEmpty() && resources.get(0) instanceof DomainResource) {
 
           DomainResource resource = (DomainResource) resources.get(0);
@@ -112,7 +134,7 @@ public class AuditEventHelperImpl implements AuditEventHelper {
 
           if (!patientIds.isEmpty()) {
             auditEventList.add(
-                createAuditEventCRUD(
+                createAuditEvent(
                     requestDetailsReader,
                     resource,
                     BalpProfileEnum.PATIENT_CREATE,
@@ -120,7 +142,7 @@ public class AuditEventHelperImpl implements AuditEventHelper {
                     patientIds));
           } else {
             auditEventList.add(
-                createAuditEventCRUD(
+                createAuditEvent(
                     requestDetailsReader,
                     resource,
                     BalpProfileEnum.BASIC_CREATE,
@@ -130,7 +152,7 @@ public class AuditEventHelperImpl implements AuditEventHelper {
         }
         break;
 
-      case UPDATE:
+      case UPDATE: // TODO handle case where the full resource is not returned (only ID)
         if (!resources.isEmpty() && resources.get(0) instanceof DomainResource) {
 
           DomainResource resource = (DomainResource) resources.get(0);
@@ -139,7 +161,7 @@ public class AuditEventHelperImpl implements AuditEventHelper {
 
           if (!patientIds.isEmpty()) {
             auditEventList.add(
-                createAuditEventCRUD(
+                createAuditEvent(
                     requestDetailsReader,
                     resource,
                     BalpProfileEnum.PATIENT_UPDATE,
@@ -147,7 +169,7 @@ public class AuditEventHelperImpl implements AuditEventHelper {
                     patientIds));
           } else {
             auditEventList.add(
-                createAuditEventCRUD(
+                createAuditEvent(
                     requestDetailsReader,
                     resource,
                     BalpProfileEnum.BASIC_UPDATE,
@@ -170,46 +192,51 @@ public class AuditEventHelperImpl implements AuditEventHelper {
         // With no access to the actual deleted resource we can't get the compartment owner unless
         // the resource itself is a Patient. A crude way to get the owner would be to fetch the
         // actual resource from the database first before creating the AuditEvent.
-        // TODO investigate a better to do this
-        String transientDeleteResourceRaw =
-            String.format(
-                "{ \"resourceType\": \"%s\", \"id\": \"%s\"}",
-                requestDetailsReader.getResourceName(), requestDetailsReader.getId().getIdPart());
-        IBaseResource transientDeleteResource =
-            iGenericClient
-                .getFhirContext()
-                .newJsonParser()
-                .parseResource(transientDeleteResourceRaw);
 
-        if (transientDeleteResource instanceof DomainResource) {
-          boolean serverError =
-              !resources.isEmpty() && resources.get(0) instanceof OperationOutcome;
-          DomainResource resource =
-              serverError
-                  ? (DomainResource) resources.get(0)
-                  : (DomainResource) transientDeleteResource;
+        // This implementation skips logging Deletes if the operation is conditional (thus no
+        // Resource ID present)
 
-          Set<String> patientIds = getPatientCompartmentOwners(resource);
+        if (requestDetailsReader.getId() != null) {
 
-          if (!patientIds.isEmpty()) {
-            auditEventList.add(
-                createAuditEventCRUD(
-                    requestDetailsReader,
-                    resource,
-                    BalpProfileEnum.PATIENT_DELETE,
-                    agentUserWho,
-                    patientIds));
-          } else {
-            auditEventList.add(
-                createAuditEventCRUD(
-                    requestDetailsReader,
-                    resource,
-                    BalpProfileEnum.BASIC_DELETE,
-                    agentUserWho,
-                    null));
+          String transientDeleteResourceRaw =
+              String.format(
+                  "{ \"resourceType\": \"%s\", \"id\": \"%s\"}",
+                  requestDetailsReader.getResourceName(), requestDetailsReader.getId().getIdPart());
+          IBaseResource transientDeleteResource =
+              iGenericClient
+                  .getFhirContext()
+                  .newJsonParser()
+                  .parseResource(transientDeleteResourceRaw);
+
+          if (transientDeleteResource instanceof DomainResource) {
+            boolean serverError =
+                !resources.isEmpty() && resources.get(0) instanceof OperationOutcome;
+            DomainResource resource =
+                serverError
+                    ? (DomainResource) resources.get(0)
+                    : (DomainResource) transientDeleteResource;
+
+            Set<String> patientIds = getPatientCompartmentOwners(resource);
+
+            if (!patientIds.isEmpty()) {
+              auditEventList.add(
+                  createAuditEvent(
+                      requestDetailsReader,
+                      resource,
+                      BalpProfileEnum.PATIENT_DELETE,
+                      agentUserWho,
+                      patientIds));
+            } else {
+              auditEventList.add(
+                  createAuditEvent(
+                      requestDetailsReader,
+                      resource,
+                      BalpProfileEnum.BASIC_DELETE,
+                      agentUserWho,
+                      null));
+            }
           }
         }
-
         break;
 
       default:
@@ -303,7 +330,7 @@ public class AuditEventHelperImpl implements AuditEventHelper {
     AuditEventBuilder auditEventBuilder = new AuditEventBuilder(this.startTime);
     auditEventBuilder.restOperationType(requestDetailsReader.getRestOperationType());
     auditEventBuilder.agentUserPolicy(
-        JwtUtil.getClaimFromRequestDetails(requestDetailsReader, JwtUtil.CLAIM_JWT_ID));
+        JwtUtil.getClaimOrDefault(this.decodedJWT, JwtUtil.CLAIM_JWT_ID, ""));
     auditEventBuilder.auditEventAction(balpProfile.getAction());
     auditEventBuilder.agentClientTypeCoding(balpProfile.getAgentClientTypeCoding());
     auditEventBuilder.agentServerTypeCoding(balpProfile.getAgentServerTypeCoding());
@@ -321,8 +348,7 @@ public class AuditEventHelperImpl implements AuditEventHelper {
     return auditEventBuilder;
   }
 
-  @Nonnull
-  private AuditEvent createAuditEventSearch(
+  private AuditEvent createAuditEvent(
       RequestDetailsReader requestDetailsReader,
       Resource resource,
       BalpProfileEnum balpProfile,
@@ -359,45 +385,9 @@ public class AuditEventHelperImpl implements AuditEventHelper {
         auditEventBuilder.addEntityWhat(balpProfile, false, extractLogicalId(resource));
       }
 
-      auditEventBuilder.addQuery(requestDetailsReader);
-    }
-
-    return auditEventBuilder.build();
-  }
-
-  private AuditEvent createAuditEventCRUD(
-      RequestDetailsReader requestDetailsReader,
-      Resource resource,
-      BalpProfileEnum balpProfile,
-      Reference agentUserWho,
-      Set<String> compartmentOwners) {
-
-    AuditEventBuilder auditEventBuilder =
-        initBaseAuditEventBuilder(requestDetailsReader, balpProfile, agentUserWho);
-    if (resource instanceof OperationOutcome) {
-
-      OperationOutcome.OperationOutcomeIssueComponent outcomeIssueComponent =
-          ((OperationOutcome) resource).getIssueFirstRep();
-
-      String errorDescription =
-          outcomeIssueComponent.getDetails().getText() != null
-              ? outcomeIssueComponent.getDetails().getText()
-              : outcomeIssueComponent.getDiagnostics();
-      auditEventBuilder.outcome(
-          AuditEventBuilder.Outcome.builder()
-              .code(mapOutcomeErrorCode(outcomeIssueComponent.getSeverity()))
-              .description(errorDescription)
-              .build());
-
-    } else {
-      if (compartmentOwners != null && !compartmentOwners.isEmpty()) {
-        for (String owner : compartmentOwners) {
-          auditEventBuilder.addEntityWhat(balpProfile, true, owner);
-        }
-      }
-
-      if (!ResourceType.Patient.equals(resource.getResourceType())) {
-        auditEventBuilder.addEntityWhat(balpProfile, false, extractLogicalId(resource));
+      if (BalpProfileEnum.BASIC_QUERY.equals(balpProfile)
+          || BalpProfileEnum.PATIENT_QUERY.equals(balpProfile)) {
+        auditEventBuilder.addQuery(requestDetailsReader);
       }
     }
 
@@ -405,12 +395,13 @@ public class AuditEventHelperImpl implements AuditEventHelper {
   }
 
   private Reference createAgentClientWhoRef(RequestDetailsReader request) {
-    String clientId = JwtUtil.getClaimFromRequestDetails(request, JwtUtil.CLAIM_IHE_IUA_CLIENT_ID);
+    String clientId =
+        JwtUtil.getClaimOrDefault(this.decodedJWT, JwtUtil.CLAIM_IHE_IUA_CLIENT_ID, "");
     clientId =
-        TextUtils.isEmpty(clientId)
-            ? JwtUtil.getClaimFromRequestDetails(request, JwtUtil.CLAIM_AZP)
-            : "";
-    String issuer = JwtUtil.getClaimFromRequestDetails(request, JwtUtil.CLAIM_ISSUER);
+        Strings.isNullOrEmpty(clientId)
+            ? JwtUtil.getClaimOrDefault(this.decodedJWT, JwtUtil.CLAIM_AZP, "")
+            : null;
+    String issuer = JwtUtil.getClaimOrDefault(this.decodedJWT, JwtUtil.CLAIM_ISSUER, "");
 
     return new Reference()
         .setIdentifier(

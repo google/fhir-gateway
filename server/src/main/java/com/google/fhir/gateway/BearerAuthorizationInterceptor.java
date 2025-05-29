@@ -40,6 +40,7 @@ import java.io.Reader;
 import java.io.StringReader;
 import java.io.StringWriter;
 import java.io.Writer;
+import java.util.Date;
 import java.util.Locale;
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
@@ -126,6 +127,9 @@ public class BearerAuthorizationInterceptor {
       ExceptionUtil.throwRuntimeExceptionAndLog(
           logger, "Cannot create an AccessChecker!", AuthenticationException.class);
     }
+
+    this.auditEventHelper.setDecodedJwt(decodedJwt);
+    this.auditEventHelper.setPeriodStartTime(new Date());
 
     AccessDecision outcome = accessChecker.checkAccess(requestDetailsReader);
     if (!outcome.canAccess()) {

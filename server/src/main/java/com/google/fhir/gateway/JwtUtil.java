@@ -51,13 +51,10 @@ public class JwtUtil {
     return claim;
   }
 
-  public static String getClaimFromRequestDetails(
-      RequestDetailsReader requestDetails, String claimName) {
+  public static DecodedJWT getDecodedJwtFromRequestDetails(RequestDetailsReader requestDetails) {
     if (requestDetails == null) return null;
     String authHeader = requestDetails.getHeader(HttpHeaders.AUTHORIZATION);
     String bearerToken = authHeader.substring(TokenVerifier.BEARER_PREFIX.length());
-    DecodedJWT jwt = JWT.decode(bearerToken);
-
-    return JwtUtil.getClaimOrDefault(jwt, claimName, "");
+    return JWT.decode(bearerToken);
   }
 }

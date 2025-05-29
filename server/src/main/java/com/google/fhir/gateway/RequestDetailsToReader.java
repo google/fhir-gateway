@@ -34,7 +34,6 @@ public class RequestDetailsToReader implements RequestDetailsReader {
 
   RequestDetailsToReader(RequestDetails requestDetails) {
     this.requestDetails = requestDetails;
-    configureOperationType(); // set a FHIR contextual operation type
   }
 
   public String getRequestId() {
@@ -91,10 +90,6 @@ public class RequestDetailsToReader implements RequestDetailsReader {
     return requestDetails.getResourceName();
   }
 
-  public RestOperationTypeEnum getRestOperationType() {
-    return requestDetails.getRestOperationType();
-  }
-
   public String getSecondaryOperation() {
     return requestDetails.getSecondaryOperation();
   }
@@ -112,26 +107,29 @@ public class RequestDetailsToReader implements RequestDetailsReader {
     return ((ServletRequestDetails) requestDetails).getServletRequest().getRemoteAddr();
   }
 
-  private void configureOperationType() {
+  @Override
+  public RestOperationTypeEnum getRestOperationType() {
+    RestOperationTypeEnum restOperationTypeEnum = null;
     if (RequestTypeEnum.PATCH.name().equals(requestDetails.getRequestType().name())) {
-      requestDetails.setRestOperationType(RestOperationTypeEnum.PATCH);
+      restOperationTypeEnum = RestOperationTypeEnum.PATCH;
     } else if (RequestTypeEnum.PUT.name().equals(requestDetails.getRequestType().name())) {
-      requestDetails.setRestOperationType(RestOperationTypeEnum.UPDATE);
+      restOperationTypeEnum = RestOperationTypeEnum.UPDATE;
     } else if (RequestTypeEnum.GET.name().equals(requestDetails.getRequestType().name())) {
       if (requestDetails.getId() != null && requestDetails.getId().hasVersionIdPart()) {
-        requestDetails.setRestOperationType(RestOperationTypeEnum.VREAD);
+        restOperationTypeEnum = RestOperationTypeEnum.VREAD;
       } else if (requestDetails.getId() != null && !requestDetails.getId().hasVersionIdPart()) {
-        requestDetails.setRestOperationType(RestOperationTypeEnum.READ);
+        restOperationTypeEnum = RestOperationTypeEnum.READ;
       } else if (requestDetails.getId() == null
           && requestDetails.getParameters().containsKey(Constants.PARAM_PAGINGACTION)) {
-        requestDetails.setRestOperationType(RestOperationTypeEnum.GET_PAGE);
+        restOperationTypeEnum = RestOperationTypeEnum.GET_PAGE;
       } else {
-        requestDetails.setRestOperationType(RestOperationTypeEnum.SEARCH_TYPE);
+        restOperationTypeEnum = RestOperationTypeEnum.SEARCH_TYPE;
       }
     } else if (RequestTypeEnum.POST.name().equals(requestDetails.getRequestType().name())) {
-      requestDetails.setRestOperationType(RestOperationTypeEnum.CREATE);
+      restOperationTypeEnum = RestOperationTypeEnum.CREATE;
     } else if (RequestTypeEnum.DELETE.name().equals(requestDetails.getRequestType().name())) {
-      requestDetails.setRestOperationType(RestOperationTypeEnum.DELETE);
+      restOperationTypeEnum = RestOperationTypeEnum.DELETE;
     }
+    return restOperationTypeEnum;
   }
 }
