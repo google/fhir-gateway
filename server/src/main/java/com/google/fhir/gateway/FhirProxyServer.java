@@ -71,8 +71,7 @@ public class FhirProxyServer extends RestfulServer {
       TokenVerifier tokenVerifier = TokenVerifier.createFromEnvVars();
 
       AuditEventHelper auditEventHelper =
-          AuditEventHelperImpl.createNewInstance(
-              this.getFhirContext(), httpFhirClient.getBaseUrl());
+          AuditEventHelperImpl.createNewInstance(this.getFhirContext());
 
       registerInterceptor(
           new BearerAuthorizationInterceptor(

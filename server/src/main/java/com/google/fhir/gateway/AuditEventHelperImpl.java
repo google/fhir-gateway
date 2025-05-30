@@ -1,7 +1,6 @@
 package com.google.fhir.gateway;
 
 import ca.uhn.fhir.context.FhirContext;
-import ca.uhn.fhir.rest.client.api.IGenericClient;
 import ca.uhn.fhir.storage.interceptor.balp.BalpConstants;
 import ca.uhn.fhir.storage.interceptor.balp.BalpProfileEnum;
 import com.auth0.jwt.interfaces.DecodedJWT;
@@ -9,6 +8,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.fhir.gateway.interfaces.AuditEventHelper;
 import com.google.fhir.gateway.interfaces.RequestDetailsReader;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -33,11 +33,9 @@ public class AuditEventHelperImpl implements AuditEventHelper {
 
   private static final Logger logger = LoggerFactory.getLogger(AuditEventHelperImpl.class);
 
-  private final IGenericClient iGenericClient;
   private final PatientFinderImp patientFinder;
 
-  private AuditEventHelperImpl(FhirContext fhirContext, String baseUrl) {
-    this.iGenericClient = fhirContext.newRestfulGenericClient(baseUrl);
+  private AuditEventHelperImpl(FhirContext fhirContext) {
     this.patientFinder = PatientFinderImp.getInstance(fhirContext);
   }
 
@@ -186,10 +184,9 @@ public class AuditEventHelperImpl implements AuditEventHelper {
       // probably need a mechanism for chunking e.g. 100, 200, or 500 batch
       for (AuditEvent auditEvent : auditEventList) {
         auditEvent.getPeriod().setEnd(new Date());
-        this.iGenericClient.create().resource(auditEvent).execute();
+        auditEventHelperInputDto.httpFhirClient.postResource(auditEvent);
       }
-
-    } catch (IllegalStateException exception) {
+    } catch (IllegalStateException | IOException exception) {
       logger.error(exception.getMessage(), exception);
     }
   }
@@ -336,7 +333,7 @@ public class AuditEventHelperImpl implements AuditEventHelper {
     clientId =
         Strings.isNullOrEmpty(clientId)
             ? JwtUtil.getClaimOrDefault(decodedJWT, JwtUtil.CLAIM_AZP, "")
-            : null;
+            : clientId;
     String issuer = JwtUtil.getClaimOrDefault(decodedJWT, JwtUtil.CLAIM_ISSUER, "");
 
     return new Reference()
@@ -346,8 +343,8 @@ public class AuditEventHelperImpl implements AuditEventHelper {
                 .setValue(clientId));
   }
 
-  public static AuditEventHelper createNewInstance(FhirContext fhirContext, String baseUrl) {
-    return new AuditEventHelperImpl(fhirContext, baseUrl);
+  public static AuditEventHelper createNewInstance(FhirContext fhirContext) {
+    return new AuditEventHelperImpl(fhirContext);
   }
 
   @Getter
@@ -358,5 +355,6 @@ public class AuditEventHelperImpl implements AuditEventHelper {
     private Reference agentUserWho;
     private DecodedJWT decodedJWT;
     private Date periodStartTime;
+    private HttpFhirClient httpFhirClient;
   }
 }

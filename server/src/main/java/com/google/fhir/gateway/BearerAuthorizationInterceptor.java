@@ -227,6 +227,7 @@ public class BearerAuthorizationInterceptor {
                   .decodedJWT(authorizationDto.getDecodedJWT())
                   .periodStartTime(periodStartTime)
                   .responseStringContent(responseStringContent)
+                  .httpFhirClient(fhirClient)
                   .build();
           auditEventHelper.processAuditEvents(auditEventHelperInput);
 

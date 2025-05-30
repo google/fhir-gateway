@@ -15,6 +15,7 @@
  */
 package com.google.fhir.gateway;
 
+import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.rest.api.Constants;
 import ca.uhn.fhir.rest.server.servlet.ServletRequestDetails;
 import com.google.common.annotations.VisibleForTesting;
@@ -34,6 +35,7 @@ import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.client.methods.RequestBuilder;
 import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.impl.client.HttpClients;
+import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -137,6 +139,17 @@ public abstract class HttpFhirClient {
     byte[] content = jsonPatch.getBytes(Constants.CHARSET_UTF8);
     requestBuilder.setCharset(Constants.CHARSET_UTF8);
     requestBuilder.setEntity(new ByteArrayEntity(content, ProxyConstants.JSON_PATCH_CONTENT));
+    return sendRequest(requestBuilder);
+  }
+
+  public HttpResponse postResource(IBaseResource resource) throws IOException {
+    Preconditions.checkArgument(resource != null);
+    RequestBuilder requestBuilder = RequestBuilder.post();
+    setUri(requestBuilder, resource.fhirType());
+    String content = FhirContext.forR4Cached().newJsonParser().encodeResourceToString(resource);
+    byte[] contentBytes = content.getBytes(Constants.CHARSET_UTF8);
+    requestBuilder.setCharset(Constants.CHARSET_UTF8);
+    requestBuilder.setEntity(new ByteArrayEntity(contentBytes, ProxyConstants.JSON_POST_CONTENT));
     return sendRequest(requestBuilder);
   }
 

@@ -21,5 +21,6 @@ import org.apache.http.entity.ContentType;
 public class ProxyConstants {
   // Note we should not set charset here; otherwise GCP FHIR store complains about Content-Type.
   static final ContentType JSON_PATCH_CONTENT = ContentType.create(Constants.CT_JSON_PATCH);
+  static final ContentType JSON_POST_CONTENT = ContentType.create(Constants.CT_FHIR_JSON);
   public static final String HTTP_URL_SEPARATOR = "/";
 }
