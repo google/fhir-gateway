@@ -47,10 +47,6 @@ public class AuditEventBuilder {
   private final List<AuditEvent.AuditEventEntityComponent> auditEventEntityList = new ArrayList<>();
   private Reference agentClientWho;
 
-  private AuditEventBuilder() {
-    this.startTime = null;
-  }
-
   public AuditEventBuilder(Date startTime) {
     this.startTime = startTime;
   }

@@ -24,6 +24,7 @@ import java.io.IOException;
 public class FhirClientFactory {
   private static final String PROXY_TO_ENV = "PROXY_TO";
   private static final String BACKEND_TYPE_ENV = "BACKEND_TYPE";
+  private static final String AUDIT_EVENT_LOGGING_ENABLED_ENV = "AUDIT_EVENT_LOGGING_ENABLED";
 
   public static HttpFhirClient createFhirClientFromEnvVars() throws IOException {
     String backendType = System.getenv(BACKEND_TYPE_ENV);
@@ -52,5 +53,9 @@ public class FhirClientFactory {
     throw new IllegalArgumentException(
         String.format(
             "The environment variable %s is not set to either GCP or HAPI!", BACKEND_TYPE_ENV));
+  }
+
+  public static boolean isAuditEventLoggingEnabled() {
+    return Boolean.parseBoolean(System.getenv(AUDIT_EVENT_LOGGING_ENABLED_ENV));
   }
 }

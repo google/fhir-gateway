@@ -42,6 +42,8 @@ import java.io.StringWriter;
 import java.io.Writer;
 import java.util.Date;
 import java.util.Locale;
+import lombok.Builder;
+import lombok.Getter;
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
@@ -95,18 +97,20 @@ public class BearerAuthorizationInterceptor {
     logger.info("Created proxy to the FHIR store " + this.fhirClient.getBaseUrl());
   }
 
-  private AccessDecision checkAuthorization(RequestDetails requestDetails) {
+  private AuthorizationDto checkAuthorization(RequestDetails requestDetails) {
     if (METADATA_PATH.equals(requestDetails.getRequestPath())) {
       // No further check is required; provide CapabilityStatement with security information.
       // Note this is potentially an expensive resource to produce because of its size and parsings.
       // Abuse of this open endpoint should be blocked by DDOS prevention means.
-      return CapabilityPostProcessor.getInstance(server.getFhirContext());
+      return AuthorizationDto.builder()
+          .accessDecision(CapabilityPostProcessor.getInstance(server.getFhirContext()))
+          .build();
     }
     RequestDetailsReader requestDetailsReader = new RequestDetailsToReader(requestDetails);
     AccessDecision unauthenticatedQueriesDecision =
         allowedQueriesChecker.checkUnAuthenticatedAccess(requestDetailsReader);
     if (unauthenticatedQueriesDecision.canAccess()) {
-      return unauthenticatedQueriesDecision;
+      return AuthorizationDto.builder().accessDecision(unauthenticatedQueriesDecision).build();
     }
     // Check the Bearer token to be a valid JWT with required claims.
     String authHeader = requestDetails.getHeader("Authorization");
@@ -118,7 +122,10 @@ public class BearerAuthorizationInterceptor {
     FhirContext fhirContext = server.getFhirContext();
     AccessDecision allowedQueriesDecision = allowedQueriesChecker.checkAccess(requestDetailsReader);
     if (allowedQueriesDecision.canAccess()) {
-      return allowedQueriesDecision;
+      return AuthorizationDto.builder()
+          .decodedJWT(decodedJwt)
+          .accessDecision(allowedQueriesDecision)
+          .build();
     }
     PatientFinderImp patientFinder = PatientFinderImp.getInstance(fhirContext);
     AccessChecker accessChecker =
@@ -127,9 +134,6 @@ public class BearerAuthorizationInterceptor {
       ExceptionUtil.throwRuntimeExceptionAndLog(
           logger, "Cannot create an AccessChecker!", AuthenticationException.class);
     }
-
-    this.auditEventHelper.setDecodedJwt(decodedJwt);
-    this.auditEventHelper.setPeriodStartTime(new Date());
 
     AccessDecision outcome = accessChecker.checkAccess(requestDetailsReader);
     if (!outcome.canAccess()) {
@@ -140,7 +144,7 @@ public class BearerAuthorizationInterceptor {
               requestDetails.getRequestType(), requestDetails.getCompleteUrl()),
           ForbiddenOperationException.class);
     }
-    return outcome;
+    return AuthorizationDto.builder().decodedJWT(decodedJwt).accessDecision(outcome).build();
   }
 
   @Hook(Pointcut.SERVER_INCOMING_REQUEST_PRE_HANDLER_SELECTED)
@@ -157,7 +161,11 @@ public class BearerAuthorizationInterceptor {
       serveWellKnown(servletDetails);
       return false;
     }
-    AccessDecision outcome = checkAuthorization(requestDetails);
+
+    Date periodStartTime = new Date();
+
+    AuthorizationDto authorizationDto = checkAuthorization(requestDetails);
+    AccessDecision outcome = authorizationDto.getAccessDecision();
     mutateRequest(requestDetails, outcome);
     logger.debug("Authorized request path " + requestPath);
     try {
@@ -205,17 +213,25 @@ public class BearerAuthorizationInterceptor {
         reader = HttpUtil.readerFromEntity(entity);
       }
 
-      Reference agentUserWho = outcome.getUserWho(requestDetailsReader);
-      if (agentUserWho != null) {
+      if (FhirClientFactory.isAuditEventLoggingEnabled()) {
+        Reference agentUserWho = outcome.getUserWho(requestDetailsReader);
+        if (agentUserWho != null) {
 
-        StringWriter responseStringWriter = new StringWriter();
-        reader.transferTo(responseStringWriter);
-        String responseStringContent = responseStringWriter.toString();
+          StringWriter responseStringWriter = new StringWriter();
+          reader.transferTo(responseStringWriter);
+          String responseStringContent = responseStringWriter.toString();
+          AuditEventHelperImpl.AuditEventHelperInputDto auditEventHelperInput =
+              AuditEventHelperImpl.AuditEventHelperInputDto.builder()
+                  .agentUserWho(agentUserWho)
+                  .requestDetailsReader(requestDetailsReader)
+                  .decodedJWT(authorizationDto.getDecodedJWT())
+                  .periodStartTime(periodStartTime)
+                  .responseStringContent(responseStringContent)
+                  .build();
+          auditEventHelper.processAuditEvents(auditEventHelperInput);
 
-        auditEventHelper.processAuditEvents(
-            requestDetailsReader, responseStringContent, agentUserWho);
-
-        reader = new StringReader(responseStringContent);
+          reader = new StringReader(responseStringContent);
+        }
       }
 
       replaceAndCopyResponse(reader, writer, server.getServerBaseForRequest(servletDetails));
@@ -311,5 +327,12 @@ public class BearerAuthorizationInterceptor {
     mutation
         .getAdditionalQueryParams()
         .forEach((key, value) -> requestDetails.addParameter(key, value.toArray(new String[0])));
+  }
+
+  @Builder
+  @Getter
+  public static class AuthorizationDto {
+    private DecodedJWT decodedJWT;
+    private AccessDecision accessDecision;
   }
 }

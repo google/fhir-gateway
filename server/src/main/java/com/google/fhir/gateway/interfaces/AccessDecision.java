@@ -88,7 +88,7 @@ public interface AccessDecision {
     name =
         Strings.isNullOrEmpty(name)
             ? JwtUtil.getClaimOrDefault(decodedJWT, JwtUtil.CLAIM_NAME, "")
-            : null;
+            : name;
     String subject = JwtUtil.getClaimOrDefault(decodedJWT, JwtUtil.CLAIM_SUBJECT, "");
     String issuer = JwtUtil.getClaimOrDefault(decodedJWT, JwtUtil.CLAIM_ISSUER, "");
 
