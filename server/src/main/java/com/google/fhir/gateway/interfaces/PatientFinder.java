@@ -19,6 +19,7 @@ import ca.uhn.fhir.rest.server.exceptions.InvalidRequestException;
 import com.google.fhir.gateway.BundlePatients;
 import java.util.Set;
 import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.DomainResource;
 
 public interface PatientFinder {
   /**
@@ -64,4 +65,13 @@ public interface PatientFinder {
    *     Callers are expected to deny access when this happens.
    */
   Set<String> findPatientsInPatch(RequestDetailsReader request, String resourceName);
+
+  /**
+   * Finds all patient ids in the content of a resource.
+   *
+   * @param resource belonging to {@link org.hl7.fhir.r4.model.codesystems.CompartmentType.PATIENT}
+   *     that is expected to have patient ids.
+   * @return the ids of the patient compartment owners
+   */
+  Set<String> findPatientIds(DomainResource resource);
 }

@@ -51,7 +51,7 @@ public class TokenVerifier {
   private static final String TOKEN_ISSUER_ENV = "TOKEN_ISSUER";
   private static final String WELL_KNOWN_ENDPOINT_ENV = "WELL_KNOWN_ENDPOINT";
   private static final String WELL_KNOWN_ENDPOINT_DEFAULT = ".well-known/openid-configuration";
-  private static final String BEARER_PREFIX = "Bearer ";
+  public static final String BEARER_PREFIX = "Bearer ";
 
   // TODO: Make this configurable or based on the given JWT; we should at least support some other
   // RSA* and ES* algorithms (requires ECDSA512 JWT algorithm).
