@@ -78,13 +78,15 @@ public class BearerAuthorizationInterceptor {
   private final HttpFhirClient fhirClient;
   private final AccessCheckerFactory accessFactory;
   private final AllowedQueriesChecker allowedQueriesChecker;
+  private final boolean isEventLoggingEnabled;
 
   BearerAuthorizationInterceptor(
       HttpFhirClient fhirClient,
       TokenVerifier tokenVerifier,
       RestfulServer server,
       AccessCheckerFactory accessFactory,
-      AllowedQueriesChecker allowedQueriesChecker)
+      AllowedQueriesChecker allowedQueriesChecker,
+      boolean isEventLoggingEnabled)
       throws IOException {
     Preconditions.checkNotNull(fhirClient);
     Preconditions.checkNotNull(server);
@@ -93,6 +95,7 @@ public class BearerAuthorizationInterceptor {
     this.tokenVerifier = tokenVerifier;
     this.accessFactory = accessFactory;
     this.allowedQueriesChecker = allowedQueriesChecker;
+    this.isEventLoggingEnabled = isEventLoggingEnabled;
     logger.info("Created proxy to the FHIR store " + this.fhirClient.getBaseUrl());
   }
 
@@ -212,7 +215,7 @@ public class BearerAuthorizationInterceptor {
         reader = HttpUtil.readerFromEntity(entity);
       }
 
-      if (FhirClientFactory.isAuditEventLoggingEnabled()) {
+      if (isEventLoggingEnabled) {
         Reference agentUserWho = outcome.getUserWho(requestDetailsReader);
         if (agentUserWho != null) {
 

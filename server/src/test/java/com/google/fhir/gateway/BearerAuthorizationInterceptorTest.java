@@ -102,7 +102,8 @@ public class BearerAuthorizationInterceptorTest {
                 return new NoOpAccessDecision(isAccessGranted);
               }
             },
-        new AllowedQueriesChecker(allowedQueriesConfig));
+        new AllowedQueriesChecker(allowedQueriesConfig),
+        false);
   }
 
   @Before
