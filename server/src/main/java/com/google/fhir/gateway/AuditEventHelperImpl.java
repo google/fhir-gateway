@@ -14,8 +14,6 @@ import java.util.Date;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
-import lombok.Builder;
-import lombok.Getter;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.model.AuditEvent;
 import org.hl7.fhir.r4.model.Bundle;
@@ -26,69 +24,84 @@ import org.hl7.fhir.r4.model.OperationOutcome;
 import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.Resource;
 import org.hl7.fhir.r4.model.ResourceType;
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 // TODO unit test this class
+
+/**
+ * This class is meant to be immutable with a new instance created for to process each individual
+ * request.
+ */
 public class AuditEventHelperImpl implements AuditEventHelper {
 
   private static final Logger logger = LoggerFactory.getLogger(AuditEventHelperImpl.class);
 
   private final PatientFinderImp patientFinder;
+  private final RequestDetailsReader requestDetailsReader;
+  private final String responseContent;
+  private final String responseContentLocation;
+  private final Reference agentUserWho;
+  private final DecodedJWT decodedJWT;
+  private final Date periodStartTime;
+  private final HttpFhirClient httpFhirClient;
+  private final FhirContext fhirContext;
 
-  private AuditEventHelperImpl(FhirContext fhirContext) {
+  public AuditEventHelperImpl(
+      RequestDetailsReader requestDetailsReader,
+      String responseContent,
+      String responseContentLocation,
+      Reference agentUserWho,
+      DecodedJWT decodedJWT,
+      Date periodStartTime,
+      HttpFhirClient httpFhirClient,
+      FhirContext fhirContext) {
     this.patientFinder = PatientFinderImp.getInstance(fhirContext);
+    this.requestDetailsReader = requestDetailsReader;
+    this.responseContent = responseContent;
+    this.responseContentLocation = responseContentLocation;
+    this.agentUserWho = agentUserWho;
+    this.decodedJWT = decodedJWT;
+    this.periodStartTime = periodStartTime;
+    this.httpFhirClient = httpFhirClient;
+    this.fhirContext = fhirContext;
   }
 
   // TODO handle the case for Bundle operations
   @Override
-  public void processAuditEvents(AuditEventHelperInputDto auditEventHelperInputDto) {
+  public void processAuditEvents() {
     try {
       List<AuditEvent> auditEventList = new ArrayList<>();
 
-      List<IBaseResource> resources = extractFhirResources(auditEventHelperInputDto);
+      List<IBaseResource> resources = extractFhirResources(responseContent);
 
-      switch (auditEventHelperInputDto.getRequestDetailsReader().getRestOperationType()) {
+      switch (this.requestDetailsReader.getRestOperationType()) {
         case SEARCH_TYPE:
         case SEARCH_SYSTEM:
         case GET_PAGE:
           auditEventList =
               createAuditEventCore(
-                  auditEventHelperInputDto,
-                  resources,
-                  BalpProfileEnum.PATIENT_QUERY,
-                  BalpProfileEnum.BASIC_QUERY);
-
+                  resources, BalpProfileEnum.PATIENT_QUERY, BalpProfileEnum.BASIC_QUERY);
           break;
 
         case READ:
         case VREAD:
           auditEventList =
               createAuditEventCore(
-                  auditEventHelperInputDto,
-                  resources,
-                  BalpProfileEnum.PATIENT_READ,
-                  BalpProfileEnum.BASIC_READ);
-
+                  resources, BalpProfileEnum.PATIENT_READ, BalpProfileEnum.BASIC_READ);
           break;
 
         case CREATE:
           auditEventList =
               createAuditEventCore(
-                  auditEventHelperInputDto,
-                  resources,
-                  BalpProfileEnum.PATIENT_CREATE,
-                  BalpProfileEnum.BASIC_CREATE);
-
+                  resources, BalpProfileEnum.PATIENT_CREATE, BalpProfileEnum.BASIC_CREATE);
           break;
 
         case UPDATE:
           auditEventList =
               createAuditEventCore(
-                  auditEventHelperInputDto,
-                  resources,
-                  BalpProfileEnum.PATIENT_UPDATE,
-                  BalpProfileEnum.PATIENT_UPDATE);
+                  resources, BalpProfileEnum.PATIENT_UPDATE, BalpProfileEnum.PATIENT_UPDATE);
           break;
 
         case DELETE:
@@ -110,10 +123,7 @@ public class AuditEventHelperImpl implements AuditEventHelper {
 
           auditEventList =
               createAuditEventCore(
-                  auditEventHelperInputDto,
-                  resources,
-                  BalpProfileEnum.PATIENT_DELETE,
-                  BalpProfileEnum.BASIC_DELETE);
+                  resources, BalpProfileEnum.PATIENT_DELETE, BalpProfileEnum.BASIC_DELETE);
           break;
 
         default:
@@ -124,7 +134,7 @@ public class AuditEventHelperImpl implements AuditEventHelper {
       // probably need a mechanism for chunking e.g. 100, 200, or 500 batch
       for (AuditEvent auditEvent : auditEventList) {
         auditEvent.getPeriod().setEnd(new Date());
-        auditEventHelperInputDto.httpFhirClient.postResource(auditEvent);
+        this.httpFhirClient.postResource(auditEvent);
       }
     } catch (IOException exception) {
       logger.error(exception.getMessage(), exception);
@@ -135,53 +145,29 @@ public class AuditEventHelperImpl implements AuditEventHelper {
     return String.format("{ \"resourceType\": \"%s\", \"id\": \"%s\"}", resourceName, resourceId);
   }
 
-  private IBaseResource generateTransientResource(
-      AuditEventHelperInputDto auditEventHelperInputDto) {
-    if (auditEventHelperInputDto.getRequestDetailsReader().getId() != null
-        && auditEventHelperInputDto.getRequestDetailsReader().getResourceName() != null) {
-      String transientDeleteResourceRaw =
-          getResourceTemplate(
-              auditEventHelperInputDto.getRequestDetailsReader().getResourceName(),
-              auditEventHelperInputDto.getRequestDetailsReader().getId().getIdPart());
-      return FhirContext.forR4Cached().newJsonParser().parseResource(transientDeleteResourceRaw);
-    }
-
-    return null;
-  }
-
   private List<AuditEvent> createAuditEventCore(
-      AuditEventHelperInputDto auditEventHelperInputDto,
-      List<IBaseResource> resources,
-      BalpProfileEnum patientProfile,
-      BalpProfileEnum basicProfile) {
+      List<IBaseResource> resources, BalpProfileEnum patientProfile, BalpProfileEnum basicProfile) {
 
     List<AuditEvent> auditEventList = new ArrayList<>();
 
-    // TODO handle case where the full resource is not returned (only ID)
-    for (IBaseResource IBaseResource : resources) {
+    for (IBaseResource iBaseResource : resources) {
       try {
-        Preconditions.checkState(IBaseResource instanceof DomainResource);
+        Preconditions.checkState(iBaseResource instanceof DomainResource);
 
-        DomainResource resource =
-            IBaseResource instanceof OperationOutcome
-                ? (DomainResource) IBaseResource
-                : (DomainResource) generateTransientResource(auditEventHelperInputDto);
-
-        if (resource == null) continue;
+        DomainResource resource = (DomainResource) iBaseResource;
 
         Set<String> patientIds = patientFinder.findPatientIds(resource);
 
         if (!patientIds.isEmpty()) {
-          auditEventList.add(
-              createAuditEvent(auditEventHelperInputDto, resource, patientProfile, patientIds));
+          auditEventList.add(createAuditEvent(resource, patientProfile, patientIds));
         } else {
-          auditEventList.add(
-              createAuditEvent(auditEventHelperInputDto, resource, basicProfile, null));
+          auditEventList.add(createAuditEvent(resource, basicProfile, null));
         }
       } catch (IllegalStateException exception) {
         logger.error(exception.getMessage(), exception);
       }
     }
+
     return auditEventList;
   }
 
@@ -204,12 +190,18 @@ public class AuditEventHelperImpl implements AuditEventHelper {
     return errorCode;
   }
 
-  private List<IBaseResource> extractFhirResources(
-      AuditEventHelperInputDto auditEventHelperInputDto) {
+  private List<IBaseResource> extractFhirResources(String _serverContentResponse) {
     List<IBaseResource> resourceList = new ArrayList<>();
-    String serverContentResponse = auditEventHelperInputDto.getResponseContent();
+
+    // This condition handles operations with no response body returned e.g. POST/PUT requests with
+    // Prefer: return=minimal HTTP header
+    String serverContentResponse =
+        _serverContentResponse.isEmpty()
+            ? getResourceFromContentLocation(this.responseContentLocation)
+            : _serverContentResponse;
+
     IBaseResource responseResource =
-        FhirContext.forR4Cached().newJsonParser().parseResource(serverContentResponse);
+        this.fhirContext.newJsonParser().parseResource(serverContentResponse);
 
     if (responseResource instanceof Bundle) {
 
@@ -225,7 +217,12 @@ public class AuditEventHelperImpl implements AuditEventHelper {
                           resource = it.getResource();
                         } else if (it.hasResponse()) {
 
-                          resource = getResourceFromContentLocation(it.getResponse().getLocation());
+                          resource =
+                              fhirContext
+                                  .newJsonParser()
+                                  .parseResource(
+                                      getResourceFromContentLocation(
+                                          it.getResponse().getLocation()));
                         }
 
                         return resource;
@@ -239,78 +236,71 @@ public class AuditEventHelperImpl implements AuditEventHelper {
     return resourceList;
   }
 
-  // Same as with processing the DELETE /Resource/123 if we get here we capture all audit log
-  // details except the compartment owner for non-patient resources. Reason being we don't have the
-  // full resource.
-  private IBaseResource getResourceFromContentLocation(String responseContentLocation) {
-    IBaseResource resource;
+  // If we get here we capture all audit log details except the compartment owner for non-patient
+  // resources. Reason being we don't have the full resource.
+  // The content location header carries the minimal information we need to generate the resource
+  // identity https://www.hl7.org/fhir/http.html#ops
+  // One way to get the patient compartment owner for non-patient resources would be to fetch the
+  // actual resource from the database first before creating the AuditEvent.
+  private String getResourceFromContentLocation(String responseContentLocation) {
 
     IdType id = new IdType(responseContentLocation);
     String resourceType = id.getResourceType();
     String resourceId = id.getIdPart();
-
-    resource =
-        FhirContext.forR4Cached()
-            .newJsonParser()
-            .parseResource(getResourceTemplate(resourceType, resourceId));
-    return resource;
+    return getResourceTemplate(resourceType, resourceId);
   }
 
-  private AuditEventBuilder initBaseAuditEventBuilder(
-      AuditEventHelperInputDto auditEventHelperInputDto, BalpProfileEnum balpProfile) {
+  private AuditEventBuilder initBaseAuditEventBuilder(BalpProfileEnum balpProfile) {
 
-    AuditEventBuilder auditEventBuilder =
-        new AuditEventBuilder(auditEventHelperInputDto.getPeriodStartTime());
-    auditEventBuilder.restOperationType(
-        auditEventHelperInputDto.getRequestDetailsReader().getRestOperationType());
+    AuditEventBuilder auditEventBuilder = new AuditEventBuilder(this.periodStartTime);
+    auditEventBuilder.restOperationType(this.requestDetailsReader.getRestOperationType());
     auditEventBuilder.agentUserPolicy(
-        JwtUtil.getClaimOrDefault(
-            auditEventHelperInputDto.getDecodedJWT(), JwtUtil.CLAIM_JWT_ID, ""));
+        JwtUtil.getClaimOrDefault(this.decodedJWT, JwtUtil.CLAIM_JWT_ID, ""));
     auditEventBuilder.auditEventAction(balpProfile.getAction());
     auditEventBuilder.agentClientTypeCoding(balpProfile.getAgentClientTypeCoding());
     auditEventBuilder.agentServerTypeCoding(balpProfile.getAgentServerTypeCoding());
     auditEventBuilder.profileUrl(balpProfile.getProfileUrl());
-    auditEventBuilder.fhirServerBaseUrl(
-        auditEventHelperInputDto.getRequestDetailsReader().getFhirServerBase());
-    auditEventBuilder.requestId(auditEventHelperInputDto.getRequestDetailsReader().getRequestId());
+    auditEventBuilder.fhirServerBaseUrl(this.requestDetailsReader.getFhirServerBase());
+    auditEventBuilder.requestId(this.requestDetailsReader.getRequestId());
     auditEventBuilder.network(
         AuditEventBuilder.Network.builder()
-            .address(
-                auditEventHelperInputDto.getRequestDetailsReader().getServletRequestRemoteAddr())
+            .address(this.requestDetailsReader.getServletRequestRemoteAddr())
             .type(BalpConstants.AUDIT_EVENT_AGENT_NETWORK_TYPE_IP_ADDRESS)
             .build());
-    auditEventBuilder.agentUserWho(auditEventHelperInputDto.getAgentUserWho());
-    auditEventBuilder.agentClientWho(
-        createAgentClientWhoRef(auditEventHelperInputDto.getDecodedJWT()));
+    auditEventBuilder.agentUserWho(this.agentUserWho);
+    auditEventBuilder.agentClientWho(createAgentClientWhoRef(this.decodedJWT));
 
     return auditEventBuilder;
   }
 
   private AuditEvent createAuditEvent(
-      AuditEventHelperInputDto auditEventHelperInputDto,
-      Resource resource,
-      BalpProfileEnum balpProfile,
-      Set<String> compartmentOwners) {
+      Resource resource, BalpProfileEnum balpProfile, Set<String> compartmentOwners) {
 
     if (resource instanceof OperationOutcome) {
 
-      return createAuditEventOperationOutcome(
-          auditEventHelperInputDto, (OperationOutcome) resource, balpProfile);
+      return createAuditEventOperationOutcome((OperationOutcome) resource, balpProfile);
 
     } else {
 
-      return createAuditEventEHR(
-          auditEventHelperInputDto, resource, balpProfile, compartmentOwners);
+      return createAuditEventEHR(resource, balpProfile, compartmentOwners);
     }
   }
 
   private AuditEvent createAuditEventOperationOutcome(
-      AuditEventHelperInputDto auditEventHelperInputDto,
-      OperationOutcome operationOutcomeResource,
-      BalpProfileEnum balpProfile) {
+      OperationOutcome operationOutcomeResource, BalpProfileEnum balpProfile) {
+
+    // We need to capture the context of the operation e.g. Successful DELETE returns
+    // OperationOutcome but no info on the affected resource
+    String processedResource = getResourceFromContentLocation(this.responseContentLocation);
+    IBaseResource resource = fhirContext.newJsonParser().parseResource(processedResource);
+
+    Set<String> patientIds =
+        resource instanceof DomainResource
+            ? patientFinder.findPatientIds((DomainResource) resource)
+            : Set.of();
 
     AuditEventBuilder auditEventBuilder =
-        initBaseAuditEventBuilder(auditEventHelperInputDto, balpProfile);
+        getAuditEventBuilder((Resource) resource, balpProfile, patientIds);
 
     OperationOutcome.OperationOutcomeIssueComponent outcomeIssueComponent =
         operationOutcomeResource.getIssueFirstRep();
@@ -329,13 +319,17 @@ public class AuditEventHelperImpl implements AuditEventHelper {
   }
 
   private AuditEvent createAuditEventEHR(
-      AuditEventHelperInputDto auditEventHelperInputDto,
-      Resource resource,
-      BalpProfileEnum balpProfile,
-      Set<String> compartmentOwners) {
+      Resource resource, BalpProfileEnum balpProfile, Set<String> compartmentOwners) {
 
     AuditEventBuilder auditEventBuilder =
-        initBaseAuditEventBuilder(auditEventHelperInputDto, balpProfile);
+        getAuditEventBuilder(resource, balpProfile, compartmentOwners);
+
+    return auditEventBuilder.build();
+  }
+
+  private @NotNull AuditEventBuilder getAuditEventBuilder(
+      Resource resource, BalpProfileEnum balpProfile, Set<String> compartmentOwners) {
+    AuditEventBuilder auditEventBuilder = initBaseAuditEventBuilder(balpProfile);
 
     if (compartmentOwners != null && !compartmentOwners.isEmpty()) {
       for (String owner : compartmentOwners) {
@@ -349,10 +343,9 @@ public class AuditEventHelperImpl implements AuditEventHelper {
 
     if (BalpProfileEnum.BASIC_QUERY.equals(balpProfile)
         || BalpProfileEnum.PATIENT_QUERY.equals(balpProfile)) {
-      auditEventBuilder.addQuery(auditEventHelperInputDto.getRequestDetailsReader());
+      auditEventBuilder.addQuery(this.requestDetailsReader);
     }
-
-    return auditEventBuilder.build();
+    return auditEventBuilder;
   }
 
   private Reference createAgentClientWhoRef(DecodedJWT decodedJWT) {
@@ -368,21 +361,5 @@ public class AuditEventHelperImpl implements AuditEventHelper {
             new Identifier()
                 .setSystem(String.format("%s/oauth-client-id", issuer))
                 .setValue(clientId));
-  }
-
-  public static AuditEventHelper createNewInstance(FhirContext fhirContext) {
-    return new AuditEventHelperImpl(fhirContext);
-  }
-
-  @Getter
-  @Builder
-  public static class AuditEventHelperInputDto {
-    private RequestDetailsReader requestDetailsReader;
-    private String responseContent;
-    private String responseContentLocation;
-    private Reference agentUserWho;
-    private DecodedJWT decodedJWT;
-    private Date periodStartTime;
-    private HttpFhirClient httpFhirClient;
   }
 }

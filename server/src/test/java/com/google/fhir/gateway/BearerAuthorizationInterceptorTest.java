@@ -37,7 +37,6 @@ import com.google.common.collect.Maps;
 import com.google.common.io.Resources;
 import com.google.fhir.gateway.interfaces.AccessChecker;
 import com.google.fhir.gateway.interfaces.AccessDecision;
-import com.google.fhir.gateway.interfaces.AuditEventHelper;
 import com.google.fhir.gateway.interfaces.NoOpAccessDecision;
 import com.google.fhir.gateway.interfaces.RequestDetailsReader;
 import com.google.fhir.gateway.interfaces.RequestMutation;
@@ -85,8 +84,6 @@ public class BearerAuthorizationInterceptorTest {
 
   @Mock private ServletRequestDetails requestMock;
 
-  @Mock private AuditEventHelper auditEventHelper;
-
   @Mock(answer = Answers.RETURNS_DEEP_STUBS)
   private HttpResponse fhirResponseMock;
 
@@ -105,8 +102,7 @@ public class BearerAuthorizationInterceptorTest {
                 return new NoOpAccessDecision(isAccessGranted);
               }
             },
-        new AllowedQueriesChecker(allowedQueriesConfig),
-        auditEventHelper);
+        new AllowedQueriesChecker(allowedQueriesConfig));
   }
 
   @Before

@@ -78,15 +78,13 @@ public class BearerAuthorizationInterceptor {
   private final HttpFhirClient fhirClient;
   private final AccessCheckerFactory accessFactory;
   private final AllowedQueriesChecker allowedQueriesChecker;
-  private final AuditEventHelper auditEventHelper;
 
   BearerAuthorizationInterceptor(
       HttpFhirClient fhirClient,
       TokenVerifier tokenVerifier,
       RestfulServer server,
       AccessCheckerFactory accessFactory,
-      AllowedQueriesChecker allowedQueriesChecker,
-      AuditEventHelper auditEventHelper)
+      AllowedQueriesChecker allowedQueriesChecker)
       throws IOException {
     Preconditions.checkNotNull(fhirClient);
     Preconditions.checkNotNull(server);
@@ -95,7 +93,6 @@ public class BearerAuthorizationInterceptor {
     this.tokenVerifier = tokenVerifier;
     this.accessFactory = accessFactory;
     this.allowedQueriesChecker = allowedQueriesChecker;
-    this.auditEventHelper = auditEventHelper;
     logger.info("Created proxy to the FHIR store " + this.fhirClient.getBaseUrl());
   }
 
@@ -225,19 +222,18 @@ public class BearerAuthorizationInterceptor {
 
           Header contentLocationHeader = response.getFirstHeader(CONTENT_LOCATION_HEADER);
 
-          AuditEventHelperImpl.AuditEventHelperInputDto auditEventHelperInput =
-              AuditEventHelperImpl.AuditEventHelperInputDto.builder()
-                  .agentUserWho(agentUserWho)
-                  .requestDetailsReader(requestDetailsReader)
-                  .decodedJWT(authorizationDto.getDecodedJWT())
-                  .periodStartTime(periodStartTime)
-                  .responseContent(responseStringContent)
-                  .responseContentLocation(
-                      contentLocationHeader != null ? contentLocationHeader.getValue() : null)
-                  .httpFhirClient(fhirClient)
-                  .build();
+          AuditEventHelper auditEventHelper =
+              new AuditEventHelperImpl(
+                  requestDetailsReader,
+                  responseStringContent,
+                  contentLocationHeader != null ? contentLocationHeader.getValue() : null,
+                  agentUserWho,
+                  authorizationDto.getDecodedJWT(),
+                  periodStartTime,
+                  fhirClient,
+                  server.getFhirContext());
 
-          auditEventHelper.processAuditEvents(auditEventHelperInput);
+          auditEventHelper.processAuditEvents();
 
           reader = new StringReader(responseStringContent);
         }
