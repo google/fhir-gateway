@@ -63,6 +63,8 @@ public class BearerAuthorizationInterceptor {
 
   private static final String ACCEPT_ENCODING_HEADER = "Accept-Encoding";
 
+  private static final String CONTENT_LOCATION_HEADER = "content-Location";
+
   private static final String GZIP_ENCODING_VALUE = "gzip";
 
   // See https://hl7.org/fhir/smart-app-launch/conformance.html#using-well-known
@@ -220,15 +222,21 @@ public class BearerAuthorizationInterceptor {
           StringWriter responseStringWriter = new StringWriter();
           reader.transferTo(responseStringWriter);
           String responseStringContent = responseStringWriter.toString();
+
+          Header contentLocationHeader = response.getFirstHeader(CONTENT_LOCATION_HEADER);
+
           AuditEventHelperImpl.AuditEventHelperInputDto auditEventHelperInput =
               AuditEventHelperImpl.AuditEventHelperInputDto.builder()
                   .agentUserWho(agentUserWho)
                   .requestDetailsReader(requestDetailsReader)
                   .decodedJWT(authorizationDto.getDecodedJWT())
                   .periodStartTime(periodStartTime)
-                  .responseStringContent(responseStringContent)
+                  .responseContent(responseStringContent)
+                  .responseContentLocation(
+                      contentLocationHeader != null ? contentLocationHeader.getValue() : null)
                   .httpFhirClient(fhirClient)
                   .build();
+
           auditEventHelper.processAuditEvents(auditEventHelperInput);
 
           reader = new StringReader(responseStringContent);
