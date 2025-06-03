@@ -29,6 +29,7 @@ import org.apache.http.HttpResponse;
 import org.hl7.fhir.exceptions.FHIRException;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.Resource;
 import org.hl7.fhir.r4.model.ResourceType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -99,5 +100,9 @@ public class FhirUtil {
           logger, String.format("ID %s is invalid!", idPart), InvalidRequestException.class);
     }
     return idPart; // This is for convenience.
+  }
+
+  public static String extractLogicalId(Resource resource) {
+    return resource.getResourceType() + "/" + resource.getIdElement().getIdPart();
   }
 }
