@@ -31,6 +31,7 @@ import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.Resource;
 import org.hl7.fhir.r4.model.ResourceType;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -46,13 +47,15 @@ public class AuditEventHelperImpl implements AuditEventHelper {
 
   private final PatientFinderImp patientFinder;
   private final RequestDetailsReader requestDetailsReader;
-  private final String responseContent;
   private final String responseContentLocation;
   private final Reference agentUserWho;
   private final DecodedJWT decodedJWT;
   private final Date periodStartTime;
   private final HttpFhirClient httpFhirClient;
   private final FhirContext fhirContext;
+  private final boolean isPOSTBundle;
+  private final Bundle requestResourceBundle;
+  private final IBaseResource responseResource;
 
   public AuditEventHelperImpl(
       RequestDetailsReader requestDetailsReader,
@@ -65,13 +68,35 @@ public class AuditEventHelperImpl implements AuditEventHelper {
       FhirContext fhirContext) {
     this.patientFinder = PatientFinderImp.getInstance(fhirContext);
     this.requestDetailsReader = requestDetailsReader;
-    this.responseContent = responseContent;
     this.responseContentLocation = responseContentLocation;
     this.agentUserWho = agentUserWho;
     this.decodedJWT = decodedJWT;
     this.periodStartTime = periodStartTime;
     this.httpFhirClient = httpFhirClient;
     this.fhirContext = fhirContext;
+
+    isPOSTBundle =
+        requestDetailsReader.getRequestType() == RequestTypeEnum.POST
+            && requestDetailsReader.getResourceName() == null;
+
+    String requestResourceString =
+        isPOSTBundle
+            ? new String(requestDetailsReader.loadRequestContents(), StandardCharsets.UTF_8)
+            : null;
+
+    requestResourceBundle =
+        requestResourceString != null
+            ? (Bundle) fhirContext.newJsonParser().parseResource(requestResourceString)
+            : null;
+
+    // This condition handles operations with no response body returned e.g. POST/PUT requests with
+    // Prefer: return=minimal HTTP header
+    String serverContentResponse =
+        responseContent.isEmpty()
+            ? getResourceFromContentLocation(this.responseContentLocation)
+            : responseContent;
+
+    responseResource = this.fhirContext.newJsonParser().parseResource(serverContentResponse);
   }
 
   // TODO handle the case for Bundle operations
@@ -81,7 +106,7 @@ public class AuditEventHelperImpl implements AuditEventHelper {
       List<AuditEvent> auditEventList = new ArrayList<>();
 
       Map<RestOperationTypeEnum, List<IBaseResource>> resourcesMap =
-          extractFhirResourcesByRestOperationType(responseContent);
+          extractFhirResourcesByRestOperationType();
 
       resourcesMap.forEach(
           (restOperationType, resources) -> {
@@ -190,8 +215,6 @@ public class AuditEventHelperImpl implements AuditEventHelper {
     for (IBaseResource iBaseResource : resources) {
       try {
 
-        if (iBaseResource == null) continue;
-
         Preconditions.checkState(iBaseResource instanceof DomainResource);
 
         DomainResource resource = (DomainResource) iBaseResource;
@@ -231,88 +254,123 @@ public class AuditEventHelperImpl implements AuditEventHelper {
     return errorCode;
   }
 
-  private Map<RestOperationTypeEnum, List<IBaseResource>> extractFhirResourcesByRestOperationType(
-      String _serverContentResponse) {
+  private Map<RestOperationTypeEnum, List<IBaseResource>>
+      extractFhirResourcesByRestOperationType() {
     Map<RestOperationTypeEnum, List<IBaseResource>> resourcesByRestOperationMap = new HashMap<>();
 
-    // This condition handles operations with no response body returned e.g. POST/PUT requests with
-    // Prefer: return=minimal HTTP header
-    String serverContentResponse =
-        _serverContentResponse.isEmpty()
-            ? getResourceFromContentLocation(this.responseContentLocation)
-            : _serverContentResponse;
-
-    IBaseResource responseResource =
-        this.fhirContext.newJsonParser().parseResource(serverContentResponse);
-
-    boolean isPostBundle =
-        requestDetailsReader.getRequestType() == RequestTypeEnum.POST
-            && requestDetailsReader.getResourceName() == null;
-    String requestResourceString =
-        isPostBundle
-            ? new String(requestDetailsReader.loadRequestContents(), StandardCharsets.UTF_8)
-            : null;
-    Bundle requestResourceBundle =
-        requestResourceString != null
-            ? (Bundle) fhirContext.newJsonParser().parseResource(requestResourceString)
-            : null;
-
-    if (responseResource
-        instanceof Bundle) { // TODO implement processing of Nested Bundles returned as entries
+    if (responseResource instanceof Bundle) {
 
       List<Bundle.BundleEntryComponent> responseBundleEntryComponents =
           ((Bundle) responseResource).getEntry();
+
       for (int i = 0; i < responseBundleEntryComponents.size(); i++) {
 
-        IBaseResource resource = null;
+        IBaseResource bundleEntryComponentResource =
+            extractResourceFromBundleComponent(responseBundleEntryComponents.get(i));
+        //  if (resource == null) continue;
 
-        if (responseBundleEntryComponents.get(i).hasResource()) {
+        RestOperationTypeEnum restOperationType;
+        if (isPOSTBundle) {
 
-          resource = responseBundleEntryComponents.get(i).getResource();
-        } else if (responseBundleEntryComponents.get(i).hasResponse()) {
+          restOperationType =
+              requestResourceBundle != null
+                  ? getRestOperationTypeForBundleEntry(
+                      requestResourceBundle.getEntry().get(i), bundleEntryComponentResource)
+                  : null;
 
-          resource =
-              fhirContext
-                  .newJsonParser()
-                  .parseResource(
-                      getResourceFromContentLocation(
-                          responseBundleEntryComponents.get(i).getResponse().getLocation()));
-        }
-
-        if (resource == null) continue;
-
-        RestOperationTypeEnum restOperationType = null;
-        if (isPostBundle) {
-
-          if (requestResourceBundle != null) {
-
-            String requestUrl = requestResourceBundle.getEntry().get(i).getRequest().getUrl();
-            String queryString =
-                !Strings.isNullOrEmpty(requestUrl) && requestUrl.contains("?")
-                    ? requestUrl.substring(requestUrl.indexOf('?'))
-                    : "";
-
-            restOperationType =
-                FhirUtil.getRestOperationType(
-                    requestResourceBundle.getEntry().get(i).getRequest().getMethod().name(),
-                    resource instanceof Bundle ? null : resource.getIdElement(),
-                    UrlUtil.parseQueryString(queryString));
-          }
         } else {
+
           restOperationType = requestDetailsReader.getRestOperationType();
         }
 
-        resourcesByRestOperationMap
-            .computeIfAbsent(restOperationType, key -> new ArrayList<>())
-            .add(resource);
+        if (bundleEntryComponentResource instanceof Bundle) {
+
+          processResponseResourceNestedBundle(
+              bundleEntryComponentResource, restOperationType, resourcesByRestOperationMap);
+
+        } else {
+          processSingleResource(
+              restOperationType, bundleEntryComponentResource, resourcesByRestOperationMap);
+        }
       }
 
     } else {
-      resourcesByRestOperationMap.put(
-          requestDetailsReader.getRestOperationType(), List.of(responseResource));
+      processSingleResource(
+          requestDetailsReader.getRestOperationType(),
+          responseResource,
+          resourcesByRestOperationMap);
     }
 
     return resourcesByRestOperationMap;
+  }
+
+  private void processResponseResourceNestedBundle(
+      IBaseResource bundleResource,
+      RestOperationTypeEnum restOperationType,
+      Map<RestOperationTypeEnum, List<IBaseResource>> resourcesByRestOperationMap) {
+
+    for (Bundle.BundleEntryComponent nestedBundleEntryComponent :
+        ((Bundle) bundleResource).getEntry()) {
+
+      IBaseResource entryResource = extractResourceFromBundleComponent(nestedBundleEntryComponent);
+
+      if (entryResource instanceof Bundle) {
+
+        processResponseResourceNestedBundle(
+            entryResource, restOperationType, resourcesByRestOperationMap);
+
+      } else {
+        processSingleResource(restOperationType, entryResource, resourcesByRestOperationMap);
+      }
+    }
+  }
+
+  private @Nullable IBaseResource extractResourceFromBundleComponent(
+      Bundle.BundleEntryComponent responseBundleEntryComponent) {
+    IBaseResource resource = null;
+
+    if (responseBundleEntryComponent.hasResource()) {
+      resource = responseBundleEntryComponent.getResource();
+
+    } else if (responseBundleEntryComponent.hasResponse()) {
+      resource =
+          fhirContext
+              .newJsonParser()
+              .parseResource(
+                  getResourceFromContentLocation(
+                      responseBundleEntryComponent.getResponse().getLocation()));
+    }
+    return resource;
+  }
+
+  private RestOperationTypeEnum getRestOperationTypeForBundleEntry(
+      Bundle.BundleEntryComponent requestResourceBundleComponent, IBaseResource resource) {
+
+    RestOperationTypeEnum restOperationType;
+
+    String requestUrl = requestResourceBundleComponent.getRequest().getUrl();
+    String queryString =
+        !Strings.isNullOrEmpty(requestUrl) && requestUrl.contains("?")
+            ? requestUrl.substring(requestUrl.indexOf('?'))
+            : "";
+
+    restOperationType =
+        FhirUtil.getRestOperationType(
+            requestResourceBundleComponent.getRequest().getMethod().name(),
+            resource instanceof Bundle ? null : resource.getIdElement(),
+            UrlUtil.parseQueryString(queryString));
+
+    return restOperationType;
+  }
+
+  private void processSingleResource(
+      RestOperationTypeEnum restOperationType,
+      IBaseResource iBaseResource,
+      Map<RestOperationTypeEnum, List<IBaseResource>> resourcesByRestOperationMap) {
+    if (iBaseResource == null) return;
+    resourcesByRestOperationMap
+        .computeIfAbsent(restOperationType, key -> new ArrayList<>())
+        .add(iBaseResource);
   }
 
   // If we get here we capture all audit log details except the compartment owner for non-patient
@@ -441,7 +499,17 @@ public class AuditEventHelperImpl implements AuditEventHelper {
 
     if (BalpProfileEnum.BASIC_QUERY.equals(balpProfile)
         || BalpProfileEnum.PATIENT_QUERY.equals(balpProfile)) {
-      auditEventBuilder.addQuery(this.requestDetailsReader);
+
+      AuditEventBuilder.QueryEntityBuilder queryEntityBuilder =
+          AuditEventBuilder.QueryEntityBuilder.builder()
+              .completeUrl(requestDetailsReader.getCompleteUrl())
+              .requestType(requestDetailsReader.getRequestType())
+              .fhirServerBase(requestDetailsReader.getFhirServerBase())
+              .requestPath(requestDetailsReader.getRequestPath())
+              .parameters(requestDetailsReader.getParameters())
+              .build();
+
+      auditEventBuilder.addQuery(queryEntityBuilder);
     }
     return auditEventBuilder;
   }
