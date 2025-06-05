@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 import lombok.Builder;
 import lombok.Getter;
+import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.model.AuditEvent;
 import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.Identifier;
@@ -112,7 +113,7 @@ public class AuditEventBuilder {
     return this;
   }
 
-  public AuditEventBuilder addQuery(QueryEntityBuilder queryEntityBuilder) {
+  public AuditEventBuilder addQuery(QueryEntity queryEntityBuilder) {
     AuditEvent.AuditEventEntityComponent queryEntity = new AuditEvent.AuditEventEntityComponent();
 
     // uses https://hl7.org/fhir/R4/valueset-audit-entity-type.html
@@ -294,11 +295,18 @@ public class AuditEventBuilder {
 
   @Builder
   @Getter
-  public static class QueryEntityBuilder {
+  public static class QueryEntity {
     private RequestTypeEnum requestType;
     private String completeUrl;
     private String fhirServerBase;
     private String requestPath;
     private Map<String, String[]> parameters;
+  }
+
+  @Builder
+  @Getter
+  public static class ResourceContext {
+    private QueryEntity queryEntity;
+    private IBaseResource resourceEntity;
   }
 }

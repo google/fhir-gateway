@@ -99,13 +99,12 @@ public class AuditEventHelperImpl implements AuditEventHelper {
     responseResource = this.fhirContext.newJsonParser().parseResource(serverContentResponse);
   }
 
-  // TODO handle the case for Bundle operations
   @Override
   public void processAuditEvents() {
     try {
       List<AuditEvent> auditEventList = new ArrayList<>();
 
-      Map<RestOperationTypeEnum, List<IBaseResource>> resourcesMap =
+      Map<RestOperationTypeEnum, List<AuditEventBuilder.ResourceContext>> resourcesMap =
           extractFhirResourcesByRestOperationType();
 
       resourcesMap.forEach(
@@ -127,7 +126,7 @@ public class AuditEventHelperImpl implements AuditEventHelper {
   }
 
   private @NotNull List<AuditEvent> getAuditEvents(
-      RestOperationTypeEnum restOperationType, List<IBaseResource> resources) {
+      RestOperationTypeEnum restOperationType, List<AuditEventBuilder.ResourceContext> resources) {
     List<AuditEvent> auditEventList = new ArrayList<>();
     switch (restOperationType) {
       case SEARCH_TYPE:
@@ -206,15 +205,16 @@ public class AuditEventHelperImpl implements AuditEventHelper {
 
   private List<AuditEvent> createAuditEventCore(
       RestOperationTypeEnum restOperationType,
-      List<IBaseResource> resources,
+      List<AuditEventBuilder.ResourceContext> resources,
       BalpProfileEnum patientProfile,
       BalpProfileEnum basicProfile) {
 
     List<AuditEvent> auditEventList = new ArrayList<>();
 
-    for (IBaseResource iBaseResource : resources) {
+    for (AuditEventBuilder.ResourceContext resourceContext : resources) {
       try {
 
+        IBaseResource iBaseResource = resourceContext.getResourceEntity();
         Preconditions.checkState(iBaseResource instanceof DomainResource);
 
         DomainResource resource = (DomainResource) iBaseResource;
@@ -223,9 +223,20 @@ public class AuditEventHelperImpl implements AuditEventHelper {
 
         if (!patientIds.isEmpty()) {
           auditEventList.add(
-              createAuditEvent(restOperationType, resource, patientProfile, patientIds));
+              createAuditEvent(
+                  restOperationType,
+                  resource,
+                  patientProfile,
+                  patientIds,
+                  resourceContext.getQueryEntity()));
         } else {
-          auditEventList.add(createAuditEvent(restOperationType, resource, basicProfile, null));
+          auditEventList.add(
+              createAuditEvent(
+                  restOperationType,
+                  resource,
+                  basicProfile,
+                  null,
+                  resourceContext.getQueryEntity()));
         }
       } catch (IllegalStateException exception) {
         logger.error(exception.getMessage(), exception);
@@ -254,9 +265,19 @@ public class AuditEventHelperImpl implements AuditEventHelper {
     return errorCode;
   }
 
-  private Map<RestOperationTypeEnum, List<IBaseResource>>
+  private Map<RestOperationTypeEnum, List<AuditEventBuilder.ResourceContext>>
       extractFhirResourcesByRestOperationType() {
-    Map<RestOperationTypeEnum, List<IBaseResource>> resourcesByRestOperationMap = new HashMap<>();
+    Map<RestOperationTypeEnum, List<AuditEventBuilder.ResourceContext>>
+        resourcesByRestOperationMap = new HashMap<>();
+
+    AuditEventBuilder.QueryEntity queryEntity =
+        AuditEventBuilder.QueryEntity.builder()
+            .completeUrl(requestDetailsReader.getCompleteUrl())
+            .requestType(requestDetailsReader.getRequestType())
+            .fhirServerBase(requestDetailsReader.getFhirServerBase())
+            .requestPath(requestDetailsReader.getRequestPath())
+            .parameters(requestDetailsReader.getParameters())
+            .build();
 
     if (responseResource instanceof Bundle) {
 
@@ -267,16 +288,35 @@ public class AuditEventHelperImpl implements AuditEventHelper {
 
         IBaseResource bundleEntryComponentResource =
             extractResourceFromBundleComponent(responseBundleEntryComponents.get(i));
-        //  if (resource == null) continue;
+        AuditEventBuilder.QueryEntity nestedResourceQueryEntity = queryEntity;
 
         RestOperationTypeEnum restOperationType;
         if (isPOSTBundle) {
 
+          nestedResourceQueryEntity =
+              AuditEventBuilder.QueryEntity.builder()
+                  .completeUrl(
+                      String.format(
+                          "%s/%s",
+                          requestDetailsReader.getFhirServerBase(),
+                          requestResourceBundle.getEntry().get(i).getRequest().getUrl()))
+                  .requestType(
+                      RequestTypeEnum.valueOf(
+                          requestResourceBundle.getEntry().get(i).getRequest().getMethod().name()))
+                  .fhirServerBase(requestDetailsReader.getFhirServerBase())
+                  .requestPath(
+                      UrlUtil.determineResourceTypeInResourceUrl(
+                          fhirContext,
+                          requestResourceBundle.getEntry().get(i).getRequest().getUrl()))
+                  .parameters(
+                      UrlUtil.parseQueryString(
+                          getQueryStringFromBundleComponent(
+                              requestResourceBundle.getEntry().get(i))))
+                  .build();
+
           restOperationType =
-              requestResourceBundle != null
-                  ? getRestOperationTypeForBundleEntry(
-                      requestResourceBundle.getEntry().get(i), bundleEntryComponentResource)
-                  : null;
+              getRestOperationTypeForBundleEntry(
+                  requestResourceBundle.getEntry().get(i), bundleEntryComponentResource);
 
         } else {
 
@@ -286,19 +326,27 @@ public class AuditEventHelperImpl implements AuditEventHelper {
         if (bundleEntryComponentResource instanceof Bundle) {
 
           processResponseResourceNestedBundle(
-              bundleEntryComponentResource, restOperationType, resourcesByRestOperationMap);
+              bundleEntryComponentResource,
+              restOperationType,
+              resourcesByRestOperationMap,
+              nestedResourceQueryEntity);
 
         } else {
           processSingleResource(
-              restOperationType, bundleEntryComponentResource, resourcesByRestOperationMap);
+              restOperationType,
+              bundleEntryComponentResource,
+              resourcesByRestOperationMap,
+              nestedResourceQueryEntity);
         }
       }
 
     } else {
+
       processSingleResource(
           requestDetailsReader.getRestOperationType(),
           responseResource,
-          resourcesByRestOperationMap);
+          resourcesByRestOperationMap,
+          queryEntity);
     }
 
     return resourcesByRestOperationMap;
@@ -307,7 +355,9 @@ public class AuditEventHelperImpl implements AuditEventHelper {
   private void processResponseResourceNestedBundle(
       IBaseResource bundleResource,
       RestOperationTypeEnum restOperationType,
-      Map<RestOperationTypeEnum, List<IBaseResource>> resourcesByRestOperationMap) {
+      Map<RestOperationTypeEnum, List<AuditEventBuilder.ResourceContext>>
+          resourcesByRestOperationMap,
+      AuditEventBuilder.QueryEntity queryEntity) {
 
     for (Bundle.BundleEntryComponent nestedBundleEntryComponent :
         ((Bundle) bundleResource).getEntry()) {
@@ -317,10 +367,11 @@ public class AuditEventHelperImpl implements AuditEventHelper {
       if (entryResource instanceof Bundle) {
 
         processResponseResourceNestedBundle(
-            entryResource, restOperationType, resourcesByRestOperationMap);
+            entryResource, restOperationType, resourcesByRestOperationMap, queryEntity);
 
       } else {
-        processSingleResource(restOperationType, entryResource, resourcesByRestOperationMap);
+        processSingleResource(
+            restOperationType, entryResource, resourcesByRestOperationMap, queryEntity);
       }
     }
   }
@@ -347,12 +398,7 @@ public class AuditEventHelperImpl implements AuditEventHelper {
       Bundle.BundleEntryComponent requestResourceBundleComponent, IBaseResource resource) {
 
     RestOperationTypeEnum restOperationType;
-
-    String requestUrl = requestResourceBundleComponent.getRequest().getUrl();
-    String queryString =
-        !Strings.isNullOrEmpty(requestUrl) && requestUrl.contains("?")
-            ? requestUrl.substring(requestUrl.indexOf('?'))
-            : "";
+    String queryString = getQueryStringFromBundleComponent(requestResourceBundleComponent);
 
     restOperationType =
         FhirUtil.getRestOperationType(
@@ -363,14 +409,28 @@ public class AuditEventHelperImpl implements AuditEventHelper {
     return restOperationType;
   }
 
+  private @NotNull String getQueryStringFromBundleComponent(
+      Bundle.BundleEntryComponent requestResourceBundleComponent) {
+    String requestUrl = requestResourceBundleComponent.getRequest().getUrl();
+    return !Strings.isNullOrEmpty(requestUrl) && requestUrl.contains("?")
+        ? requestUrl.substring(requestUrl.indexOf('?'))
+        : "";
+  }
+
   private void processSingleResource(
       RestOperationTypeEnum restOperationType,
       IBaseResource iBaseResource,
-      Map<RestOperationTypeEnum, List<IBaseResource>> resourcesByRestOperationMap) {
+      Map<RestOperationTypeEnum, List<AuditEventBuilder.ResourceContext>>
+          resourcesByRestOperationMap,
+      AuditEventBuilder.QueryEntity queryEntity) {
     if (iBaseResource == null) return;
     resourcesByRestOperationMap
         .computeIfAbsent(restOperationType, key -> new ArrayList<>())
-        .add(iBaseResource);
+        .add(
+            AuditEventBuilder.ResourceContext.builder()
+                .resourceEntity(iBaseResource)
+                .queryEntity(queryEntity)
+                .build());
   }
 
   // If we get here we capture all audit log details except the compartment owner for non-patient
@@ -415,23 +475,26 @@ public class AuditEventHelperImpl implements AuditEventHelper {
       RestOperationTypeEnum restOperationType,
       Resource resource,
       BalpProfileEnum balpProfile,
-      Set<String> compartmentOwners) {
+      Set<String> compartmentOwners,
+      AuditEventBuilder.QueryEntity queryEntity) {
 
     if (resource instanceof OperationOutcome) {
 
       return createAuditEventOperationOutcome(
-          restOperationType, (OperationOutcome) resource, balpProfile);
+          restOperationType, (OperationOutcome) resource, balpProfile, queryEntity);
 
     } else {
 
-      return createAuditEventEHR(restOperationType, resource, balpProfile, compartmentOwners);
+      return createAuditEventEHR(
+          restOperationType, resource, balpProfile, compartmentOwners, queryEntity);
     }
   }
 
   private AuditEvent createAuditEventOperationOutcome(
       RestOperationTypeEnum restOperationType,
       OperationOutcome operationOutcomeResource,
-      BalpProfileEnum balpProfile) {
+      BalpProfileEnum balpProfile,
+      AuditEventBuilder.QueryEntity queryEntity) {
 
     try {
       // We need to capture the context of the operation e.g. Successful DELETE returns
@@ -445,7 +508,8 @@ public class AuditEventHelperImpl implements AuditEventHelper {
               : Set.of();
 
       AuditEventBuilder auditEventBuilder =
-          getAuditEventBuilder(restOperationType, (Resource) resource, balpProfile, patientIds);
+          getAuditEventBuilder(
+              restOperationType, (Resource) resource, balpProfile, patientIds, queryEntity);
 
       OperationOutcome.OperationOutcomeIssueComponent outcomeIssueComponent =
           operationOutcomeResource.getIssueFirstRep();
@@ -472,10 +536,12 @@ public class AuditEventHelperImpl implements AuditEventHelper {
       RestOperationTypeEnum restOperationType,
       Resource resource,
       BalpProfileEnum balpProfile,
-      Set<String> compartmentOwners) {
+      Set<String> compartmentOwners,
+      AuditEventBuilder.QueryEntity queryEntity) {
 
     AuditEventBuilder auditEventBuilder =
-        getAuditEventBuilder(restOperationType, resource, balpProfile, compartmentOwners);
+        getAuditEventBuilder(
+            restOperationType, resource, balpProfile, compartmentOwners, queryEntity);
 
     return auditEventBuilder.build();
   }
@@ -484,7 +550,8 @@ public class AuditEventHelperImpl implements AuditEventHelper {
       RestOperationTypeEnum restOperationType,
       Resource resource,
       BalpProfileEnum balpProfile,
-      Set<String> compartmentOwners) {
+      Set<String> compartmentOwners,
+      AuditEventBuilder.QueryEntity queryEntity) {
     AuditEventBuilder auditEventBuilder = initBaseAuditEventBuilder(restOperationType, balpProfile);
 
     if (compartmentOwners != null && !compartmentOwners.isEmpty()) {
@@ -500,16 +567,7 @@ public class AuditEventHelperImpl implements AuditEventHelper {
     if (BalpProfileEnum.BASIC_QUERY.equals(balpProfile)
         || BalpProfileEnum.PATIENT_QUERY.equals(balpProfile)) {
 
-      AuditEventBuilder.QueryEntityBuilder queryEntityBuilder =
-          AuditEventBuilder.QueryEntityBuilder.builder()
-              .completeUrl(requestDetailsReader.getCompleteUrl())
-              .requestType(requestDetailsReader.getRequestType())
-              .fhirServerBase(requestDetailsReader.getFhirServerBase())
-              .requestPath(requestDetailsReader.getRequestPath())
-              .parameters(requestDetailsReader.getParameters())
-              .build();
-
-      auditEventBuilder.addQuery(queryEntityBuilder);
+      auditEventBuilder.addQuery(queryEntity);
     }
     return auditEventBuilder;
   }
