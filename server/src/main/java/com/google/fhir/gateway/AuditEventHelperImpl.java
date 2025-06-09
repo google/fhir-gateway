@@ -147,7 +147,6 @@ public class AuditEventHelperImpl implements AuditEventHelper {
 
   private List<AuditEvent> createAuditEventCore(
       List<IBaseResource> resources, BalpProfileEnum patientProfile, BalpProfileEnum basicProfile) {
-
     List<AuditEvent> auditEventList = new ArrayList<>();
 
     for (IBaseResource iBaseResource : resources) {
@@ -190,18 +189,18 @@ public class AuditEventHelperImpl implements AuditEventHelper {
     return errorCode;
   }
 
-  private List<IBaseResource> extractFhirResources(String _serverContentResponse) {
+  private List<IBaseResource> extractFhirResources(String serverContentResponse) {
     List<IBaseResource> resourceList = new ArrayList<>();
 
     // This condition handles operations with no response body returned e.g. POST/PUT requests with
     // Prefer: return=minimal HTTP header
-    String serverContentResponse =
-        _serverContentResponse.isEmpty()
+    String resolvedServerContentResponse =
+        serverContentResponse.isEmpty()
             ? getResourceFromContentLocation(this.responseContentLocation)
-            : _serverContentResponse;
+            : serverContentResponse;
 
     IBaseResource responseResource =
-        this.fhirContext.newJsonParser().parseResource(serverContentResponse);
+        this.fhirContext.newJsonParser().parseResource(resolvedServerContentResponse);
 
     if (responseResource instanceof Bundle) {
 
@@ -243,7 +242,6 @@ public class AuditEventHelperImpl implements AuditEventHelper {
   // One way to get the patient compartment owner for non-patient resources would be to fetch the
   // actual resource from the database first before creating the AuditEvent.
   private String getResourceFromContentLocation(String responseContentLocation) {
-
     IdType id = new IdType(responseContentLocation);
     String resourceType = id.getResourceType();
     String resourceId = id.getIdPart();
@@ -251,7 +249,6 @@ public class AuditEventHelperImpl implements AuditEventHelper {
   }
 
   private AuditEventBuilder initBaseAuditEventBuilder(BalpProfileEnum balpProfile) {
-
     AuditEventBuilder auditEventBuilder = new AuditEventBuilder(this.periodStartTime);
     auditEventBuilder.restOperationType(this.requestDetailsReader.getRestOperationType());
     auditEventBuilder.agentUserPolicy(
@@ -275,20 +272,15 @@ public class AuditEventHelperImpl implements AuditEventHelper {
 
   private AuditEvent createAuditEvent(
       Resource resource, BalpProfileEnum balpProfile, Set<String> compartmentOwners) {
-
     if (resource instanceof OperationOutcome) {
-
       return createAuditEventOperationOutcome((OperationOutcome) resource, balpProfile);
-
     } else {
-
       return createAuditEventEHR(resource, balpProfile, compartmentOwners);
     }
   }
 
   private AuditEvent createAuditEventOperationOutcome(
       OperationOutcome operationOutcomeResource, BalpProfileEnum balpProfile) {
-
     // We need to capture the context of the operation e.g. Successful DELETE returns
     // OperationOutcome but no info on the affected resource
     String processedResource = getResourceFromContentLocation(this.responseContentLocation);

@@ -201,7 +201,6 @@ public class AuditEventBuilder {
   }
 
   AuditEvent build() {
-
     AuditEvent auditEvent = new AuditEvent();
     auditEvent.getMeta().addProfile(this.profileUrl);
     auditEvent
