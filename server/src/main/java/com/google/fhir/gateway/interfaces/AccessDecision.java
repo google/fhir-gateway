@@ -15,6 +15,7 @@
  */
 package com.google.fhir.gateway.interfaces;
 
+import com.auth0.jwt.exceptions.JWTDecodeException;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import com.google.common.base.Strings;
 import com.google.fhir.gateway.JwtUtil;
@@ -78,23 +79,29 @@ public interface AccessDecision {
    */
   @Nullable
   default Reference getUserWho(RequestDetailsReader request) {
-    DecodedJWT decodedJWT = JwtUtil.getDecodedJwtFromRequestDetails(request);
-    String name =
-        JwtUtil.getClaimOrDefault(
-            decodedJWT,
-            JwtUtil.CLAIM_IHE_IUA_SUBJECT_NAME,
-            ""); // First try with the IHE IUA claim name defined by BALP IG before OpenID
-    // connect/Keycloak default
-    name =
-        Strings.isNullOrEmpty(name)
-            ? JwtUtil.getClaimOrDefault(decodedJWT, JwtUtil.CLAIM_NAME, "")
-            : name;
-    String subject = JwtUtil.getClaimOrDefault(decodedJWT, JwtUtil.CLAIM_SUBJECT, "");
-    String issuer = JwtUtil.getClaimOrDefault(decodedJWT, JwtUtil.CLAIM_ISSUER, "");
+    DecodedJWT decodedJWT;
+    try {
+      decodedJWT = JwtUtil.getDecodedJwtFromRequestDetails(request);
+      String name =
+          JwtUtil.getClaimOrDefault(
+              decodedJWT,
+              JwtUtil.CLAIM_IHE_IUA_SUBJECT_NAME,
+              ""); // First try with the IHE IUA claim name defined by BALP IG before OpenID
+      // connect/Keycloak default
+      name =
+          Strings.isNullOrEmpty(name)
+              ? JwtUtil.getClaimOrDefault(decodedJWT, JwtUtil.CLAIM_NAME, "")
+              : name;
+      String subject = JwtUtil.getClaimOrDefault(decodedJWT, JwtUtil.CLAIM_SUBJECT, "");
+      String issuer = JwtUtil.getClaimOrDefault(decodedJWT, JwtUtil.CLAIM_ISSUER, "");
 
-    return new Reference()
-        .setType(ResourceType.Practitioner.name())
-        .setDisplay(name)
-        .setIdentifier(new Identifier().setSystem(issuer).setValue(subject));
+      return new Reference()
+          .setType(ResourceType.Practitioner.name())
+          .setDisplay(name)
+          .setIdentifier(new Identifier().setSystem(issuer).setValue(subject));
+
+    } catch (JWTDecodeException e) {
+      return null;
+    }
   }
 }

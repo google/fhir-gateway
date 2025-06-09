@@ -91,6 +91,12 @@ public class BearerAuthorizationInterceptorTest {
 
   private BearerAuthorizationInterceptor createTestInstance(
       boolean isAccessGranted, String allowedQueriesConfig) throws IOException {
+    return createTestInstance(isAccessGranted, allowedQueriesConfig, false);
+  }
+
+  private BearerAuthorizationInterceptor createTestInstance(
+      boolean isAccessGranted, String allowedQueriesConfig, boolean isEventLoggingEnabled)
+      throws IOException {
     return new BearerAuthorizationInterceptor(
         fhirClientMock,
         tokenVerifierMock,
@@ -103,7 +109,7 @@ public class BearerAuthorizationInterceptorTest {
               }
             },
         new AllowedQueriesChecker(allowedQueriesConfig),
-        false);
+        isEventLoggingEnabled);
   }
 
   @Before
@@ -135,6 +141,17 @@ public class BearerAuthorizationInterceptorTest {
     URL patientUrl = Resources.getResource("test_patient.json");
     String testPatientJson = Resources.toString(patientUrl, StandardCharsets.UTF_8);
     setupBearerAndFhirResponse(testPatientJson);
+    testInstance.authorizeRequest(requestMock);
+    assertThat(testPatientJson, equalTo(writerStub.toString()));
+  }
+
+  @Test
+  public void authorizeRequestPatientAuditEventLoggingEnabledNoUserWho() throws IOException {
+    URL patientUrl = Resources.getResource("test_patient.json");
+    String testPatientJson = Resources.toString(patientUrl, StandardCharsets.UTF_8);
+    setupBearerAndFhirResponse(testPatientJson);
+
+    BearerAuthorizationInterceptor testInstance = createTestInstance(true, null, true);
     testInstance.authorizeRequest(requestMock);
     assertThat(testPatientJson, equalTo(writerStub.toString()));
   }

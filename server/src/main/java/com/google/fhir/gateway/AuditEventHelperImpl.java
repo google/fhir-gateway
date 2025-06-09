@@ -8,6 +8,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.fhir.gateway.interfaces.AuditEventHelper;
 import com.google.fhir.gateway.interfaces.RequestDetailsReader;
+import jakarta.annotation.Nullable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
@@ -24,7 +25,6 @@ import org.hl7.fhir.r4.model.OperationOutcome;
 import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.Resource;
 import org.hl7.fhir.r4.model.ResourceType;
-import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -53,7 +53,7 @@ public class AuditEventHelperImpl implements AuditEventHelper {
       String responseContent,
       String responseContentLocation,
       Reference agentUserWho,
-      DecodedJWT decodedJWT,
+      @Nullable DecodedJWT decodedJWT,
       Date periodStartTime,
       HttpFhirClient httpFhirClient,
       FhirContext fhirContext) {
@@ -71,73 +71,74 @@ public class AuditEventHelperImpl implements AuditEventHelper {
   // TODO handle the case for Bundle operations
   @Override
   public void processAuditEvents() {
-    try {
-      List<AuditEvent> auditEventList = new ArrayList<>();
 
-      List<IBaseResource> resources = extractFhirResources(responseContent);
+    List<AuditEvent> auditEventList = new ArrayList<>();
 
-      switch (this.requestDetailsReader.getRestOperationType()) {
-        case SEARCH_TYPE:
-        case SEARCH_SYSTEM:
-        case GET_PAGE:
-          auditEventList =
-              createAuditEventCore(
-                  resources, BalpProfileEnum.PATIENT_QUERY, BalpProfileEnum.BASIC_QUERY);
-          break;
+    List<IBaseResource> resources = extractFhirResources(responseContent);
 
-        case READ:
-        case VREAD:
-          auditEventList =
-              createAuditEventCore(
-                  resources, BalpProfileEnum.PATIENT_READ, BalpProfileEnum.BASIC_READ);
-          break;
+    switch (this.requestDetailsReader.getRestOperationType()) {
+      case SEARCH_TYPE:
+      case SEARCH_SYSTEM:
+      case GET_PAGE:
+        auditEventList =
+            createAuditEventCore(
+                resources, BalpProfileEnum.PATIENT_QUERY, BalpProfileEnum.BASIC_QUERY);
+        break;
 
-        case CREATE:
-          auditEventList =
-              createAuditEventCore(
-                  resources, BalpProfileEnum.PATIENT_CREATE, BalpProfileEnum.BASIC_CREATE);
-          break;
+      case READ:
+      case VREAD:
+        auditEventList =
+            createAuditEventCore(
+                resources, BalpProfileEnum.PATIENT_READ, BalpProfileEnum.BASIC_READ);
+        break;
 
-        case UPDATE:
-          auditEventList =
-              createAuditEventCore(
-                  resources, BalpProfileEnum.PATIENT_UPDATE, BalpProfileEnum.PATIENT_UPDATE);
-          break;
+      case CREATE:
+        auditEventList =
+            createAuditEventCore(
+                resources, BalpProfileEnum.PATIENT_CREATE, BalpProfileEnum.BASIC_CREATE);
+        break;
 
-        case DELETE:
+      case UPDATE:
+        auditEventList =
+            createAuditEventCore(
+                resources, BalpProfileEnum.PATIENT_UPDATE, BalpProfileEnum.PATIENT_UPDATE);
+        break;
 
-          // NOTE: The success of processing of DELETE is heavily dependent on server validation
-          // policy e.g. If you have a permission list that references the resource being deleted,
-          // it breaks the delete operation. Likewise if you reference the resource in AuditEvent
-          // such as logging when you first created or updated it the operation breaks. In case of
-          // such an error, AuditEvent.outcome and AuditEvent.outcomeDesc are populated accordingly
+      case DELETE:
 
-          // Also note, this implementation only fully captures that a specific resource was deleted
-          // and by whom but not the compartment owner.
-          // With no access to the actual deleted resource we can't get the compartment owner unless
-          // the resource itself is a Patient. A crude way to get the owner would be to fetch the
-          // actual resource from the database first before creating the AuditEvent.
+        // NOTE: The success of processing of DELETE is heavily dependent on server validation
+        // policy e.g. If you have a permission list that references the resource being deleted,
+        // it breaks the delete operation. Likewise if you reference the resource in AuditEvent
+        // such as logging when you first created or updated it the operation breaks. In case of
+        // such an error, AuditEvent.outcome and AuditEvent.outcomeDesc are populated accordingly
 
-          // This implementation skips logging Deletes if the operation is conditional (thus no
-          // Resource ID present)
+        // Also note, this implementation only fully captures that a specific resource was deleted
+        // and by whom but not the compartment owner.
+        // With no access to the actual deleted resource we can't get the compartment owner unless
+        // the resource itself is a Patient. A crude way to get the owner would be to fetch the
+        // actual resource from the database first before creating the AuditEvent.
 
-          auditEventList =
-              createAuditEventCore(
-                  resources, BalpProfileEnum.PATIENT_DELETE, BalpProfileEnum.BASIC_DELETE);
-          break;
+        // This implementation skips logging Deletes if the operation is conditional (thus no
+        // Resource ID present)
 
-        default:
-          break;
-      }
+        auditEventList =
+            createAuditEventCore(
+                resources, BalpProfileEnum.PATIENT_DELETE, BalpProfileEnum.BASIC_DELETE);
+        break;
 
-      // TODO Investigate bulk saving (batch processing) instead to improve performance. We'll
-      // probably need a mechanism for chunking e.g. 100, 200, or 500 batch
-      for (AuditEvent auditEvent : auditEventList) {
-        auditEvent.getPeriod().setEnd(new Date());
+      default:
+        break;
+    }
+
+    // TODO Investigate bulk saving (batch processing) instead to improve performance. We'll
+    // probably need a mechanism for chunking e.g. 100, 200, or 500 batch
+    for (AuditEvent auditEvent : auditEventList) {
+      auditEvent.getPeriod().setEnd(new Date());
+      try {
         this.httpFhirClient.postResource(auditEvent);
+      } catch (IOException exception) {
+        ExceptionUtil.throwRuntimeExceptionAndLog(logger, exception.getMessage(), exception);
       }
-    } catch (IOException exception) {
-      logger.error(exception.getMessage(), exception);
     }
   }
 
@@ -160,7 +161,7 @@ public class AuditEventHelperImpl implements AuditEventHelper {
         if (!patientIds.isEmpty()) {
           auditEventList.add(createAuditEvent(resource, patientProfile, patientIds));
         } else {
-          auditEventList.add(createAuditEvent(resource, basicProfile, null));
+          auditEventList.add(createAuditEvent(resource, basicProfile, Set.of()));
         }
       } catch (IllegalStateException exception) {
         logger.error(exception.getMessage(), exception);
@@ -170,6 +171,7 @@ public class AuditEventHelperImpl implements AuditEventHelper {
     return auditEventList;
   }
 
+  @Nullable
   private AuditEvent.AuditEventOutcome mapOutcomeErrorCode(
       OperationOutcome.IssueSeverity issueSeverity) {
     AuditEvent.AuditEventOutcome errorCode = null;
@@ -251,8 +253,10 @@ public class AuditEventHelperImpl implements AuditEventHelper {
   private AuditEventBuilder initBaseAuditEventBuilder(BalpProfileEnum balpProfile) {
     AuditEventBuilder auditEventBuilder = new AuditEventBuilder(this.periodStartTime);
     auditEventBuilder.restOperationType(this.requestDetailsReader.getRestOperationType());
-    auditEventBuilder.agentUserPolicy(
-        JwtUtil.getClaimOrDefault(this.decodedJWT, JwtUtil.CLAIM_JWT_ID, ""));
+    if (this.decodedJWT != null) {
+      auditEventBuilder.agentUserPolicy(
+          JwtUtil.getClaimOrDefault(this.decodedJWT, JwtUtil.CLAIM_JWT_ID, ""));
+    }
     auditEventBuilder.auditEventAction(balpProfile.getAction());
     auditEventBuilder.agentClientTypeCoding(balpProfile.getAgentClientTypeCoding());
     auditEventBuilder.agentServerTypeCoding(balpProfile.getAgentServerTypeCoding());
@@ -265,8 +269,10 @@ public class AuditEventHelperImpl implements AuditEventHelper {
             .type(BalpConstants.AUDIT_EVENT_AGENT_NETWORK_TYPE_IP_ADDRESS)
             .build());
     auditEventBuilder.agentUserWho(this.agentUserWho);
-    auditEventBuilder.agentClientWho(createAgentClientWhoRef(this.decodedJWT));
 
+    if (this.decodedJWT != null) {
+      auditEventBuilder.agentClientWho(createAgentClientWhoRef(this.decodedJWT));
+    }
     return auditEventBuilder;
   }
 
@@ -312,18 +318,17 @@ public class AuditEventHelperImpl implements AuditEventHelper {
 
   private AuditEvent createAuditEventEHR(
       Resource resource, BalpProfileEnum balpProfile, Set<String> compartmentOwners) {
-
     AuditEventBuilder auditEventBuilder =
         getAuditEventBuilder(resource, balpProfile, compartmentOwners);
 
     return auditEventBuilder.build();
   }
 
-  private @NotNull AuditEventBuilder getAuditEventBuilder(
+  private AuditEventBuilder getAuditEventBuilder(
       Resource resource, BalpProfileEnum balpProfile, Set<String> compartmentOwners) {
     AuditEventBuilder auditEventBuilder = initBaseAuditEventBuilder(balpProfile);
 
-    if (compartmentOwners != null && !compartmentOwners.isEmpty()) {
+    if (!compartmentOwners.isEmpty()) {
       for (String owner : compartmentOwners) {
         auditEventBuilder.addEntityWhat(balpProfile, true, owner);
       }
