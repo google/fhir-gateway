@@ -125,6 +125,9 @@ The configuration parameters are provided through environment variables:
 - `BACKEND_TYPE`: The type of backend, either `HAPI` or `GCP`. `HAPI` should be
   used for most FHIR servers, while `GCP` should be used for GCP FHIR stores.
 
+- `AUDIT_EVENT_LOGGING_ENABLED`: A flag to configure AuditEvent logging. Set to
+  `true` to enable or `false` to disable. Default when not set is `false`.
+
 ## Gateway to server access
 
 The proxy must be able to send FHIR queries to the FHIR server. The FHIR server
