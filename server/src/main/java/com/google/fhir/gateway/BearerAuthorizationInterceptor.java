@@ -226,7 +226,7 @@ public class BearerAuthorizationInterceptor {
           Header contentLocationHeader = response.getFirstHeader(CONTENT_LOCATION_HEADER);
 
           AuditEventHelper auditEventHelper =
-              new AuditEventHelperImpl(
+              AuditEventHelperImpl.createInstance(
                   requestDetailsReader,
                   responseStringContent,
                   contentLocationHeader != null ? contentLocationHeader.getValue() : null,

@@ -48,7 +48,7 @@ public class AuditEventHelperImpl implements AuditEventHelper {
   private final HttpFhirClient httpFhirClient;
   private final FhirContext fhirContext;
 
-  public AuditEventHelperImpl(
+  private AuditEventHelperImpl(
       RequestDetailsReader requestDetailsReader,
       String responseContent,
       String responseContentLocation,
@@ -66,6 +66,26 @@ public class AuditEventHelperImpl implements AuditEventHelper {
     this.periodStartTime = periodStartTime;
     this.httpFhirClient = httpFhirClient;
     this.fhirContext = fhirContext;
+  }
+
+  public static AuditEventHelper createInstance(
+      RequestDetailsReader requestDetailsReader,
+      String responseStringContent,
+      String responseContentLocation,
+      Reference agentUserWho,
+      DecodedJWT decodedJWT,
+      Date periodStartTime,
+      HttpFhirClient fhirClient,
+      FhirContext fhirContext) {
+    return new AuditEventHelperImpl(
+        requestDetailsReader,
+        responseStringContent,
+        responseContentLocation,
+        agentUserWho,
+        decodedJWT,
+        periodStartTime,
+        fhirClient,
+        fhirContext);
   }
 
   // TODO handle the case for Bundle operations
@@ -101,7 +121,7 @@ public class AuditEventHelperImpl implements AuditEventHelper {
       case UPDATE:
         auditEventList =
             createAuditEventCore(
-                resources, BalpProfileEnum.PATIENT_UPDATE, BalpProfileEnum.PATIENT_UPDATE);
+                resources, BalpProfileEnum.PATIENT_UPDATE, BalpProfileEnum.BASIC_UPDATE);
         break;
 
       case DELETE:

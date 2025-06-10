@@ -19,6 +19,7 @@ import static org.mockito.Mockito.when;
 
 import com.google.common.base.Preconditions;
 import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
 import org.apache.http.entity.StringEntity;
@@ -30,5 +31,16 @@ class TestUtil {
     StringEntity testEntity = new StringEntity(responseJson, StandardCharsets.UTF_8);
     when(fhirResponseMock.getStatusLine().getStatusCode()).thenReturn(HttpStatus.SC_OK);
     when(fhirResponseMock.getEntity()).thenReturn(testEntity);
+  }
+
+  public static String createTestAccessToken(String jsonPayloadData) {
+    String encodedHeader = base64UrlEncode("{\"alg\":\"HS256\",\"typ\":\"JWT\"}");
+    String encodedPayloadData = base64UrlEncode(jsonPayloadData);
+    String signature = base64UrlEncode("dummy-signature");
+    return String.format("%s.%s.%s", encodedHeader, encodedPayloadData, signature);
+  }
+
+  private static String base64UrlEncode(String input) {
+    return Base64.getUrlEncoder().withoutPadding().encodeToString(input.getBytes());
   }
 }

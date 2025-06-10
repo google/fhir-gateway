@@ -19,6 +19,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.arrayContainingInAnyOrder;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -27,6 +28,7 @@ import static org.mockito.Mockito.when;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
+import ca.uhn.fhir.rest.api.RequestTypeEnum;
 import ca.uhn.fhir.rest.api.server.IRestfulResponse;
 import ca.uhn.fhir.rest.server.RestfulServer;
 import ca.uhn.fhir.rest.server.exceptions.ForbiddenOperationException;
@@ -41,6 +43,7 @@ import com.google.fhir.gateway.interfaces.NoOpAccessDecision;
 import com.google.fhir.gateway.interfaces.RequestDetailsReader;
 import com.google.fhir.gateway.interfaces.RequestMutation;
 import com.google.gson.Gson;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.StringWriter;
@@ -51,15 +54,21 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.apache.http.HttpHeaders;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
 import org.hamcrest.Matchers;
 import org.hl7.fhir.instance.model.api.IBaseResource;
+import org.hl7.fhir.r4.model.AuditEvent;
 import org.hl7.fhir.r4.model.CapabilityStatement;
+import org.hl7.fhir.r4.model.IdType;
+import org.hl7.fhir.r4.model.Reference;
+import org.hl7.fhir.r4.model.ResourceType;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Answers;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnitRunner;
@@ -86,6 +95,8 @@ public class BearerAuthorizationInterceptorTest {
 
   @Mock(answer = Answers.RETURNS_DEEP_STUBS)
   private HttpResponse fhirResponseMock;
+
+  @Mock private HttpServletRequest httpServletRequest;
 
   private final Writer writerStub = new StringWriter();
 
@@ -154,6 +165,81 @@ public class BearerAuthorizationInterceptorTest {
     BearerAuthorizationInterceptor testInstance = createTestInstance(true, null, true);
     testInstance.authorizeRequest(requestMock);
     assertThat(testPatientJson, equalTo(writerStub.toString()));
+  }
+
+  @Test
+  public void authorizeRequestPatientAuditEventLoggingEnabled() throws IOException {
+    URL patientUrl = Resources.getResource("test_patient.json");
+    String testPatientJson = Resources.toString(patientUrl, StandardCharsets.UTF_8);
+    setupFhirResponse(testPatientJson, false);
+
+    URL jwtPayloadUrl = Resources.getResource("jwt_token_data.json");
+    String testAccessToken = Resources.toString(jwtPayloadUrl, StandardCharsets.UTF_8);
+    String base64EncodedJwtToken = TestUtil.createTestAccessToken(testAccessToken);
+
+    when(requestMock.getHeader(HttpHeaders.AUTHORIZATION))
+        .thenReturn("Bearer " + base64EncodedJwtToken);
+    when(requestMock.getRequestType()).thenReturn(RequestTypeEnum.GET);
+    when(requestMock.getId()).thenReturn(new IdType("be92a43f-de46-affa-b131-bbf9eea51140"));
+    when(requestMock.getFhirServerBase()).thenReturn("http://my-gateway-server/fhir");
+    when(requestMock.getServletRequest()).thenReturn(httpServletRequest);
+
+    BearerAuthorizationInterceptor testInstance = createTestInstance(true, null, true);
+    testInstance.authorizeRequest(requestMock);
+
+    assertThat(testPatientJson, equalTo(writerStub.toString()));
+
+    ArgumentCaptor<AuditEvent> auditEventArgumentCaptor = ArgumentCaptor.forClass(AuditEvent.class);
+    Mockito.verify(fhirClientMock).postResource(auditEventArgumentCaptor.capture());
+    AuditEvent auditEvent = auditEventArgumentCaptor.getValue();
+    assertThat(
+        auditEvent.getType().getSystem(),
+        equalTo("http://terminology.hl7.org/CodeSystem/audit-event-type"));
+    assertThat(auditEvent.getType().getCode(), equalTo("rest"));
+    assertThat(
+        auditEvent.getSubtype().get(0).getSystem(),
+        equalTo("http://hl7.org/fhir/restful-interaction"));
+    assertThat(auditEvent.getSubtype().get(0).getCode(), equalTo("read"));
+    assertThat(auditEvent.getAction().toCode(), equalTo("R"));
+    assertThat(auditEvent.getOutcome(), equalTo(AuditEvent.AuditEventOutcome._0));
+    assertThat(auditEvent.getOutcomeDesc(), equalTo(AuditEvent.AuditEventOutcome._0.getDisplay()));
+
+    Reference auditEventUserWhoRef =
+        auditEvent.getAgent().stream()
+            .filter(
+                it ->
+                    it.hasWho()
+                        && it.getWho().hasType()
+                        && it.getWho().getType().equals(ResourceType.Practitioner.name()))
+            .map(AuditEvent.AuditEventAgentComponent::getWho)
+            .findFirst()
+            .orElseThrow();
+
+    assertThat(auditEventUserWhoRef.getDisplay(), equalTo("John Doe"));
+    assertThat(auditEventUserWhoRef.getIdentifier().getValue(), equalTo("test-user-123"));
+
+    Reference auditEventEntityWhatRef =
+        auditEvent.getEntity().stream()
+            .filter(
+                it ->
+                    it.hasType()
+                        && it.getType()
+                            .getSystem()
+                            .equals("http://terminology.hl7.org/CodeSystem/audit-entity-type"))
+            .map(AuditEvent.AuditEventEntityComponent::getWhat)
+            .findFirst()
+            .orElseThrow();
+    assertThat(
+        auditEventEntityWhatRef.getReference(),
+        equalTo("Patient/be92a43f-de46-affa-b131-bbf9eea51140"));
+
+    assertThat(auditEvent.getPeriod().getStart(), notNullValue());
+    assertThat(auditEvent.getPeriod().getStart(), notNullValue());
+    assertThat(auditEvent.getRecorded(), notNullValue());
+
+    assertThat(
+        auditEvent.getSource().getObserver().getDisplay(),
+        equalTo("http://my-gateway-server/fhir"));
   }
 
   @Test
