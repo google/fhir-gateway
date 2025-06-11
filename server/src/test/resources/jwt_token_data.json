@@ -1,5 +1,0 @@
-{
-  "sub": "test-user-123",
-  "name": "John Doe",
-  "issuer": "http://my-iam-server/realms/gateway-audit"
-}

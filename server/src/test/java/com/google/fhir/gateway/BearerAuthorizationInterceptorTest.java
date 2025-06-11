@@ -173,9 +173,13 @@ public class BearerAuthorizationInterceptorTest {
     String testPatientJson = Resources.toString(patientUrl, StandardCharsets.UTF_8);
     setupFhirResponse(testPatientJson, false);
 
-    URL jwtPayloadUrl = Resources.getResource("jwt_token_data.json");
-    String testAccessToken = Resources.toString(jwtPayloadUrl, StandardCharsets.UTF_8);
-    String base64EncodedJwtToken = TestUtil.createTestAccessToken(testAccessToken);
+    String testAccessTokenPayload =
+        "{\n"
+            + "  \"sub\": \"test-user-123\","
+            + "  \"name\": \"John Doe\","
+            + "  \"issuer\": \"http://my-iam-server/realms/gateway-audit\""
+            + "}";
+    String base64EncodedJwtToken = TestUtil.createTestAccessToken(testAccessTokenPayload);
 
     when(requestMock.getHeader(HttpHeaders.AUTHORIZATION))
         .thenReturn("Bearer " + base64EncodedJwtToken);

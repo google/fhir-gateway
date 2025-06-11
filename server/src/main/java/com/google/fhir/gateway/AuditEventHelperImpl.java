@@ -4,7 +4,6 @@ import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.storage.interceptor.balp.BalpConstants;
 import ca.uhn.fhir.storage.interceptor.balp.BalpProfileEnum;
 import com.auth0.jwt.interfaces.DecodedJWT;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.fhir.gateway.interfaces.AuditEventHelper;
 import com.google.fhir.gateway.interfaces.RequestDetailsReader;
@@ -162,8 +161,8 @@ public class AuditEventHelperImpl implements AuditEventHelper {
     }
   }
 
-  private String getResourceTemplate(String resourceName, String resourceId) {
-    return String.format("{ \"resourceType\": \"%s\", \"id\": \"%s\"}", resourceName, resourceId);
+  private String getResourceTemplate(String resourceType, String resourceId) {
+    return String.format("{ \"resourceType\": \"%s\", \"id\": \"%s\"}", resourceType, resourceId);
   }
 
   private List<AuditEvent> createAuditEventCore(
@@ -171,20 +170,28 @@ public class AuditEventHelperImpl implements AuditEventHelper {
     List<AuditEvent> auditEventList = new ArrayList<>();
 
     for (IBaseResource iBaseResource : resources) {
-      try {
-        Preconditions.checkState(iBaseResource instanceof DomainResource);
+
+      if (iBaseResource instanceof DomainResource) {
 
         DomainResource resource = (DomainResource) iBaseResource;
-
         Set<String> patientIds = patientFinder.findPatientIds(resource);
 
         if (!patientIds.isEmpty()) {
-          auditEventList.add(createAuditEvent(resource, patientProfile, patientIds));
+          if (resource instanceof OperationOutcome) {
+            auditEventList.add(
+                createAuditEventOperationOutcome((OperationOutcome) resource, patientProfile));
+          } else {
+            auditEventList.add(createAuditEventEHR(resource, patientProfile, patientIds));
+          }
+
         } else {
-          auditEventList.add(createAuditEvent(resource, basicProfile, Set.of()));
+          if (resource instanceof OperationOutcome) {
+            auditEventList.add(
+                createAuditEventOperationOutcome((OperationOutcome) resource, basicProfile));
+          } else {
+            auditEventList.add(createAuditEventEHR(resource, basicProfile, Set.of()));
+          }
         }
-      } catch (IllegalStateException exception) {
-        logger.error(exception.getMessage(), exception);
       }
     }
 
@@ -294,15 +301,6 @@ public class AuditEventHelperImpl implements AuditEventHelper {
       auditEventBuilder.agentClientWho(createAgentClientWhoRef(this.decodedJWT));
     }
     return auditEventBuilder;
-  }
-
-  private AuditEvent createAuditEvent(
-      Resource resource, BalpProfileEnum balpProfile, Set<String> compartmentOwners) {
-    if (resource instanceof OperationOutcome) {
-      return createAuditEventOperationOutcome((OperationOutcome) resource, balpProfile);
-    } else {
-      return createAuditEventEHR(resource, balpProfile, compartmentOwners);
-    }
   }
 
   private AuditEvent createAuditEventOperationOutcome(
