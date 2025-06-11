@@ -154,6 +154,13 @@
       <version>1.18.38</version>
     </dependency>
 
+    <!-- Needed to re-use Audit components -->
+    <dependency>
+      <groupId>ca.uhn.hapi.fhir</groupId>
+      <artifactId>hapi-fhir-storage</artifactId>
+      <version>8.0.0</version>
+    </dependency>
+
   </dependencies>
 
 </project>

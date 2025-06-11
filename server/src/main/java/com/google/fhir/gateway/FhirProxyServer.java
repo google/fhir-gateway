@@ -40,6 +40,7 @@ public class FhirProxyServer extends RestfulServer {
   private static final String ACCESS_CHECKER_ENV = "ACCESS_CHECKER";
   private static final String PERMISSIVE_ACCESS_CHECKER = "permissive";
   private static final String ALLOWED_QUERIES_FILE_ENV = "ALLOWED_QUERIES_FILE";
+  private static final String AUDIT_EVENT_LOGGING_ENABLED_ENV = "AUDIT_EVENT_LOGGING_ENABLED";
 
   // TODO: improve this mixture of Spring based IOC with non-@Component classes. This is the
   //   only place we use Spring annotations to automatically discover AccessCheckerFactory plugins.
@@ -68,13 +69,18 @@ public class FhirProxyServer extends RestfulServer {
       AccessCheckerFactory checkerFactory = chooseAccessCheckerFactory();
       HttpFhirClient httpFhirClient = FhirClientFactory.createFhirClientFromEnvVars();
       TokenVerifier tokenVerifier = TokenVerifier.createFromEnvVars();
+
       registerInterceptor(
           new BearerAuthorizationInterceptor(
               httpFhirClient,
               tokenVerifier,
               this,
               checkerFactory,
-              new AllowedQueriesChecker(System.getenv(ALLOWED_QUERIES_FILE_ENV))));
+              new AllowedQueriesChecker(System.getenv(ALLOWED_QUERIES_FILE_ENV)),
+              Boolean.parseBoolean(
+                  System.getenv(
+                      AUDIT_EVENT_LOGGING_ENABLED_ENV)))); // TODO to enable this in e2e tests
+
     } catch (IOException e) {
       ExceptionUtil.throwRuntimeExceptionAndLog(logger, "IOException while initializing", e);
     }

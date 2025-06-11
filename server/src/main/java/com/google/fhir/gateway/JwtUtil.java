@@ -16,10 +16,22 @@
 package com.google.fhir.gateway;
 
 import ca.uhn.fhir.rest.server.exceptions.AuthenticationException;
+import com.auth0.jwt.JWT;
+import com.auth0.jwt.exceptions.JWTDecodeException;
 import com.auth0.jwt.interfaces.Claim;
 import com.auth0.jwt.interfaces.DecodedJWT;
+import com.google.fhir.gateway.interfaces.RequestDetailsReader;
+import org.apache.http.HttpHeaders;
 
 public class JwtUtil {
+  public static final String CLAIM_NAME = "name";
+  public static final String CLAIM_IHE_IUA_SUBJECT_NAME = "subject_name";
+  public static final String CLAIM_IHE_IUA_CLIENT_ID = "client_id";
+  public static final String CLAIM_SUBJECT = "sub";
+  public static final String CLAIM_JWT_ID = "jti";
+  public static final String CLAIM_ISSUER = "iss";
+  public static final String CLAIM_AZP = "azp";
+
   public static String getClaimOrDie(DecodedJWT jwt, String claimName) {
     Claim claim = jwt.getClaim(claimName);
     if (claim.asString() == null) {
@@ -27,5 +39,22 @@ public class JwtUtil {
           String.format("The provided token has no %s claim!", claimName));
     }
     return claim.asString();
+  }
+
+  public static String getClaimOrDefault(DecodedJWT jwt, String claimName, String defaultValue) {
+    String claim;
+    try {
+      claim = JwtUtil.getClaimOrDie(jwt, claimName);
+    } catch (JWTDecodeException | AuthenticationException e) {
+      claim = defaultValue;
+    }
+    return claim;
+  }
+
+  public static DecodedJWT getDecodedJwtFromRequestDetails(RequestDetailsReader requestDetails) {
+    if (requestDetails == null) return null;
+    String authHeader = requestDetails.getHeader(HttpHeaders.AUTHORIZATION);
+    String bearerToken = authHeader.substring(TokenVerifier.BEARER_PREFIX.length());
+    return JWT.decode(bearerToken);
   }
 }

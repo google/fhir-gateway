@@ -109,6 +109,9 @@ The configuration parameters are provided through environment variables:
 - `BACKEND_TYPE`: The type of backend, either `HAPI` or `GCP`. `HAPI` should be
   used for most FHIR servers, while `GCP` should be used for GCP FHIR stores.
 
+- `AUDIT_EVENT_LOGGING_ENABLED`: A flag to configure AuditEvent logging. Set to
+  `true` to enable or `false` to disable. Default when not set is `false`.
+
 ## Access Checkers
 
 FHIR Info Gateway uses _access checker plugins_ to define the logic it uses to

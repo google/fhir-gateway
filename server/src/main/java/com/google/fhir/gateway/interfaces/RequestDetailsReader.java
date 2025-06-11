@@ -63,4 +63,6 @@ public interface RequestDetailsReader {
   boolean isRespondGzip();
 
   byte[] loadRequestContents();
+
+  String getServletRequestRemoteAddr();
 }

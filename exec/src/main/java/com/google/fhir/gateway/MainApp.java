@@ -17,13 +17,16 @@ package com.google.fhir.gateway;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
 import org.springframework.boot.web.servlet.ServletComponentScan;
 
 /**
  * This class shows the minimum that is required to create a FHIR Gateway with all AccessChecker
  * plugins defined in "com.google.fhir.gateway.plugin".
  */
-@SpringBootApplication(scanBasePackages = {"com.google.fhir.gateway.plugin"})
+@SpringBootApplication(
+    scanBasePackages = {"com.google.fhir.gateway.plugin"},
+    exclude = {DataSourceAutoConfiguration.class})
 @ServletComponentScan(basePackages = "com.google.fhir.gateway")
 public class MainApp {
 
