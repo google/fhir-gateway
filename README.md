@@ -22,7 +22,7 @@ The requests to the access proxy should have the access token as a Bearer
 Authorization header. Based on that, the proxy decides whether to grant access
 for a FHIR query.
 
-<img src="doc/docs/summary.png" width=50% alt="Modules involved in FHIR authorization/access-control">
+<img src="doc/docs/images/summary.png" width=50% alt="Modules involved in FHIR authorization/access-control">
 
 For more information on the technical design,
 [see the design doc](doc/docs/design.md).
