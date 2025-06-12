@@ -16,7 +16,6 @@
 package com.google.fhir.gateway;
 
 import ca.uhn.fhir.context.FhirContext;
-import ca.uhn.fhir.rest.api.Constants;
 import ca.uhn.fhir.rest.api.RequestTypeEnum;
 import ca.uhn.fhir.rest.api.RestOperationTypeEnum;
 import ca.uhn.fhir.rest.api.server.RequestDetails;
@@ -109,27 +108,9 @@ public class RequestDetailsToReader implements RequestDetailsReader {
 
   @Override
   public RestOperationTypeEnum getRestOperationType() {
-    RestOperationTypeEnum restOperationTypeEnum = null;
-    if (RequestTypeEnum.PATCH.name().equals(requestDetails.getRequestType().name())) {
-      restOperationTypeEnum = RestOperationTypeEnum.PATCH;
-    } else if (RequestTypeEnum.PUT.name().equals(requestDetails.getRequestType().name())) {
-      restOperationTypeEnum = RestOperationTypeEnum.UPDATE;
-    } else if (RequestTypeEnum.GET.name().equals(requestDetails.getRequestType().name())) {
-      if (requestDetails.getId() != null && requestDetails.getId().hasVersionIdPart()) {
-        restOperationTypeEnum = RestOperationTypeEnum.VREAD;
-      } else if (requestDetails.getId() != null && !requestDetails.getId().hasVersionIdPart()) {
-        restOperationTypeEnum = RestOperationTypeEnum.READ;
-      } else if (requestDetails.getId() == null
-          && requestDetails.getParameters().containsKey(Constants.PARAM_PAGINGACTION)) {
-        restOperationTypeEnum = RestOperationTypeEnum.GET_PAGE;
-      } else {
-        restOperationTypeEnum = RestOperationTypeEnum.SEARCH_TYPE;
-      }
-    } else if (RequestTypeEnum.POST.name().equals(requestDetails.getRequestType().name())) {
-      restOperationTypeEnum = RestOperationTypeEnum.CREATE;
-    } else if (RequestTypeEnum.DELETE.name().equals(requestDetails.getRequestType().name())) {
-      restOperationTypeEnum = RestOperationTypeEnum.DELETE;
-    }
-    return restOperationTypeEnum;
+    return FhirUtil.getRestOperationType(
+        requestDetails.getRequestType().name(),
+        requestDetails.getId(),
+        requestDetails.getParameters());
   }
 }
