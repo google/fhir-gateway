@@ -187,6 +187,7 @@ public class BearerAuthorizationInterceptorTest {
     when(requestMock.getId()).thenReturn(new IdType("be92a43f-de46-affa-b131-bbf9eea51140"));
     when(requestMock.getFhirServerBase()).thenReturn("http://my-gateway-server/fhir");
     when(requestMock.getServletRequest()).thenReturn(httpServletRequest);
+    when(requestMock.loadRequestContents()).thenReturn(new byte[] {});
 
     BearerAuthorizationInterceptor testInstance = createTestInstance(true, null, true);
     testInstance.authorizeRequest(requestMock);

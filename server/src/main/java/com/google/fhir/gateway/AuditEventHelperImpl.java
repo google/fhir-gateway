@@ -12,6 +12,8 @@ import com.google.fhir.gateway.interfaces.AuditEventHelper;
 import com.google.fhir.gateway.interfaces.RequestDetailsReader;
 import jakarta.annotation.Nullable;
 import java.io.IOException;
+import java.io.Reader;
+import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Date;
@@ -52,8 +54,9 @@ public class AuditEventHelperImpl implements AuditEventHelper {
   private final HttpFhirClient httpFhirClient;
   private final FhirContext fhirContext;
   private final boolean isPOSTBundle;
-  private final Bundle requestResourceBundle;
+  private final IBaseResource requestResource;
   private final IBaseResource responseResource;
+  private final IBaseResource auditEventSource;
 
   private AuditEventHelperImpl(
       RequestDetailsReader requestDetailsReader,
@@ -78,23 +81,46 @@ public class AuditEventHelperImpl implements AuditEventHelper {
             && requestDetailsReader.getResourceName() == null;
 
     String requestResourceString =
-        isPOSTBundle
-            ? new String(requestDetailsReader.loadRequestContents(), StandardCharsets.UTF_8)
+        new String(requestDetailsReader.loadRequestContents(), StandardCharsets.UTF_8);
+
+    requestResource =
+        !requestResourceString.isEmpty()
+            ? fhirContext.newJsonParser().parseResource(requestResourceString)
             : null;
 
-    requestResourceBundle =
-        requestResourceString != null
-            ? (Bundle) fhirContext.newJsonParser().parseResource(requestResourceString)
-            : null;
+    responseResource = this.fhirContext.newJsonParser().parseResource(responseContent);
 
-    // This condition handles operations with no response body returned e.g. POST/PUT requests with
+    // This handles operations with no response body returned e.g. POST/PUT requests with
     // Prefer: return=minimal HTTP header
-    String serverContentResponse =
-        responseContent.isEmpty()
-            ? getResourceFromContentLocation(this.responseContentLocation)
-            : responseContent;
+    IBaseResource contentLocationResponseResource =
+        this.responseContentLocation != null
+            ? this.fhirContext
+                .newJsonParser()
+                .parseResource(getResourceFromContentLocation(this.responseContentLocation))
+            : null;
 
-    responseResource = this.fhirContext.newJsonParser().parseResource(serverContentResponse);
+    auditEventSource =
+        createAuditEventSource(requestResource, responseResource, contentLocationResponseResource);
+  }
+
+  @Nullable
+  private IBaseResource createAuditEventSource(
+      IBaseResource requestResource,
+      IBaseResource responseResource,
+      IBaseResource contentLocationResponseResource) {
+    IBaseResource auditEventSource;
+    if (responseResource != null) {
+      auditEventSource = responseResource;
+    } else if (requestResource != null) {
+      auditEventSource = requestResource;
+      auditEventSource.setId(
+          contentLocationResponseResource != null
+              ? contentLocationResponseResource.getIdElement()
+              : auditEventSource.getIdElement()); // POST requests don't have a valid id yet.
+    } else {
+      auditEventSource = contentLocationResponseResource;
+    }
+    return auditEventSource;
   }
 
   public static AuditEventHelper createInstance(
@@ -134,9 +160,24 @@ public class AuditEventHelperImpl implements AuditEventHelper {
     for (AuditEvent auditEvent : auditEventList) {
       auditEvent.getPeriod().setEnd(new Date());
       try {
-        this.httpFhirClient.postResource(auditEvent);
+        org.apache.http.HttpResponse response = this.httpFhirClient.postResource(auditEvent);
+        handleErrorResponse(response);
       } catch (IOException exception) {
         ExceptionUtil.throwRuntimeExceptionAndLog(logger, exception.getMessage(), exception);
+      }
+    }
+  }
+
+  private void handleErrorResponse(org.apache.http.HttpResponse response) throws IOException {
+    if (response != null && !HttpUtil.isResponseValid(response)) {
+      StringWriter responseStringWriter = new StringWriter();
+      try (Reader reader = HttpUtil.readerFromEntity(response.getEntity())) {
+        reader.transferTo(responseStringWriter);
+        OperationOutcome outcome =
+            (OperationOutcome)
+                fhirContext.newJsonParser().parseResource(responseStringWriter.toString());
+        ExceptionUtil.throwRuntimeExceptionAndLog(
+            logger, outcome.getIssueFirstRep().getDiagnostics());
       }
     }
   }
@@ -309,49 +350,38 @@ public class AuditEventHelperImpl implements AuditEventHelper {
             .parameters(requestDetailsReader.getParameters())
             .build();
 
-    if (responseResource instanceof Bundle) {
+    if (auditEventSource instanceof Bundle) {
       List<Bundle.BundleEntryComponent> responseBundleEntryComponents =
-          ((Bundle) responseResource).getEntry();
+          ((Bundle) auditEventSource).getEntry();
+
+      List<Bundle.BundleEntryComponent> requestBundleEntryComponents =
+          isPOSTBundle ? ((Bundle) requestResource).getEntry() : List.of();
 
       for (int i = 0; i < responseBundleEntryComponents.size(); i++) {
-        IBaseResource bundleEntryComponentResource =
-            extractResourceFromBundleComponent(responseBundleEntryComponents.get(i));
-        AuditEventBuilder.QueryEntity nestedResourceQueryEntity = queryEntity;
 
+        IBaseResource bundleEntryComponentResource =
+            extractResourceFromBundleComponent(
+                !requestBundleEntryComponents.isEmpty()
+                    ? requestBundleEntryComponents.get(i)
+                    : null,
+                responseBundleEntryComponents.get(i));
+
+        AuditEventBuilder.QueryEntity nestedResourceQueryEntity = queryEntity;
         RestOperationTypeEnum restOperationType;
         if (isPOSTBundle) {
+
           nestedResourceQueryEntity =
-              AuditEventBuilder.QueryEntity.builder()
-                  .completeUrl(
-                      String.format(
-                          "%s/%s",
-                          requestDetailsReader.getFhirServerBase(),
-                          requestResourceBundle.getEntry().get(i).getRequest().getUrl()))
-                  .requestType(
-                      RequestTypeEnum.valueOf(
-                          requestResourceBundle.getEntry().get(i).getRequest().getMethod().name()))
-                  .fhirServerBase(requestDetailsReader.getFhirServerBase())
-                  .requestPath(
-                      UrlUtil.determineResourceTypeInResourceUrl(
-                          fhirContext,
-                          requestResourceBundle.getEntry().get(i).getRequest().getUrl()))
-                  .parameters(
-                      UrlUtil.parseQueryString(
-                          getQueryStringFromBundleComponent(
-                              requestResourceBundle.getEntry().get(i))))
-                  .build();
+              generateBundleEntryComponentQueryEntity(((Bundle) requestResource).getEntry().get(i));
 
           restOperationType =
               getRestOperationTypeForBundleEntry(
-                  requestResourceBundle.getEntry().get(i), bundleEntryComponentResource);
+                  ((Bundle) requestResource).getEntry().get(i), bundleEntryComponentResource);
 
         } else {
-
           restOperationType = requestDetailsReader.getRestOperationType();
         }
 
         if (bundleEntryComponentResource instanceof Bundle) {
-
           processResponseResourceNestedBundle(
               bundleEntryComponentResource,
               restOperationType,
@@ -378,6 +408,24 @@ public class AuditEventHelperImpl implements AuditEventHelper {
     return resourcesByRestOperationMap;
   }
 
+  private AuditEventBuilder.QueryEntity generateBundleEntryComponentQueryEntity(
+      Bundle.BundleEntryComponent bundleEntryComponent) {
+    return AuditEventBuilder.QueryEntity.builder()
+        .completeUrl(
+            String.format(
+                "%s/%s",
+                requestDetailsReader.getFhirServerBase(),
+                bundleEntryComponent.getRequest().getUrl()))
+        .requestType(RequestTypeEnum.valueOf(bundleEntryComponent.getRequest().getMethod().name()))
+        .fhirServerBase(requestDetailsReader.getFhirServerBase())
+        .requestPath(
+            UrlUtil.determineResourceTypeInResourceUrl(
+                fhirContext, bundleEntryComponent.getRequest().getUrl()))
+        .parameters(
+            UrlUtil.parseQueryString(getQueryStringFromBundleComponent(bundleEntryComponent)))
+        .build();
+  }
+
   private void processResponseResourceNestedBundle(
       IBaseResource bundleResource,
       RestOperationTypeEnum restOperationType,
@@ -388,7 +436,8 @@ public class AuditEventHelperImpl implements AuditEventHelper {
     for (Bundle.BundleEntryComponent nestedBundleEntryComponent :
         ((Bundle) bundleResource).getEntry()) {
 
-      IBaseResource entryResource = extractResourceFromBundleComponent(nestedBundleEntryComponent);
+      IBaseResource entryResource =
+          extractResourceFromBundleComponent(null, nestedBundleEntryComponent);
 
       if (entryResource instanceof Bundle) {
 
@@ -403,19 +452,33 @@ public class AuditEventHelperImpl implements AuditEventHelper {
   }
 
   private @Nullable IBaseResource extractResourceFromBundleComponent(
+      Bundle.BundleEntryComponent requestBundleEntryComponent,
       Bundle.BundleEntryComponent responseBundleEntryComponent) {
-    IBaseResource resource = null;
+    IBaseResource resource;
+    IBaseResource contentLocationResource = null;
 
-    if (responseBundleEntryComponent.hasResource()) {
-      resource = responseBundleEntryComponent.getResource();
-
-    } else if (responseBundleEntryComponent.hasResponse()) {
-      resource =
+    if (responseBundleEntryComponent.hasResponse()
+        && responseBundleEntryComponent.getResponse().getLocation() != null) {
+      contentLocationResource =
           fhirContext
               .newJsonParser()
               .parseResource(
                   getResourceFromContentLocation(
                       responseBundleEntryComponent.getResponse().getLocation()));
+    }
+
+    if (responseBundleEntryComponent.hasResource()) {
+      resource = responseBundleEntryComponent.getResource();
+
+    } else if (requestBundleEntryComponent != null && requestBundleEntryComponent.hasResource()) {
+      resource = requestBundleEntryComponent.getResource();
+      resource.setId(
+          contentLocationResource != null
+              ? contentLocationResource.getIdElement()
+              : resource.getIdElement());
+
+    } else {
+      resource = contentLocationResource;
     }
     return resource;
   }
