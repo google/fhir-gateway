@@ -92,10 +92,15 @@ public class AuditEventHelperImpl implements AuditEventHelper {
     this.periodStartTime = periodStartTime;
     this.httpFhirClient = httpFhirClient;
     this.fhirContext = fhirContext;
-
-    isPOSTBundle =
+    this.isPOSTBundle =
         requestDetailsReader.getRequestType() == RequestTypeEnum.POST
             && requestDetailsReader.getResourceName() == null;
+
+    // The following constructor logic prepares the source for the AuditEvent to be generated. It
+    // uses a combination of the request payload, response resource and the Content-Location header
+    // to generate the most complete input resource. This input is mostly used to generate
+    // AuditEvents for single resource requests as opposed to POST bundle requests which are handled
+    // by the {@link #extractResourceFromBundleComponent()} method.
 
     requestResource =
         requestDetailsReader.loadRequestContents().length > 0
@@ -106,18 +111,19 @@ public class AuditEventHelperImpl implements AuditEventHelper {
             ? FhirUtil.createResourceFromRequest(fhirContext, requestDetailsReader)
             : null;
 
-    responseResource = FhirUtil.parseResourceOrNull(this.fhirContext, responseContent);
+    responseResource = FhirUtil.parseResourceOrNull(fhirContext, responseContent);
 
     // This handles operations with no response body returned i.e. POST/PUT/PATCH requests with
     // Prefer: return=minimal HTTP header
     IBaseResource contentLocationResponseResource =
-        this.responseContentLocation != null
+        responseContentLocation != null
             ? FhirUtil.parseResourceOrNull(
-                this.fhirContext, getResourceFromContentLocation(this.responseContentLocation))
+                fhirContext, getResourceFromContentLocation(responseContentLocation))
             : null;
 
     auditEventSource =
-        createAuditEventSource(requestResource, responseResource, contentLocationResponseResource);
+        createAuditEventSource(
+            this.requestResource, this.responseResource, contentLocationResponseResource);
   }
 
   @Nullable
@@ -469,6 +475,18 @@ public class AuditEventHelperImpl implements AuditEventHelper {
     }
   }
 
+  /**
+   * Generates the source resource for the AuditEvent to be generated. It uses a combination of the
+   * request bundle entry component resource, response bundle entry component resource and the
+   * `response.location` field of the response bundle entry component to generate the most complete
+   * input resource.
+   *
+   * @param requestBundleEntryComponent the bundle entry component from the request at a specific
+   *     index position
+   * @param responseBundleEntryComponent the bundle entry component from the response at an index
+   *     position corresponding to the {@code requestBundleEntryComponent}
+   * @return a FHIR Resource to be used as the input source of the AuditEvent generation
+   */
   private @Nullable IBaseResource extractResourceFromBundleComponent(
       Bundle.BundleEntryComponent requestBundleEntryComponent,
       Bundle.BundleEntryComponent responseBundleEntryComponent) {
