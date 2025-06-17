@@ -53,6 +53,10 @@ import org.slf4j.LoggerFactory;
 /**
  * This class is meant to be immutable with a new instance created for to process each individual
  * request.
+ *
+ * <p>This implementation is partially inspired by the HAPI FHIR Storage BalpAuditCaptureInterceptor
+ * class. See
+ * https://github.com/hapifhir/hapi-fhir/blob/v8.2.0/hapi-fhir-storage/src/main/java/ca/uhn/fhir/storage/interceptor/balp/BalpAuditCaptureInterceptor.java
  */
 public class AuditEventHelperImpl implements AuditEventHelper {
 
