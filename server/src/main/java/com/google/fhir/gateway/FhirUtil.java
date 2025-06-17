@@ -16,6 +16,7 @@
 package com.google.fhir.gateway;
 
 import ca.uhn.fhir.context.FhirContext;
+import ca.uhn.fhir.parser.DataFormatException;
 import ca.uhn.fhir.parser.IParser;
 import ca.uhn.fhir.rest.api.Constants;
 import ca.uhn.fhir.rest.api.RequestTypeEnum;
@@ -135,5 +136,16 @@ public class FhirUtil {
       restOperationTypeEnum = RestOperationTypeEnum.DELETE;
     }
     return restOperationTypeEnum;
+  }
+
+  @Nullable
+  public static IBaseResource parseResourceOrNull(
+      FhirContext fhirContext, String fhirResourceString) {
+    try {
+      IParser jsonParser = fhirContext.newJsonParser();
+      return jsonParser.parseResource(fhirResourceString);
+    } catch (DataFormatException e) {
+      return null;
+    }
   }
 }

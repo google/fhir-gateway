@@ -29,7 +29,6 @@ import jakarta.annotation.Nullable;
 import java.io.IOException;
 import java.io.Reader;
 import java.io.StringWriter;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
@@ -45,7 +44,6 @@ import org.hl7.fhir.r4.model.Identifier;
 import org.hl7.fhir.r4.model.OperationOutcome;
 import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.Resource;
-import org.hl7.fhir.r4.model.ResourceType;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -95,23 +93,23 @@ public class AuditEventHelperImpl implements AuditEventHelper {
         requestDetailsReader.getRequestType() == RequestTypeEnum.POST
             && requestDetailsReader.getResourceName() == null;
 
-    String requestResourceString =
-        new String(requestDetailsReader.loadRequestContents(), StandardCharsets.UTF_8);
-
     requestResource =
-        !requestResourceString.isEmpty()
-            ? fhirContext.newJsonParser().parseResource(requestResourceString)
+        requestDetailsReader.loadRequestContents().length > 0
+                && !RequestTypeEnum.PATCH.equals(
+                    requestDetailsReader
+                        .getRequestType()) // Should we consider moving these checks to the Util
+            // function and return null otherwise?
+            ? FhirUtil.createResourceFromRequest(fhirContext, requestDetailsReader)
             : null;
 
-    responseResource = this.fhirContext.newJsonParser().parseResource(responseContent);
+    responseResource = FhirUtil.parseResourceOrNull(this.fhirContext, responseContent);
 
-    // This handles operations with no response body returned e.g. POST/PUT requests with
+    // This handles operations with no response body returned i.e. POST/PUT/PATCH requests with
     // Prefer: return=minimal HTTP header
     IBaseResource contentLocationResponseResource =
         this.responseContentLocation != null
-            ? this.fhirContext
-                .newJsonParser()
-                .parseResource(getResourceFromContentLocation(this.responseContentLocation))
+            ? FhirUtil.parseResourceOrNull(
+                this.fhirContext, getResourceFromContentLocation(this.responseContentLocation))
             : null;
 
     auditEventSource =
@@ -190,9 +188,10 @@ public class AuditEventHelperImpl implements AuditEventHelper {
         reader.transferTo(responseStringWriter);
         OperationOutcome outcome =
             (OperationOutcome)
-                fhirContext.newJsonParser().parseResource(responseStringWriter.toString());
-        ExceptionUtil.throwRuntimeExceptionAndLog(
-            logger, outcome.getIssueFirstRep().getDiagnostics());
+                FhirUtil.parseResourceOrNull(this.fhirContext, responseStringWriter.toString());
+        if (outcome != null)
+          ExceptionUtil.throwRuntimeExceptionAndLog(
+              logger, outcome.getIssueFirstRep().getDiagnostics());
       }
     }
   }
@@ -475,11 +474,10 @@ public class AuditEventHelperImpl implements AuditEventHelper {
     if (responseBundleEntryComponent.hasResponse()
         && responseBundleEntryComponent.getResponse().getLocation() != null) {
       contentLocationResource =
-          fhirContext
-              .newJsonParser()
-              .parseResource(
-                  getResourceFromContentLocation(
-                      responseBundleEntryComponent.getResponse().getLocation()));
+          FhirUtil.parseResourceOrNull(
+              this.fhirContext,
+              getResourceFromContentLocation(
+                  responseBundleEntryComponent.getResponse().getLocation()));
     }
 
     if (responseBundleEntryComponent.hasResource()) {
@@ -586,7 +584,7 @@ public class AuditEventHelperImpl implements AuditEventHelper {
     // We need to capture the context of the operation e.g. Successful DELETE returns
     // OperationOutcome but no info on the affected resource
     String processedResource = getResourceFromContentLocation(this.responseContentLocation);
-    IBaseResource resource = fhirContext.newJsonParser().parseResource(processedResource);
+    IBaseResource resource = FhirUtil.parseResourceOrNull(this.fhirContext, processedResource);
 
     Set<String> patientIds =
         resource instanceof DomainResource
@@ -641,9 +639,7 @@ public class AuditEventHelperImpl implements AuditEventHelper {
       }
     }
 
-    if (!ResourceType.Patient.equals(resource.getResourceType())) {
-      auditEventBuilder.addEntityWhat(balpProfile, false, FhirUtil.extractLogicalId(resource));
-    }
+    auditEventBuilder.addEntityWhat(balpProfile, false, FhirUtil.extractLogicalId(resource));
 
     if (BalpProfileEnum.BASIC_QUERY.equals(balpProfile)
         || BalpProfileEnum.PATIENT_QUERY.equals(balpProfile)) {

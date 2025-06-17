@@ -128,44 +128,50 @@ public class AuditEventBuilder {
     return this;
   }
 
-  public AuditEventBuilder addQuery(QueryEntity queryEntityBuilder) {
-    AuditEvent.AuditEventEntityComponent queryEntity = new AuditEvent.AuditEventEntityComponent();
+  public AuditEventBuilder addQuery(QueryEntity queryEntity) {
+    AuditEvent.AuditEventEntityComponent queryEntityComponent =
+        new AuditEvent.AuditEventEntityComponent();
 
     // uses https://hl7.org/fhir/R4/valueset-audit-entity-type.html
-    queryEntity
+    queryEntityComponent
         .getType()
         .setSystem(AuditEntityType._2.getSystem())
         .setCode(AuditEntityType._2.toCode())
         .setDisplay(AuditEntityType._2.getDisplay());
 
-    queryEntity // uses https://hl7.org/fhir/R4/valueset-object-role.html
+    queryEntityComponent // uses https://hl7.org/fhir/R4/valueset-object-role.html
         .getRole()
         .setSystem(ObjectRole._24.getSystem())
         .setCode(ObjectRole._24.toCode())
         .setDisplay(ObjectRole._24.getDisplay());
 
-    String description =
-        queryEntityBuilder.getRequestType().name() + " " + queryEntityBuilder.getCompleteUrl();
-    queryEntity.setDescription(description);
+    String description = queryEntity.getRequestType().name() + " " + queryEntity.getCompleteUrl();
+    queryEntityComponent.setDescription(description);
 
     String queryString =
-        queryEntityBuilder.getFhirServerBase()
+        queryEntity.getFhirServerBase()
             + "/"
-            + queryEntityBuilder.getRequestPath()
-            + generateQueryStringFromQueryParameters(queryEntityBuilder.getParameters());
+            + queryEntity.getRequestPath()
+            + generateQueryStringFromQueryParameters(queryEntity.getParameters());
 
-    queryEntity.getQueryElement().setValue(queryString.getBytes(StandardCharsets.UTF_8));
+    queryEntityComponent.getQueryElement().setValue(queryString.getBytes(StandardCharsets.UTF_8));
 
-    auditEventEntityList.add(queryEntity);
+    auditEventEntityList.add(queryEntityComponent);
     return this;
   }
 
   private static String generateQueryStringFromQueryParameters(
       Map<String, String[]> queryStringParameters) {
-    StringBuilder queryString = new StringBuilder("?");
+    StringBuilder queryString = new StringBuilder();
+    boolean first = true;
     for (Map.Entry<String, String[]> nextEntrySet : queryStringParameters.entrySet()) {
       for (String nextValue : nextEntrySet.getValue()) {
-        queryString.append("&");
+        if (first) {
+          queryString.append("?");
+          first = false;
+        } else {
+          queryString.append("&");
+        }
         queryString.append(UrlUtil.escapeUrlParam(nextEntrySet.getKey()));
         queryString.append("=");
         queryString.append(UrlUtil.escapeUrlParam(nextValue));
