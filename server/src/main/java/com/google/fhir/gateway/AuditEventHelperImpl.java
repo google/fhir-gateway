@@ -25,6 +25,7 @@ import com.auth0.jwt.interfaces.DecodedJWT;
 import com.google.common.base.Strings;
 import com.google.fhir.gateway.interfaces.AuditEventHelper;
 import com.google.fhir.gateway.interfaces.RequestDetailsReader;
+import jakarta.annotation.Nonnull;
 import jakarta.annotation.Nullable;
 import java.io.IOException;
 import java.io.Reader;
@@ -44,7 +45,6 @@ import org.hl7.fhir.r4.model.Identifier;
 import org.hl7.fhir.r4.model.OperationOutcome;
 import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.Resource;
-import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -200,7 +200,7 @@ public class AuditEventHelperImpl implements AuditEventHelper {
     }
   }
 
-  private @NotNull List<AuditEvent> getAuditEvents(
+  private @Nonnull List<AuditEvent> getAuditEvents(
       RestOperationTypeEnum restOperationType, List<AuditEventBuilder.ResourceContext> resources) {
     List<AuditEvent> auditEventList = new ArrayList<>();
     switch (restOperationType) {
@@ -515,7 +515,7 @@ public class AuditEventHelperImpl implements AuditEventHelper {
     return restOperationType;
   }
 
-  private @NotNull String getQueryStringFromBundleComponent(
+  private @Nonnull String getQueryStringFromBundleComponent(
       Bundle.BundleEntryComponent requestResourceBundleComponent) {
     String requestUrl = requestResourceBundleComponent.getRequest().getUrl();
     return !Strings.isNullOrEmpty(requestUrl) && requestUrl.contains("?")
