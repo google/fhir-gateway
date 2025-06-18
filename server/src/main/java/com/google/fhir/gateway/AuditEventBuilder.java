@@ -148,23 +148,18 @@ public class AuditEventBuilder {
     String description = queryEntity.getRequestType().name() + " " + queryEntity.getCompleteUrl();
     queryEntityComponent.setDescription(description);
 
-    String queryString =
-        queryEntity.getFhirServerBase()
-            + "/"
-            + queryEntity.getRequestPath()
-            + generateQueryStringFromQueryParameters(queryEntity.getParameters());
-
+    String queryString = generateQueryStringFromQueryParameters(queryEntity);
     queryEntityComponent.getQueryElement().setValue(queryString.getBytes(StandardCharsets.UTF_8));
 
     auditEventEntityList.add(queryEntityComponent);
     return this;
   }
 
-  private static String generateQueryStringFromQueryParameters(
-      Map<String, String[]> queryStringParameters) {
-    StringBuilder queryString = new StringBuilder();
+  private static String generateQueryStringFromQueryParameters(QueryEntity queryEntity) {
+    StringBuilder queryString = new StringBuilder(queryEntity.getFhirServerBase());
+    queryString.append('/').append(queryEntity.getRequestPath());
     boolean first = true;
-    for (Map.Entry<String, String[]> nextEntrySet : queryStringParameters.entrySet()) {
+    for (Map.Entry<String, String[]> nextEntrySet : queryEntity.getParameters().entrySet()) {
       for (String nextValue : nextEntrySet.getValue()) {
         if (first) {
           queryString.append("?");

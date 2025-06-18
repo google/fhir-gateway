@@ -51,7 +51,7 @@ import org.slf4j.LoggerFactory;
 // TODO unit test this class
 
 /**
- * This class is meant to be immutable with a new instance created for to process each individual
+ * This class is meant to be immutable with a new instance created to process each individual
  * request.
  *
  * <p>This implementation is partially inspired by the HAPI FHIR Storage BalpAuditCaptureInterceptor
