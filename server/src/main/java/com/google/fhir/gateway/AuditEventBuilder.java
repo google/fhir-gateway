@@ -15,16 +15,18 @@
  */
 package com.google.fhir.gateway;
 
+import ca.uhn.fhir.rest.api.RequestTypeEnum;
 import ca.uhn.fhir.rest.api.RestOperationTypeEnum;
 import ca.uhn.fhir.storage.interceptor.balp.BalpProfileEnum;
 import ca.uhn.fhir.util.UrlUtil;
-import com.google.fhir.gateway.interfaces.RequestDetailsReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import lombok.Builder;
+import lombok.Getter;
+import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.model.AuditEvent;
 import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.Identifier;
@@ -126,33 +128,38 @@ public class AuditEventBuilder {
     return this;
   }
 
-  public AuditEventBuilder addQuery(RequestDetailsReader requestDetailsReader) {
-    AuditEvent.AuditEventEntityComponent queryEntity = new AuditEvent.AuditEventEntityComponent();
+  public AuditEventBuilder addQuery(QueryEntity queryEntity) {
+    AuditEvent.AuditEventEntityComponent queryEntityComponent =
+        new AuditEvent.AuditEventEntityComponent();
 
     // uses https://hl7.org/fhir/R4/valueset-audit-entity-type.html
-    queryEntity
+    queryEntityComponent
         .getType()
         .setSystem(AuditEntityType._2.getSystem())
         .setCode(AuditEntityType._2.toCode())
         .setDisplay(AuditEntityType._2.getDisplay());
 
-    queryEntity // uses https://hl7.org/fhir/R4/valueset-object-role.html
+    queryEntityComponent // uses https://hl7.org/fhir/R4/valueset-object-role.html
         .getRole()
         .setSystem(ObjectRole._24.getSystem())
         .setCode(ObjectRole._24.toCode())
         .setDisplay(ObjectRole._24.getDisplay());
 
-    String description =
-        requestDetailsReader.getRequestType().name() + " " + requestDetailsReader.getCompleteUrl();
-    queryEntity.setDescription(description);
+    String description = queryEntity.getRequestType().name() + " " + queryEntity.getCompleteUrl();
+    queryEntityComponent.setDescription(description);
 
-    StringBuilder queryString = new StringBuilder();
-    queryString.append(requestDetailsReader.getFhirServerBase());
-    queryString.append("/");
-    queryString.append(requestDetailsReader.getRequestPath());
+    String queryString = generateQueryStringFromQueryParameters(queryEntity);
+    queryEntityComponent.getQueryElement().setValue(queryString.getBytes(StandardCharsets.UTF_8));
+
+    auditEventEntityList.add(queryEntityComponent);
+    return this;
+  }
+
+  private static String generateQueryStringFromQueryParameters(QueryEntity queryEntity) {
+    StringBuilder queryString = new StringBuilder(queryEntity.getFhirServerBase());
+    queryString.append('/').append(queryEntity.getRequestPath());
     boolean first = true;
-    for (Map.Entry<String, String[]> nextEntrySet :
-        requestDetailsReader.getParameters().entrySet()) {
+    for (Map.Entry<String, String[]> nextEntrySet : queryEntity.getParameters().entrySet()) {
       for (String nextValue : nextEntrySet.getValue()) {
         if (first) {
           queryString.append("?");
@@ -165,11 +172,7 @@ public class AuditEventBuilder {
         queryString.append(UrlUtil.escapeUrlParam(nextValue));
       }
     }
-
-    queryEntity.getQueryElement().setValue(queryString.toString().getBytes(StandardCharsets.UTF_8));
-
-    auditEventEntityList.add(queryEntity);
-    return this;
+    return queryString.toString();
   }
 
   // TODO investigate https://hl7.org/fhir/R4/valueset-object-role.html variations to enhance
@@ -304,5 +307,22 @@ public class AuditEventBuilder {
   public static class Outcome {
     private AuditEvent.AuditEventOutcome code;
     private String description;
+  }
+
+  @Builder
+  @Getter
+  public static class QueryEntity {
+    private RequestTypeEnum requestType;
+    private String completeUrl;
+    private String fhirServerBase;
+    private String requestPath;
+    private Map<String, String[]> parameters;
+  }
+
+  @Builder
+  @Getter
+  public static class ResourceContext {
+    private QueryEntity queryEntity;
+    private IBaseResource resourceEntity;
   }
 }

@@ -32,7 +32,6 @@ import com.google.common.base.Preconditions;
 import com.google.fhir.gateway.interfaces.AccessChecker;
 import com.google.fhir.gateway.interfaces.AccessCheckerFactory;
 import com.google.fhir.gateway.interfaces.AccessDecision;
-import com.google.fhir.gateway.interfaces.AuditEventHelper;
 import com.google.fhir.gateway.interfaces.RequestDetailsReader;
 import com.google.fhir.gateway.interfaces.RequestMutation;
 import java.io.IOException;
@@ -226,7 +225,7 @@ public class BearerAuthorizationInterceptor {
           Header contentLocationHeader = response.getFirstHeader(CONTENT_LOCATION_HEADER);
 
           AuditEventHelper auditEventHelper =
-              AuditEventHelperImpl.createInstance(
+              new AuditEventHelper(
                   requestDetailsReader,
                   responseStringContent,
                   contentLocationHeader != null ? contentLocationHeader.getValue() : null,
