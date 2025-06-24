@@ -43,7 +43,6 @@ import org.hl7.fhir.r4.model.Identifier;
 import org.hl7.fhir.r4.model.OperationOutcome;
 import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.Resource;
-import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -60,7 +59,6 @@ import org.slf4j.LoggerFactory;
 public class AuditEventHelper {
 
   private static final Logger logger = LoggerFactory.getLogger(AuditEventHelper.class);
-
   private final PatientFinderImp patientFinder;
   private final RequestDetailsReader requestDetailsReader;
   private final String responseContentLocation;
@@ -69,10 +67,9 @@ public class AuditEventHelper {
   private final Date periodStartTime;
   private final HttpFhirClient httpFhirClient;
   private final FhirContext fhirContext;
-  private final boolean isPOSTBundle;
-  private final IBaseResource requestResource;
-  private final IBaseResource responseResource;
-  private final IBaseResource contentLocationResponseResource;
+  @Nullable private final IBaseResource requestResource;
+  @Nullable private final IBaseResource responseResource;
+  @Nullable private final IBaseResource contentLocationResponseResource;
 
   public AuditEventHelper(
       RequestDetailsReader requestDetailsReader,
@@ -91,9 +88,6 @@ public class AuditEventHelper {
     this.periodStartTime = periodStartTime;
     this.httpFhirClient = httpFhirClient;
     this.fhirContext = fhirContext;
-    this.isPOSTBundle =
-        requestDetailsReader.getRequestType() == RequestTypeEnum.POST
-            && requestDetailsReader.getResourceName() == null;
 
     // The following constructor logic prepares the source for the AuditEvent to be generated. It
     // uses a combination of the request payload, response resource and the Content-Location header
@@ -185,7 +179,7 @@ public class AuditEventHelper {
     }
   }
 
-  private @NotNull List<AuditEvent> generateAuditEventsByRestOperationType(
+  private @Nonnull List<AuditEvent> generateAuditEventsByRestOperationType(
       RestOperationTypeEnum restOperationType, AuditEventBuilder.ResourceContext auditEventSource) {
     List<AuditEvent> auditEventList;
     switch (restOperationType) {
@@ -217,6 +211,7 @@ public class AuditEventHelper {
                 BalpProfileEnum.BASIC_CREATE);
         break;
       case UPDATE:
+      case PATCH:
         auditEventList =
             processRestOperationByType(
                 restOperationType,
@@ -259,37 +254,34 @@ public class AuditEventHelper {
       Bundle requestBundle, Bundle auditEventSourceBundle) {
 
     List<AuditEvent> auditEventList = new ArrayList<>();
-    List<Bundle.BundleEntryComponent> auditEventSourceBundleEntryComponents =
-        auditEventSourceBundle.getEntry();
+    List<Bundle.BundleEntryComponent> auditEventSourceEntries = auditEventSourceBundle.getEntry();
     List<Bundle.BundleEntryComponent> requestBundleEntryComponents = requestBundle.getEntry();
 
-    for (int i = 0; i < auditEventSourceBundleEntryComponents.size(); i++) {
+    for (int i = 0; i < auditEventSourceEntries.size(); i++) {
 
-      IBaseResource bundleEntryComponentResource =
+      IBaseResource entryResource =
           extractResourceFromBundleComponent(
-              requestBundleEntryComponents.get(i), auditEventSourceBundleEntryComponents.get(i));
+              requestBundleEntryComponents.get(i), auditEventSourceEntries.get(i));
 
       AuditEventBuilder.QueryEntity nestedResourceQueryEntity =
           generateBundleEntryComponentQueryEntity(requestBundle.getEntry().get(i));
 
       RestOperationTypeEnum restOperationType =
-          getRestOperationTypeForBundleEntry(
-              requestBundle.getEntry().get(i), bundleEntryComponentResource);
+          getRestOperationTypeForBundleEntry(requestBundle.getEntry().get(i), entryResource);
 
-      if (bundleEntryComponentResource instanceof Bundle) {
+      // TODO to test this in e2e tests
+      if (entryResource instanceof Bundle) {
 
         auditEventList.addAll(
             createAuditEventsFromBundle(
-                restOperationType,
-                (Bundle) bundleEntryComponentResource,
-                nestedResourceQueryEntity));
+                restOperationType, (Bundle) entryResource, nestedResourceQueryEntity));
 
       } else {
 
         AuditEventBuilder.ResourceContext resourceContext =
             AuditEventBuilder.ResourceContext.builder()
                 .queryEntity(nestedResourceQueryEntity)
-                .resourceEntity(bundleEntryComponentResource)
+                .resourceEntity(entryResource)
                 .build();
         auditEventList.addAll(
             generateAuditEventsByRestOperationType(restOperationType, resourceContext));
