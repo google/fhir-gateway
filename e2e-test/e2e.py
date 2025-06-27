@@ -145,10 +145,10 @@ def test_post_bundle_with_logging_enabled_creates_audit_events(
     initial_audit_event_count = hapi.get_audit_event_count()
     logging.info("Initial AuditEvent count: %d", initial_audit_event_count)
 
-    fhir_proxy.post_resource("Bundle", file_name, token)
+    fhir_proxy.post_resource("", file_name, token)
     logging.info("Posted Bundle resource via Proxy.")
 
-    max_wait_seconds = 60
+    max_wait_seconds =  60
     poll_interval = 5
     waited = 0
     while waited < max_wait_seconds:
