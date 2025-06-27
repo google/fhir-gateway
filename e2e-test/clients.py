@@ -57,6 +57,13 @@ class HapiClient:
         response.raise_for_status()
         return response.json()["total"]
 
+    def get_audit_event_count(self) -> int:
+        """Returns the count of AuditEvent resources."""
+        resource_path = "{}/AuditEvent?_summary=count".format(self.base_url)
+        response = self.session.get(resource_path)
+        response.raise_for_status()
+        return response.json()["total"]
+
 
 class FhirProxyClient:
     """Client for connecting to a FHIR Proxy.

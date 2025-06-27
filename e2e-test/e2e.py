@@ -21,6 +21,9 @@ import time
 from typing import List, Tuple
 
 import clients
+import os
+
+from unittest.mock import patch
 
 
 def test_proxy_and_server_equal_count(
@@ -96,6 +99,71 @@ def test_post_resource_increase_count(
         "%s %ss returned for %s", value_from_proxy, resource_search_pair[0], patient_id,
     )
 
+@patch.dict(os.environ, {"AUDIT_EVENT_LOGGING_ENABLED_ENV": "true"})
+def test_post_resource_with_logging_enabled_creates_audit_event(
+    file_name: str,
+    hapi: clients.HapiClient,
+    fhir_proxy: clients.FhirProxyClient,
+    auth: clients.AuthClient,
+) -> None:
+    """Test to add a resource to the backend via the Proxy and verify AuditEvent creation."""
+    token = auth.get_auth_token()
+ 
+    initial_audit_event_count = hapi.get_audit_event_count()
+    logging.info("Initial AuditEvent count: %d", initial_audit_event_count)
+
+    fhir_proxy.post_resource("Observation", file_name, token)
+    logging.info("Posted Observation resource via Proxy.")
+
+    max_wait_seconds = 60
+    poll_interval = 5
+    waited = 0
+    while waited < max_wait_seconds:
+        current_audit_event_count = hapi.get_audit_event_count()
+        if current_audit_event_count == initial_audit_event_count + 1:
+            logging.info("AuditEvent created successfully after POST.")
+            return
+        time.sleep(poll_interval)
+        waited += poll_interval
+        logging.info("Waiting for AuditEvent... (%ds elapsed)", waited)
+
+    raise AssertionError(
+        "AuditEvent was not created after POST within {} seconds." 
+        "Initial count: {}, Current count: {}".format(max_wait_seconds, initial_audit_event_count, current_audit_event_count)
+    )
+
+@patch.dict(os.environ, {"AUDIT_EVENT_LOGGING_ENABLED_ENV": "true"})
+def test_post_bundle_with_logging_enabled_creates_audit_events(
+    file_name: str,
+    hapi: clients.HapiClient,
+    fhir_proxy: clients.FhirProxyClient,
+    auth: clients.AuthClient,
+) -> None:
+    """Test to add a resource to the backend via the Proxy and verify AuditEvent creation."""
+    token = auth.get_auth_token()
+ 
+    initial_audit_event_count = hapi.get_audit_event_count()
+    logging.info("Initial AuditEvent count: %d", initial_audit_event_count)
+
+    fhir_proxy.post_resource("Bundle", file_name, token)
+    logging.info("Posted Bundle resource via Proxy.")
+
+    max_wait_seconds = 60
+    poll_interval = 5
+    waited = 0
+    while waited < max_wait_seconds:
+        current_audit_event_count = hapi.get_audit_event_count()
+        if current_audit_event_count == initial_audit_event_count + 2:
+            logging.info("AuditEvent created successfully after POST.")
+            return
+        time.sleep(poll_interval)
+        waited += poll_interval
+        logging.info("Waiting for AuditEvent... (%ds elapsed)", waited)
+
+    raise AssertionError(
+        "AuditEvent was not created after POST within {} seconds." 
+        "Initial count: {}, Current count: {}".format(max_wait_seconds, initial_audit_event_count, current_audit_event_count)
+    )
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
@@ -119,3 +187,20 @@ if __name__ == "__main__":
         fhir_proxy_client,
         auth_client,
     )
+   
+    logging.info("Testing post resource with AuditEvent logging enabled")
+    test_post_resource_with_logging_enabled_creates_audit_event(
+        "e2e-test/obs.json",
+        hapi_client,
+        fhir_proxy_client,
+        auth_client,
+    )
+   
+    logging.info("Testing post bundle with AuditEvent logging enabled")
+    test_post_bundle_with_logging_enabled_creates_audit_events(
+        "e2e-test/bundle.json",
+        hapi_client,
+        fhir_proxy_client,
+        auth_client,
+    )
+
