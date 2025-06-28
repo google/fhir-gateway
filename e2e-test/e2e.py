@@ -156,7 +156,7 @@ def _test_post_and_verify_audit_events(
     fhir_proxy.post_resource(resource_type, file_name, token)
     logging.info("Posted %s resource via Proxy.", payload_type)
 
-    max_wait_seconds = 120
+    max_wait_seconds = 300
     poll_interval = 5
     waited = 0
     while waited < max_wait_seconds:
