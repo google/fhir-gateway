@@ -26,8 +26,8 @@
               }
               ,
             "request": {
-                "method": "PUT",
-                "url": "Patient/test-id-1"
+                "method": "POST",
+                "url": "Patient"
             }
         }
     ]

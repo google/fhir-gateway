@@ -16,15 +16,17 @@
 
 """End-to-end tests using the FHIR Proxy, HAPI Server, and AuthZ Server."""
 
+import datetime
 import logging
 import time
-from typing import List, Tuple
+from typing import List, Tuple, Dict, Any, cast
 
 import clients
 import os
 
 from unittest.mock import patch
-
+from clients import read_file
+from datetime import datetime, date
 
 def test_proxy_and_server_equal_count(
     patient_list: List[str],
@@ -99,6 +101,7 @@ def test_post_resource_increase_count(
         "%s %ss returned for %s", value_from_proxy, resource_search_pair[0], patient_id,
     )
 
+
 @patch.dict(os.environ, {"AUDIT_EVENT_LOGGING_ENABLED_ENV": "true"})
 def test_post_resource_with_logging_enabled_creates_audit_event(
     file_name: str,
@@ -107,30 +110,15 @@ def test_post_resource_with_logging_enabled_creates_audit_event(
     auth: clients.AuthClient,
 ) -> None:
     """Test to add a resource to the backend via the Proxy and verify AuditEvent creation."""
-    token = auth.get_auth_token()
- 
-    initial_audit_event_count = hapi.get_audit_event_count()
-    logging.info("Initial AuditEvent count: %d", initial_audit_event_count)
-
-    fhir_proxy.post_resource("Observation", file_name, token)
-    logging.info("Posted Observation resource via Proxy.")
-
-    max_wait_seconds = 60
-    poll_interval = 5
-    waited = 0
-    while waited < max_wait_seconds:
-        current_audit_event_count = hapi.get_audit_event_count()
-        if current_audit_event_count == initial_audit_event_count + 1:
-            logging.info("AuditEvent created successfully after POST.")
-            return
-        time.sleep(poll_interval)
-        waited += poll_interval
-        logging.info("Waiting for AuditEvent... (%ds elapsed)", waited)
-
-    raise AssertionError(
-        "AuditEvent was not created after POST within {} seconds." 
-        "Initial count: {}, Current count: {}".format(max_wait_seconds, initial_audit_event_count, current_audit_event_count)
+    _test_post_and_verify_audit_events(
+        "Observation",
+        file_name,
+        1,
+        hapi,
+        fhir_proxy,
+        auth
     )
+
 
 @patch.dict(os.environ, {"AUDIT_EVENT_LOGGING_ENABLED_ENV": "true"})
 def test_post_bundle_with_logging_enabled_creates_audit_events(
@@ -139,31 +127,138 @@ def test_post_bundle_with_logging_enabled_creates_audit_events(
     fhir_proxy: clients.FhirProxyClient,
     auth: clients.AuthClient,
 ) -> None:
-    """Test to add a resource to the backend via the Proxy and verify AuditEvent creation."""
-    token = auth.get_auth_token()
+    """Test to add a bundle to the backend via the Proxy and verify AuditEvents creation."""
+    _test_post_and_verify_audit_events(
+        "",
+        file_name,
+        2,
+        hapi,
+        fhir_proxy,
+        auth
+    )
+
  
+def _test_post_and_verify_audit_events(
+    resource_type: str,
+    file_name: str,
+    expected_audit_event_increase: int,
+    hapi: clients.HapiClient,
+    fhir_proxy: clients.FhirProxyClient,
+    auth: clients.AuthClient
+) -> None:
+    """Helper function to POST a resource and verify AuditEvent creation."""
+    token = auth.get_auth_token()
+    payload_type = "Bundle" if resource_type == "" else resource_type
+
     initial_audit_event_count = hapi.get_audit_event_count()
     logging.info("Initial AuditEvent count: %d", initial_audit_event_count)
 
-    fhir_proxy.post_resource("", file_name, token)
-    logging.info("Posted Bundle resource via Proxy.")
+    fhir_proxy.post_resource(resource_type, file_name, token)
+    logging.info("Posted %s resource via Proxy.", payload_type)
 
-    max_wait_seconds =  60
+    max_wait_seconds = 120
     poll_interval = 5
     waited = 0
     while waited < max_wait_seconds:
+        current_audit_events = hapi.get_audit_events(expected_audit_event_increase)
         current_audit_event_count = hapi.get_audit_event_count()
-        if current_audit_event_count == initial_audit_event_count + 2:
-            logging.info("AuditEvent created successfully after POST.")
+        if current_audit_event_count == initial_audit_event_count + expected_audit_event_increase:
+            expected_output_filename = ("transaction_bundle_audit_events.json" if resource_type == "" 
+                                                else f"{resource_type}_audit_events.json").lower()
+
+            expected_data = read_file(f"e2e-test/{expected_output_filename}")       
+
+            for (expected_audit_event, audit_event_entry) in zip(expected_data, current_audit_events):
+                actual_audit_event = _getDict(audit_event_entry.get("resource", {}))
+                _assert_audit_events(_getDict(expected_audit_event), actual_audit_event)
+                    
+            logging.info("AuditEvents created successfully after %s POST.", payload_type)
             return
         time.sleep(poll_interval)
         waited += poll_interval
-        logging.info("Waiting for AuditEvent... (%ds elapsed)", waited)
+        logging.info("POST %s :: Waiting for AuditEvent(s)... (%ds elapsed)", payload_type, waited)
 
     raise AssertionError(
-        "AuditEvent was not created after POST within {} seconds." 
-        "Initial count: {}, Current count: {}".format(max_wait_seconds, initial_audit_event_count, current_audit_event_count)
-    )
+        "Valid AuditEvent was NOT created after {} POST within {} seconds. "
+        "Initial count: {}, Current count: {}".format(
+            payload_type, max_wait_seconds, initial_audit_event_count, current_audit_event_count
+        )
+    )   
+
+def _assert_audit_events(expected_audit_event: Dict[str, str],
+                                                actual_audit_event: Dict[str, str]) -> None:
+    """Assert that actual AuditEvents match the expected structure and content."""
+    verification_fields = ["action", "subtype", "outcome", 
+                                        "agent", "entity", "source", "recorded", "period"]  
+    for field in verification_fields:
+        logging.info(f"Verifying AuditEvent.{field}")
+        if field in expected_audit_event:
+            expected_value = expected_audit_event.get(field)
+            actual_value = actual_audit_event.get(field)
+
+            if field == "agent": 
+                expected_value = (_getDict(expected_value[2])["who"] 
+                if isinstance(expected_value, list) and len(expected_value) > 2 else "")
+                actual_value = (_getDict(actual_value[2])["who"] 
+                if isinstance(actual_value, list) and len(actual_value) > 2 else "")
+            elif field == "entity":
+                #check if the AuditEvent has correct compartment owner
+                expected_compartment_value = (_getDict(expected_value[1])["what"] 
+                if isinstance(expected_value, list) and len(expected_value) > 1 else "")
+                actual_compartment_value = _getDict(actual_value[1]
+                )["what"] if isinstance(actual_value, list) and len(actual_value) > 1 else ""
+
+                expected_entity_resource_ref = _getDict(expected_compartment_value).get("reference")
+                actual_entity_resource_ref = _getDict(actual_compartment_value).get("reference")
+
+                expected_compartment_value = (expected_entity_resource_ref.split("/")[0] 
+                                    if isinstance(expected_entity_resource_ref, str) else "")
+                actual_compartment_value = (actual_entity_resource_ref.split("/")[0] 
+                                    if isinstance(actual_entity_resource_ref, str) else "" )
+
+                if expected_compartment_value != actual_compartment_value:
+                    raise AssertionError(
+                        f"Field '{field}' mismatch in AuditEvent compartment owner:\n"
+                        f"Expected: {expected_compartment_value}\n"
+                        f"Actual: {actual_compartment_value}"
+                    )
+
+                #check if the AuditEvent is for the correct resource type
+                expected_entity_what = (_getDict(expected_value[2])["what"] 
+                if isinstance(expected_value, list) and len(expected_value) > 2 else "")
+                actual_entity_what = (_getDict(actual_value[2])["what"] 
+                if isinstance(actual_value, list) and len(actual_value) > 2 else "")
+                
+                expected_entity_resource_ref = _getDict(expected_entity_what).get("reference")
+                actual_entity_resource_ref = _getDict(actual_entity_what).get("reference")
+
+                expected_value = (expected_entity_resource_ref.split("/")[0] 
+                                    if isinstance(expected_entity_resource_ref, str) else "")
+                actual_value = (actual_entity_resource_ref.split("/")[0] 
+                                    if isinstance(actual_entity_resource_ref, str) else "" )
+
+            elif field == "recorded":
+                expected_value = date.today()
+                actual_value = (datetime.fromisoformat(actual_value)
+                                 if isinstance(actual_value,str) else datetime.min).date()
+            elif field == "period":
+                #confirm with period.end that object is correct
+                actual_period_end = _getDict(actual_value).get("end")
+                expected_value = date.today()
+                actual_value = (datetime.fromisoformat(actual_period_end)
+                                if isinstance(actual_period_end,str) else datetime.min).date()
+            
+            if actual_value != expected_value:
+                raise AssertionError(
+                    f"Field '{field}' mismatch in AuditEvent:\n"
+                    f"Expected: {expected_value}\n"
+                    f"Actual: {actual_value}"
+                )
+    
+    logging.info("All AuditEvent fields verified successfully")
+
+def _getDict(raw: Any) -> Dict[str, str]:
+    return cast(Dict[str,str], raw)    
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
@@ -188,7 +283,7 @@ if __name__ == "__main__":
         auth_client,
     )
    
-    logging.info("Testing post resource with AuditEvent logging enabled")
+    logging.info("Testing POST Resource with AuditEvent logging enabled")
     test_post_resource_with_logging_enabled_creates_audit_event(
         "e2e-test/obs.json",
         hapi_client,
@@ -196,9 +291,9 @@ if __name__ == "__main__":
         auth_client,
     )
    
-    logging.info("Testing post bundle with AuditEvent logging enabled")
+    logging.info("Testing POST Bundle with AuditEvent logging enabled")
     test_post_bundle_with_logging_enabled_creates_audit_events(
-        "e2e-test/bundle.json",
+        "e2e-test/transaction_bundle.json",
         hapi_client,
         fhir_proxy_client,
         auth_client,

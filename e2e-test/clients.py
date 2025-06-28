@@ -17,7 +17,7 @@
 """Clients to make calls to FHIR Proxy, HAPI Server, and AuthZ Server."""
 
 import json
-from typing import Dict, Tuple
+from typing import Dict, Tuple, List
 
 import requests
 
@@ -63,6 +63,13 @@ class HapiClient:
         response = self.session.get(resource_path)
         response.raise_for_status()
         return response.json()["total"]
+
+    def get_audit_events(self, limit: int = 1) -> List[Dict[str, str]]:
+        """Returns the most recent AuditEvent resources."""
+        resource_path = "{}/AuditEvent?_count={}&_sort=-_lastUpdated".format(self.base_url, limit)
+        response = self.session.get(resource_path)
+        response.raise_for_status()
+        return response.json().get("entry", [])
 
 
 class FhirProxyClient:
