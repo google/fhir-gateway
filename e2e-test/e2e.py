@@ -163,17 +163,13 @@ def _test_post_and_verify_audit_events(
         current_audit_events = hapi.get_audit_events(expected_audit_event_increase)
         current_audit_event_count = hapi.get_audit_event_count()
         if current_audit_event_count == initial_audit_event_count + expected_audit_event_increase:
-            expected_output_filename = (
-                           "transaction_bundle_audit_events.json" 
-                           if resource_type == "" 
-                           else f"{resource_type}_audit_events.json"
-            ).lower()
-
-            expected_data = read_file(f"e2e-test/{expected_output_filename}")       
-
-            for (expected_audit_event, audit_event_entry) in zip(expected_data, current_audit_events):
-                actual_audit_event = _getDict(audit_event_entry.get("resource", {}))
-                _assert_audit_events(_getDict(expected_audit_event), actual_audit_event)
+            expected_output_filename = ("transaction_bundle_audit_events.json" 
+            if resource_type == "" 
+            else "{resource_type}_audit_events.json".format(resource_type=resource_type)
+            ).lower()                           
+            for audit_event_entry in current_audit_events:
+                audit_event = cast(Dict[str, str], audit_event_entry.get("resource", {}))
+                _assert_audit_events(read_file("e2e-test/{}".format(expected_output_filename)), audit_event)
                     
             logging.info("AuditEvents created successfully after %s POST.", payload_type)
             return
@@ -194,7 +190,7 @@ def _assert_audit_events(expected_audit_event: Dict[str, str],
     verification_fields = ["action", "subtype", "outcome", 
                                         "agent", "entity", "source", "recorded", "period"]  
     for field in verification_fields:
-        logging.info(f"Verifying AuditEvent.{field}")
+        logging.info("Verifying AuditEvent.{}".format(field))
         if field in expected_audit_event:
             expected_value = expected_audit_event.get(field)
             actual_value = actual_audit_event.get(field)
@@ -208,8 +204,8 @@ def _assert_audit_events(expected_audit_event: Dict[str, str],
                 #check if the AuditEvent has correct compartment owner
                 expected_compartment_value = (_getDict(expected_value[1])["what"] 
                 if isinstance(expected_value, list) and len(expected_value) > 1 else "")
-                actual_compartment_value = _getDict(actual_value[1]
-                )["what"] if isinstance(actual_value, list) and len(actual_value) > 1 else ""
+                actual_compartment_value = (_getDict(actual_value[1])["what"] 
+                if isinstance(actual_value, list) and len(actual_value) > 1 else "")
 
                 expected_entity_resource_ref = _getDict(expected_compartment_value).get("reference")
                 actual_entity_resource_ref = _getDict(actual_compartment_value).get("reference")
@@ -221,9 +217,12 @@ def _assert_audit_events(expected_audit_event: Dict[str, str],
 
                 if expected_compartment_value != actual_compartment_value:
                     raise AssertionError(
-                        f"Field '{field}' mismatch in AuditEvent compartment owner:\n"
-                        f"Expected: {expected_compartment_value}\n"
-                        f"Actual: {actual_compartment_value}"
+                        "Field '{}' compartment owner mismatch in AuditEvent:\n"
+                        "Expected: {}\n"
+                        "Actual: {}".format(
+                                            field, expected_entity_resource_ref, 
+                                            actual_entity_resource_ref
+                                            )
                     )
 
                 #check if the AuditEvent is for the correct resource type
@@ -253,9 +252,9 @@ def _assert_audit_events(expected_audit_event: Dict[str, str],
             
             if actual_value != expected_value:
                 raise AssertionError(
-                    f"Field '{field}' mismatch in AuditEvent:\n"
-                    f"Expected: {expected_value}\n"
-                    f"Actual: {actual_value}"
+                    "Field '{}' mismatch in AuditEvent:\n"
+                    "Expected: {}\n"
+                    "Actual: {}".format(field, expected_value, actual_value)
                 )
     
     logging.info("All AuditEvent fields verified successfully")
