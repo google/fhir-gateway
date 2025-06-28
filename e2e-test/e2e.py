@@ -163,8 +163,11 @@ def _test_post_and_verify_audit_events(
         current_audit_events = hapi.get_audit_events(expected_audit_event_increase)
         current_audit_event_count = hapi.get_audit_event_count()
         if current_audit_event_count == initial_audit_event_count + expected_audit_event_increase:
-            expected_output_filename = ("transaction_bundle_audit_events.json" if resource_type == "" 
-                                                else f"{resource_type}_audit_events.json").lower()
+            expected_output_filename = (
+                           "transaction_bundle_audit_events.json" 
+                           if resource_type == "" 
+                           else f"{resource_type}_audit_events.json"
+            ).lower()
 
             expected_data = read_file(f"e2e-test/{expected_output_filename}")       
 
