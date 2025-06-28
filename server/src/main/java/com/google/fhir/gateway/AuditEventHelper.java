@@ -269,7 +269,6 @@ public class AuditEventHelper {
       RestOperationTypeEnum restOperationType =
           getRestOperationTypeForBundleEntry(requestBundle.getEntry().get(i), entryResource);
 
-      // TODO to test this in e2e tests
       if (entryResource instanceof Bundle) {
 
         auditEventList.addAll(

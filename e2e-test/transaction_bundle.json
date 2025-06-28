@@ -1,0 +1,34 @@
+{
+    "resourceType": "Bundle",
+    "type": "transaction",
+    "entry": [
+        {
+            "request": {
+                "method": "GET",
+                "url": "Observation?_count=1&subject=Patient/75270"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Patient",
+                "id": "test-id-1",
+                "name": [
+                  {
+                    "use": "official",
+                    "family": "Doe",
+                    "given": [
+                      "John"
+                    ]
+                  }
+                ],
+                "gender": "male",
+                "birthDate": "1980-01-01"
+              }
+              ,
+            "request": {
+                "method": "POST",
+                "url": "Patient"
+            }
+        }
+    ]
+}
