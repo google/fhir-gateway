@@ -144,7 +144,8 @@ public class AuditEventHelper {
     try {
       // For a Bundle requestDetails.getResourceName() returns null
       if (requestDetailsReader.getRequestType() == RequestTypeEnum.POST
-          && requestDetailsReader.getResourceName() == null) {
+          && requestDetailsReader.getResourceName() == null
+          && requestResource != null) {
         auditEventList = processBundleRequest((Bundle) requestResource, (Bundle) auditEventSource);
 
       } else { // Process non-Bundle requests

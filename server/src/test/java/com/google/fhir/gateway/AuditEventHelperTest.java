@@ -4,22 +4,21 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 import ca.uhn.fhir.context.FhirContext;
+import ca.uhn.fhir.rest.api.RequestTypeEnum;
 import ca.uhn.fhir.rest.api.RestOperationTypeEnum;
 import com.auth0.jwt.interfaces.Claim;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import com.google.fhir.gateway.interfaces.RequestDetailsReader;
+import jakarta.annotation.Nullable;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.List;
 import org.hl7.fhir.instance.model.api.IBaseResource;
-import org.hl7.fhir.r4.model.AuditEvent;
-import org.hl7.fhir.r4.model.Patient;
-import org.hl7.fhir.r4.model.Reference;
+import org.hl7.fhir.r4.model.*;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -61,7 +60,8 @@ public class AuditEventHelperTest {
     patient.setId("test-patient-id-1");
     patient.addGeneralPractitioner(agentUserWho);
 
-    AuditEventHelper auditEventHelper = createTestInstance(patient, RestOperationTypeEnum.CREATE);
+    AuditEventHelper auditEventHelper =
+        createTestInstance(patient, null, RestOperationTypeEnum.CREATE);
     auditEventHelper.processAuditEvents();
 
     ArgumentCaptor<IBaseResource> payloadResourceCaptor =
@@ -72,7 +72,7 @@ public class AuditEventHelperTest {
     assertThat(resource instanceof AuditEvent, is(true));
 
     AuditEvent auditEvent = (AuditEvent) resource;
-    assertCommonAuditEventFields(auditEvent);
+    assertCommonAuditEventFields(auditEvent, true);
     assertThat(auditEvent.getAction().toCode(), equalTo("C"));
     assertThat(auditEvent.getSubtype().get(0).getCode(), equalTo("create"));
     assertThat(
@@ -87,7 +87,8 @@ public class AuditEventHelperTest {
     patient.setId("test-patient-id-1");
     patient.addGeneralPractitioner(agentUserWho);
 
-    AuditEventHelper auditEventHelper = createTestInstance(patient, RestOperationTypeEnum.READ);
+    AuditEventHelper auditEventHelper =
+        createTestInstance(patient, null, RestOperationTypeEnum.READ);
     auditEventHelper.processAuditEvents();
 
     ArgumentCaptor<IBaseResource> payloadResourceCaptor =
@@ -98,7 +99,7 @@ public class AuditEventHelperTest {
     assertThat(resource instanceof AuditEvent, is(true));
 
     AuditEvent auditEvent = (AuditEvent) resource;
-    assertCommonAuditEventFields(auditEvent);
+    assertCommonAuditEventFields(auditEvent, true);
     assertThat(auditEvent.getAction().toCode(), equalTo("R"));
     assertThat(auditEvent.getSubtype().get(0).getCode(), equalTo("read"));
     assertThat(
@@ -113,7 +114,8 @@ public class AuditEventHelperTest {
     patient.setId("test-patient-id-1");
     patient.addGeneralPractitioner(agentUserWho);
 
-    AuditEventHelper auditEventHelper = createTestInstance(patient, RestOperationTypeEnum.UPDATE);
+    AuditEventHelper auditEventHelper =
+        createTestInstance(patient, null, RestOperationTypeEnum.UPDATE);
     auditEventHelper.processAuditEvents();
 
     ArgumentCaptor<IBaseResource> payloadResourceCaptor =
@@ -124,7 +126,7 @@ public class AuditEventHelperTest {
     assertThat(resource instanceof AuditEvent, is(true));
 
     AuditEvent auditEvent = (AuditEvent) resource;
-    assertCommonAuditEventFields(auditEvent);
+    assertCommonAuditEventFields(auditEvent, true);
     assertThat(auditEvent.getAction().toCode(), equalTo("U"));
     assertThat(auditEvent.getSubtype().get(0).getCode(), equalTo("update"));
     assertThat(
@@ -139,7 +141,8 @@ public class AuditEventHelperTest {
     patient.setId("test-patient-id-1");
     patient.addGeneralPractitioner(agentUserWho);
 
-    AuditEventHelper auditEventHelper = createTestInstance(patient, RestOperationTypeEnum.DELETE);
+    AuditEventHelper auditEventHelper =
+        createTestInstance(patient, null, RestOperationTypeEnum.DELETE);
     auditEventHelper.processAuditEvents();
 
     ArgumentCaptor<IBaseResource> payloadResourceCaptor =
@@ -150,7 +153,7 @@ public class AuditEventHelperTest {
     assertThat(resource instanceof AuditEvent, is(true));
 
     AuditEvent auditEvent = (AuditEvent) resource;
-    assertCommonAuditEventFields(auditEvent);
+    assertCommonAuditEventFields(auditEvent, true);
     assertThat(auditEvent.getAction().toCode(), equalTo("D"));
     assertThat(auditEvent.getSubtype().get(0).getCode(), equalTo("delete"));
     assertThat(
@@ -158,7 +161,340 @@ public class AuditEventHelperTest {
         equalTo("Patient/test-patient-id-1"));
   }
 
-  private void assertCommonAuditEventFields(AuditEvent auditEvent) {
+  @Test
+  public void testProcessAuditEventsCreateEncounter() throws IOException {
+
+    Encounter encounter = new Encounter();
+    encounter.setId("test-encounter-id-1");
+    encounter.setSubject(new Reference("Patient/test-patient-id-1"));
+
+    AuditEventHelper auditEventHelper =
+        createTestInstance(encounter, null, RestOperationTypeEnum.CREATE);
+    auditEventHelper.processAuditEvents();
+
+    ArgumentCaptor<IBaseResource> payloadResourceCaptor =
+        ArgumentCaptor.forClass(IBaseResource.class);
+    verify(fhirClientMock).postResource(payloadResourceCaptor.capture());
+
+    IBaseResource resource = payloadResourceCaptor.getValue();
+    assertThat(resource instanceof AuditEvent, is(true));
+
+    AuditEvent auditEvent = (AuditEvent) resource;
+    assertCommonAuditEventFields(auditEvent, true);
+    assertThat(auditEvent.getAction().toCode(), equalTo("C"));
+    assertThat(auditEvent.getSubtype().get(0).getCode(), equalTo("create"));
+    assertThat(
+        getAuditEventDomainResourceReference(auditEvent.getEntity()),
+        equalTo("Encounter/test-encounter-id-1"));
+  }
+
+  @Test
+  public void testProcessAuditEventReadEncounter() throws IOException {
+
+    Encounter encounter = new Encounter();
+    encounter.setId("test-encounter-id-1");
+    encounter.setSubject(new Reference("Patient/test-patient-id-1"));
+
+    AuditEventHelper auditEventHelper =
+        createTestInstance(encounter, null, RestOperationTypeEnum.READ);
+    auditEventHelper.processAuditEvents();
+
+    ArgumentCaptor<IBaseResource> payloadResourceCaptor =
+        ArgumentCaptor.forClass(IBaseResource.class);
+    verify(fhirClientMock).postResource(payloadResourceCaptor.capture());
+
+    IBaseResource resource = payloadResourceCaptor.getValue();
+    assertThat(resource instanceof AuditEvent, is(true));
+
+    AuditEvent auditEvent = (AuditEvent) resource;
+    assertCommonAuditEventFields(auditEvent, true);
+    assertThat(auditEvent.getAction().toCode(), equalTo("R"));
+    assertThat(auditEvent.getSubtype().get(0).getCode(), equalTo("read"));
+    assertThat(
+        getAuditEventDomainResourceReference(auditEvent.getEntity()),
+        equalTo("Encounter/test-encounter-id-1"));
+  }
+
+  @Test
+  public void testProcessAuditEventUpdateEncounter() throws IOException {
+
+    Encounter encounter = new Encounter();
+    encounter.setId("test-encounter-id-1");
+    encounter.setSubject(new Reference("Patient/test-patient-id-1"));
+
+    AuditEventHelper auditEventHelper =
+        createTestInstance(encounter, null, RestOperationTypeEnum.UPDATE);
+    auditEventHelper.processAuditEvents();
+
+    ArgumentCaptor<IBaseResource> payloadResourceCaptor =
+        ArgumentCaptor.forClass(IBaseResource.class);
+    verify(fhirClientMock).postResource(payloadResourceCaptor.capture());
+
+    IBaseResource resource = payloadResourceCaptor.getValue();
+    assertThat(resource instanceof AuditEvent, is(true));
+
+    AuditEvent auditEvent = (AuditEvent) resource;
+    assertCommonAuditEventFields(auditEvent, true);
+    assertThat(auditEvent.getAction().toCode(), equalTo("U"));
+    assertThat(auditEvent.getSubtype().get(0).getCode(), equalTo("update"));
+    assertThat(
+        getAuditEventDomainResourceReference(auditEvent.getEntity()),
+        equalTo("Encounter/test-encounter-id-1"));
+  }
+
+  @Test
+  public void testProcessAuditEventDeleteEncounter() throws IOException {
+
+    Encounter encounter = new Encounter();
+    encounter.setId("test-encounter-id-1");
+    encounter.setSubject(new Reference("Patient/test-patient-id-1"));
+
+    AuditEventHelper auditEventHelper =
+        createTestInstance(encounter, null, RestOperationTypeEnum.DELETE);
+    auditEventHelper.processAuditEvents();
+
+    ArgumentCaptor<IBaseResource> payloadResourceCaptor =
+        ArgumentCaptor.forClass(IBaseResource.class);
+    verify(fhirClientMock).postResource(payloadResourceCaptor.capture());
+
+    IBaseResource resource = payloadResourceCaptor.getValue();
+    assertThat(resource instanceof AuditEvent, is(true));
+
+    AuditEvent auditEvent = (AuditEvent) resource;
+    assertCommonAuditEventFields(auditEvent, true);
+    assertThat(auditEvent.getAction().toCode(), equalTo("D"));
+    assertThat(auditEvent.getSubtype().get(0).getCode(), equalTo("delete"));
+    assertThat(
+        getAuditEventDomainResourceReference(auditEvent.getEntity()),
+        equalTo("Encounter/test-encounter-id-1"));
+  }
+
+  @Test
+  public void testProcessAuditEventsCreateLocation() throws IOException {
+
+    Location location = new Location();
+    location.setId("test-location-id-1");
+
+    AuditEventHelper auditEventHelper =
+        createTestInstance(location, null, RestOperationTypeEnum.CREATE);
+    auditEventHelper.processAuditEvents();
+
+    ArgumentCaptor<IBaseResource> payloadResourceCaptor =
+        ArgumentCaptor.forClass(IBaseResource.class);
+    verify(fhirClientMock).postResource(payloadResourceCaptor.capture());
+
+    IBaseResource resource = payloadResourceCaptor.getValue();
+    assertThat(resource instanceof AuditEvent, is(true));
+
+    AuditEvent auditEvent = (AuditEvent) resource;
+    assertCommonAuditEventFields(auditEvent, false);
+    assertThat(auditEvent.getAction().toCode(), equalTo("C"));
+    assertThat(auditEvent.getSubtype().get(0).getCode(), equalTo("create"));
+    assertThat(
+        getAuditEventDomainResourceReference(auditEvent.getEntity()),
+        equalTo("Location/test-location-id-1"));
+  }
+
+  @Test
+  public void testProcessAuditEventReadLocation() throws IOException {
+
+    Location location = new Location();
+    location.setId("test-location-id-1");
+
+    AuditEventHelper auditEventHelper =
+        createTestInstance(location, null, RestOperationTypeEnum.READ);
+    auditEventHelper.processAuditEvents();
+
+    ArgumentCaptor<IBaseResource> payloadResourceCaptor =
+        ArgumentCaptor.forClass(IBaseResource.class);
+    verify(fhirClientMock).postResource(payloadResourceCaptor.capture());
+
+    IBaseResource resource = payloadResourceCaptor.getValue();
+    assertThat(resource instanceof AuditEvent, is(true));
+
+    AuditEvent auditEvent = (AuditEvent) resource;
+    assertCommonAuditEventFields(auditEvent, false);
+    assertThat(auditEvent.getAction().toCode(), equalTo("R"));
+    assertThat(auditEvent.getSubtype().get(0).getCode(), equalTo("read"));
+    assertThat(
+        getAuditEventDomainResourceReference(auditEvent.getEntity()),
+        equalTo("Location/test-location-id-1"));
+  }
+
+  @Test
+  public void testProcessAuditEventUpdateLocation() throws IOException {
+
+    Location location = new Location();
+    location.setId("test-location-id-1");
+
+    AuditEventHelper auditEventHelper =
+        createTestInstance(location, null, RestOperationTypeEnum.UPDATE);
+    auditEventHelper.processAuditEvents();
+
+    ArgumentCaptor<IBaseResource> payloadResourceCaptor =
+        ArgumentCaptor.forClass(IBaseResource.class);
+    verify(fhirClientMock).postResource(payloadResourceCaptor.capture());
+
+    IBaseResource resource = payloadResourceCaptor.getValue();
+    assertThat(resource instanceof AuditEvent, is(true));
+
+    AuditEvent auditEvent = (AuditEvent) resource;
+    assertCommonAuditEventFields(auditEvent, false);
+    assertThat(auditEvent.getAction().toCode(), equalTo("U"));
+    assertThat(auditEvent.getSubtype().get(0).getCode(), equalTo("update"));
+    assertThat(
+        getAuditEventDomainResourceReference(auditEvent.getEntity()),
+        equalTo("Location/test-location-id-1"));
+  }
+
+  @Test
+  public void testProcessAuditEventDeleteLocation() throws IOException {
+
+    Location location = new Location();
+    location.setId("test-location-id-1");
+
+    AuditEventHelper auditEventHelper =
+        createTestInstance(location, null, RestOperationTypeEnum.DELETE);
+    auditEventHelper.processAuditEvents();
+
+    ArgumentCaptor<IBaseResource> payloadResourceCaptor =
+        ArgumentCaptor.forClass(IBaseResource.class);
+    verify(fhirClientMock).postResource(payloadResourceCaptor.capture());
+
+    IBaseResource resource = payloadResourceCaptor.getValue();
+    assertThat(resource instanceof AuditEvent, is(true));
+
+    AuditEvent auditEvent = (AuditEvent) resource;
+    assertCommonAuditEventFields(auditEvent, false);
+    assertThat(auditEvent.getAction().toCode(), equalTo("D"));
+    assertThat(auditEvent.getSubtype().get(0).getCode(), equalTo("delete"));
+    assertThat(
+        getAuditEventDomainResourceReference(auditEvent.getEntity()),
+        equalTo("Location/test-location-id-1"));
+  }
+
+  @Test
+  public void testProcessAuditEventBundlePayloadRequest() throws IOException {
+
+    when(requestDetailsReader.getRequestType()).thenReturn(RequestTypeEnum.POST);
+
+    // Request Bundle
+    Bundle requestBundle = new Bundle();
+    requestBundle.setType(Bundle.BundleType.TRANSACTION);
+
+    String patientId = "test-patient-id-1";
+
+    Patient patient = new Patient();
+    patient.setId("test-patient-id-1");
+
+    Bundle.BundleEntryComponent postEntry = new Bundle.BundleEntryComponent();
+    postEntry.setResource(patient);
+    postEntry.getRequest().setMethod(Bundle.HTTPVerb.POST).setUrl("Patient");
+
+    requestBundle.addEntry(postEntry);
+
+    Bundle.BundleEntryComponent putEntry = new Bundle.BundleEntryComponent();
+    putEntry.setResource(patient);
+    putEntry.getRequest().setMethod(Bundle.HTTPVerb.PUT).setUrl("Patient/" + patientId);
+
+    requestBundle.addEntry(putEntry);
+
+    Bundle.BundleEntryComponent getEntry = new Bundle.BundleEntryComponent();
+    getEntry.getRequest().setMethod(Bundle.HTTPVerb.GET).setUrl("Patient/" + patientId);
+
+    requestBundle.addEntry(getEntry);
+
+    Bundle.BundleEntryComponent deleteEntry = new Bundle.BundleEntryComponent();
+    deleteEntry.getRequest().setMethod(Bundle.HTTPVerb.DELETE).setUrl("Patient/" + patientId);
+
+    requestBundle.addEntry(deleteEntry);
+
+    // Response Bundle
+    Bundle responseBundle = new Bundle();
+    responseBundle.setType(Bundle.BundleType.TRANSACTIONRESPONSE);
+    responseBundle.setId("response-bundle-1");
+
+    Bundle.BundleEntryComponent postResponseEntry = new Bundle.BundleEntryComponent();
+    Bundle.BundleEntryResponseComponent postResponse = new Bundle.BundleEntryResponseComponent();
+    postResponse.setLocation("Patient/test-patient-id-1");
+    postResponseEntry.setResponse(postResponse);
+    responseBundle.addEntry(postResponseEntry);
+
+    Bundle.BundleEntryComponent putResponseEntry = new Bundle.BundleEntryComponent();
+    Bundle.BundleEntryResponseComponent putResponse = new Bundle.BundleEntryResponseComponent();
+    putResponse.setLocation("Patient/test-patient-id-1");
+    putResponseEntry.setResponse(putResponse);
+    responseBundle.addEntry(putResponseEntry);
+
+    Bundle.BundleEntryComponent getResponseEntry = new Bundle.BundleEntryComponent();
+    getResponseEntry.setResource(patient);
+    Bundle.BundleEntryResponseComponent getResponse = new Bundle.BundleEntryResponseComponent();
+    getResponseEntry.setResponse(getResponse);
+    responseBundle.addEntry(getResponseEntry);
+
+    Bundle.BundleEntryComponent deleteResponseEntry = new Bundle.BundleEntryComponent();
+    Bundle.BundleEntryResponseComponent deleteResponse = new Bundle.BundleEntryResponseComponent();
+    deleteResponse.setLocation("Patient/test-patient-id-1");
+    deleteResponseEntry.setResponse(deleteResponse);
+    responseBundle.addEntry(deleteResponseEntry);
+
+    // Test logic
+    AuditEventHelper auditEventHelper = createTestInstance(requestBundle, responseBundle, null);
+    auditEventHelper.processAuditEvents();
+
+    ArgumentCaptor<IBaseResource> payloadResourceCaptor =
+        ArgumentCaptor.forClass(IBaseResource.class);
+
+    verify(fhirClientMock, times(4)).postResource(payloadResourceCaptor.capture());
+
+    List<IBaseResource> resources = payloadResourceCaptor.getAllValues();
+
+    assertThat(resources.size(), is(4));
+    assertThat(resources.get(0) instanceof AuditEvent, is(true));
+    assertThat(resources.get(1) instanceof AuditEvent, is(true));
+    assertThat(resources.get(2) instanceof AuditEvent, is(true));
+    assertThat(resources.get(3) instanceof AuditEvent, is(true));
+
+    AuditEvent auditEvent;
+
+    // POST
+    auditEvent = (AuditEvent) resources.get(0);
+    assertCommonAuditEventFields(auditEvent, true);
+    assertThat(auditEvent.getAction().toCode(), equalTo("C"));
+    assertThat(auditEvent.getSubtype().get(0).getCode(), equalTo("create"));
+    assertThat(
+        getAuditEventDomainResourceReference(auditEvent.getEntity()),
+        equalTo("Patient/test-patient-id-1"));
+
+    // PUT
+    auditEvent = (AuditEvent) resources.get(1);
+    assertCommonAuditEventFields(auditEvent, true);
+    assertThat(auditEvent.getAction().toCode(), equalTo("U"));
+    assertThat(auditEvent.getSubtype().get(0).getCode(), equalTo("update"));
+    assertThat(
+        getAuditEventDomainResourceReference(auditEvent.getEntity()),
+        equalTo("Patient/test-patient-id-1"));
+
+    // GET
+    auditEvent = (AuditEvent) resources.get(2);
+    assertCommonAuditEventFields(auditEvent, true);
+    assertThat(auditEvent.getAction().toCode(), equalTo("R"));
+    assertThat(auditEvent.getSubtype().get(0).getCode(), equalTo("read"));
+    assertThat(
+        getAuditEventDomainResourceReference(auditEvent.getEntity()),
+        equalTo("Patient/test-patient-id-1"));
+
+    // DELETE
+    auditEvent = (AuditEvent) resources.get(3);
+    assertCommonAuditEventFields(auditEvent, true);
+    assertThat(auditEvent.getAction().toCode(), equalTo("D"));
+    assertThat(auditEvent.getSubtype().get(0).getCode(), equalTo("delete"));
+    assertThat(
+        getAuditEventDomainResourceReference(auditEvent.getEntity()),
+        equalTo("Patient/test-patient-id-1"));
+  }
+
+  private void assertCommonAuditEventFields(AuditEvent auditEvent, boolean inPatientCompartment) {
     assertThat(auditEvent.getOutcome().toCode(), equalTo("0"));
     assertThat(auditEvent.getOutcomeDesc(), equalTo("Success"));
     assertThat(TestUtil.isSameDate(auditEvent.getRecorded(), new Date()), is(true));
@@ -167,7 +503,7 @@ public class AuditEventHelperTest {
     assertThat(auditEvent.getSource().getObserver().getDisplay(), equalTo(FHIR_SERVER_BASE_URL));
     assertThat(
         getAuditEventCompartmentOwnerReference(auditEvent.getEntity()),
-        equalTo("Patient/test-patient-id-1"));
+        equalTo(inPatientCompartment ? "Patient/test-patient-id-1" : null));
     assertThat(
         getAgentReferenceBySystemCode(
             auditEvent.getAgent(),
@@ -221,7 +557,9 @@ public class AuditEventHelperTest {
   }
 
   private AuditEventHelper createTestInstance(
-      IBaseResource payload, RestOperationTypeEnum restOperationType) {
+      @Nullable IBaseResource payload,
+      @Nullable IBaseResource response,
+      @Nullable RestOperationTypeEnum restOperationType) {
     when(requestDetailsReader.loadRequestContents())
         .thenReturn(
             TestUtil.resourceToString(fhirContext, payload).getBytes(StandardCharsets.UTF_8));
@@ -230,7 +568,7 @@ public class AuditEventHelperTest {
 
     return new AuditEventHelper(
         requestDetailsReader,
-        "{}",
+        response == null ? "{}" : fhirContext.newJsonParser().encodeResourceToString(response),
         String.format(
             "%s/fhir/%s/%s/_history/hid-1",
             FHIR_SERVER_BASE_URL, payload.fhirType(), payload.getIdElement().getIdPart()),
