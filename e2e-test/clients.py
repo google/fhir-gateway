@@ -20,7 +20,6 @@ import json
 from typing import Dict, Tuple, List
 
 import requests
-import logging
 
 
 def _setup_session(base_url: str) -> requests.Session:
@@ -56,7 +55,6 @@ class HapiClient:
         )
         response = self.session.get(resource_path)
         response.raise_for_status()
-        logging.info("Resource Count Response :: %s ", response.json())
         return response.json()["total"]
 
     def get_audit_event_count(self) -> int:
@@ -64,7 +62,6 @@ class HapiClient:
         resource_path = "{}/AuditEvent?_summary=count".format(self.base_url)
         response = self.session.get(resource_path)
         response.raise_for_status()
-        logging.info("GetAuditEvents Count Response :: %s ", response.json())
         return response.json()["total"]
 
     def get_audit_events(self, limit: int = 1) -> List[Dict[str, str]]:
@@ -72,7 +69,6 @@ class HapiClient:
         resource_path = "{}/AuditEvent?_count={}&_sort=-_lastUpdated".format(self.base_url, limit)
         response = self.session.get(resource_path)
         response.raise_for_status()
-        logging.info("GetAuditEvents Response :: %s ", response.json())
         return response.json().get("entry", [])
 
 
