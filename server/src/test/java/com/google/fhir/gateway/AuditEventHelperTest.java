@@ -17,8 +17,15 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import org.hl7.fhir.instance.model.api.IBaseResource;
-import org.hl7.fhir.r4.model.*;
+import org.hl7.fhir.r4.model.AuditEvent;
+import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.Encounter;
+import org.hl7.fhir.r4.model.Location;
+import org.hl7.fhir.r4.model.OperationOutcome;
+import org.hl7.fhir.r4.model.Patient;
+import org.hl7.fhir.r4.model.Reference;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -41,7 +48,7 @@ public class AuditEventHelperTest {
 
   private Reference agentUserWho;
 
-  private static final String FHIR_SERVER_BASE_URL = "http://my-fhir-server";
+  private static final String FHIR_SERVER_BASE_URL = "http://my-fhir-server/fhir";
 
   @Before
   public void setUp() {
@@ -374,6 +381,40 @@ public class AuditEventHelperTest {
   }
 
   @Test
+  public void testProcessAuditOperationError() throws IOException {
+
+    Location location = new Location();
+    location.setId("test-location-id-1");
+
+    OperationOutcome outcome = new OperationOutcome();
+    outcome
+        .addIssue()
+        .setSeverity(OperationOutcome.IssueSeverity.ERROR)
+        .setCode(OperationOutcome.IssueType.PROCESSING)
+        .setDiagnostics("Deletion not allowed");
+
+    AuditEventHelper auditEventHelper =
+        createTestInstance(location, outcome, RestOperationTypeEnum.DELETE);
+    auditEventHelper.processAuditEvents();
+
+    ArgumentCaptor<IBaseResource> payloadResourceCaptor =
+        ArgumentCaptor.forClass(IBaseResource.class);
+    verify(fhirClientMock).postResource(payloadResourceCaptor.capture());
+
+    IBaseResource resource = payloadResourceCaptor.getValue();
+    assertThat(resource instanceof AuditEvent, is(true));
+
+    AuditEvent auditEvent = (AuditEvent) resource;
+    assertThat(auditEvent.getAction().toCode(), equalTo("D"));
+    assertThat(auditEvent.getSubtype().get(0).getCode(), equalTo("delete"));
+    assertThat(
+        getAuditEventDomainResourceReference(auditEvent.getEntity()),
+        equalTo("Location/test-location-id-1"));
+    assertThat(auditEvent.getOutcome().toCode(), equalTo("8"));
+    assertThat(auditEvent.getOutcomeDesc(), equalTo("Deletion not allowed"));
+  }
+
+  @Test
   public void testProcessAuditEventBundlePayloadRequest() throws IOException {
 
     when(requestDetailsReader.getRequestType()).thenReturn(RequestTypeEnum.POST);
@@ -494,6 +535,92 @@ public class AuditEventHelperTest {
         equalTo("Patient/test-patient-id-1"));
   }
 
+  @Test
+  public void testProcessAuditEventSearchObservations() throws IOException {
+    String fullRequestUrl =
+        String.format(
+            "%s/Observation?_id=test-observation-id-1&_id=test-observation-id-2",
+            FHIR_SERVER_BASE_URL);
+
+    when(requestDetailsReader.getFhirServerBase()).thenReturn(FHIR_SERVER_BASE_URL);
+    when(requestDetailsReader.getRequestType()).thenReturn(RequestTypeEnum.GET);
+    when(requestDetailsReader.getCompleteUrl()).thenReturn(fullRequestUrl);
+    when(requestDetailsReader.getRestOperationType()).thenReturn(RestOperationTypeEnum.SEARCH_TYPE);
+    when(requestDetailsReader.getCompleteUrl()).thenReturn(fullRequestUrl);
+    when(requestDetailsReader.getRequestPath()).thenReturn("Observation");
+
+    when(requestDetailsReader.getParameters())
+        .thenReturn(Map.of("_id", new String[] {"test-observation-id-1", "test-observation-id-2"}));
+
+    Bundle responseBundle = new Bundle();
+    responseBundle.setType(Bundle.BundleType.TRANSACTIONRESPONSE);
+    responseBundle.setId("response-bundle-1");
+
+    Bundle.BundleEntryComponent postResponseEntry = new Bundle.BundleEntryComponent();
+    Bundle.BundleEntryResponseComponent postResponse = new Bundle.BundleEntryResponseComponent();
+    postResponse.setLocation("Observation/test-observation-id-1");
+    postResponseEntry.setResponse(postResponse);
+    responseBundle.addEntry(postResponseEntry);
+
+    Bundle.BundleEntryComponent putResponseEntry = new Bundle.BundleEntryComponent();
+    Bundle.BundleEntryResponseComponent putResponse = new Bundle.BundleEntryResponseComponent();
+    putResponse.setLocation("Observation/test-observation-id-2");
+    putResponseEntry.setResponse(putResponse);
+    responseBundle.addEntry(putResponseEntry);
+
+    AuditEventHelper auditEventHelper =
+        createTestInstance(null, responseBundle, RestOperationTypeEnum.SEARCH_TYPE);
+    auditEventHelper.processAuditEvents();
+
+    ArgumentCaptor<IBaseResource> payloadResourceCaptor =
+        ArgumentCaptor.forClass(IBaseResource.class);
+
+    verify(fhirClientMock, times(2)).postResource(payloadResourceCaptor.capture());
+
+    List<IBaseResource> resources = payloadResourceCaptor.getAllValues();
+
+    assertThat(resources.size(), is(2));
+    assertThat(resources.get(0) instanceof AuditEvent, is(true));
+    assertThat(resources.get(1) instanceof AuditEvent, is(true));
+
+    AuditEvent auditEvent;
+
+    // Observation 1
+    auditEvent = (AuditEvent) resources.get(0);
+    assertCommonAuditEventFields(auditEvent, false);
+    assertThat(auditEvent.getAction().toCode(), equalTo("E"));
+    assertThat(auditEvent.getSubtype().get(0).getCode(), equalTo("search-type"));
+    assertThat(
+        getAuditEventDomainResourceReference(auditEvent.getEntity()),
+        equalTo("Observation/test-observation-id-1"));
+    assertThat(
+        getEntityQueryBySystemCode(
+            auditEvent.getEntity(), "http://terminology.hl7.org/CodeSystem/object-role", "24"),
+        equalTo(fullRequestUrl));
+
+    assertThat(
+        getEntityQueryDescriptionBySystemCode(
+            auditEvent.getEntity(), "http://terminology.hl7.org/CodeSystem/object-role", "24"),
+        equalTo("GET " + fullRequestUrl));
+
+    // Observation 2
+    auditEvent = (AuditEvent) resources.get(1);
+    assertCommonAuditEventFields(auditEvent, false);
+    assertThat(auditEvent.getAction().toCode(), equalTo("E"));
+    assertThat(auditEvent.getSubtype().get(0).getCode(), equalTo("search-type"));
+    assertThat(
+        getAuditEventDomainResourceReference(auditEvent.getEntity()),
+        equalTo("Observation/test-observation-id-2"));
+    assertThat(
+        getEntityQueryBySystemCode(
+            auditEvent.getEntity(), "http://terminology.hl7.org/CodeSystem/object-role", "24"),
+        equalTo(fullRequestUrl));
+    assertThat(
+        getEntityQueryDescriptionBySystemCode(
+            auditEvent.getEntity(), "http://terminology.hl7.org/CodeSystem/object-role", "24"),
+        equalTo("GET " + fullRequestUrl));
+  }
+
   private void assertCommonAuditEventFields(AuditEvent auditEvent, boolean inPatientCompartment) {
     assertThat(auditEvent.getOutcome().toCode(), equalTo("0"));
     assertThat(auditEvent.getOutcomeDesc(), equalTo("Success"));
@@ -543,6 +670,28 @@ public class AuditEventHelperTest {
     return null;
   }
 
+  private String getEntityQueryBySystemCode(
+      List<AuditEvent.AuditEventEntityComponent> components, String system, String code) {
+    for (AuditEvent.AuditEventEntityComponent component : components) {
+      if (system.equals(component.getRole().getSystem())
+          && code.equals(component.getRole().getCode())) {
+        return new String(component.getQuery(), StandardCharsets.UTF_8);
+      }
+    }
+    return null;
+  }
+
+  private String getEntityQueryDescriptionBySystemCode(
+      List<AuditEvent.AuditEventEntityComponent> components, String system, String code) {
+    for (AuditEvent.AuditEventEntityComponent component : components) {
+      if (system.equals(component.getRole().getSystem())
+          && code.equals(component.getRole().getCode())) {
+        return component.getDescription();
+      }
+    }
+    return null;
+  }
+
   private String getAgentReferenceBySystemCode(
       List<AuditEvent.AuditEventAgentComponent> components, String system, String code) {
     for (AuditEvent.AuditEventAgentComponent component : components) {
@@ -562,7 +711,9 @@ public class AuditEventHelperTest {
       @Nullable RestOperationTypeEnum restOperationType) {
     when(requestDetailsReader.loadRequestContents())
         .thenReturn(
-            TestUtil.resourceToString(fhirContext, payload).getBytes(StandardCharsets.UTF_8));
+            payload != null
+                ? TestUtil.resourceToString(fhirContext, payload).getBytes(StandardCharsets.UTF_8)
+                : new byte[0]);
 
     when(requestDetailsReader.getRestOperationType()).thenReturn(restOperationType);
 
@@ -571,7 +722,11 @@ public class AuditEventHelperTest {
         response == null ? "{}" : fhirContext.newJsonParser().encodeResourceToString(response),
         String.format(
             "%s/fhir/%s/%s/_history/hid-1",
-            FHIR_SERVER_BASE_URL, payload.fhirType(), payload.getIdElement().getIdPart()),
+            FHIR_SERVER_BASE_URL,
+            payload != null ? payload.fhirType() : "",
+            payload != null && payload.getIdElement() != null
+                ? payload.getIdElement().getIdPart()
+                : null),
         agentUserWho,
         decodedJWT,
         new Date(),
