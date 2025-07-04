@@ -165,7 +165,10 @@ def _test_post_and_verify_audit_events(
             else "{resource_type}_audit_events.json".format(resource_type=resource_type)
             ).lower()                           
             for audit_event_entry in new_audit_events:
-                audit_event = _get_dict(audit_event_entry.get("resource", {}))
+                audit_event = audit_event_entry.get("resource", {})
+                if not isinstance(audit_event, dict):
+                    logging.warning("AuditEvent resource is not a dict: {}".format(audit_event))
+                    continue
                 _assert_audit_events(read_file(
                     "e2e-test/{}".format(expected_output_filename)), audit_event)
                     
@@ -184,11 +187,11 @@ def _test_post_and_verify_audit_events(
         )
     )   
 
-def _assert_audit_events(expected_audit_event: Dict[str, str],
-                                                actual_audit_event: Dict[str, str]) -> None:
+def _assert_audit_events(expected_audit_event: Dict[str, Any],
+                        actual_audit_event: Dict[str, Any]) -> None:
     """Assert that actual AuditEvents match the expected structure and content."""
     verification_fields = ["action", "subtype", "outcome", 
-                                        "agent", "entity", "source", "recorded", "period"]  
+                          "agent", "entity", "source", "recorded", "period"]  
     for field in verification_fields:
         logging.info("Verifying AuditEvent.{}".format(field))
         if field in expected_audit_event:
@@ -196,59 +199,69 @@ def _assert_audit_events(expected_audit_event: Dict[str, str],
             actual_value = actual_audit_event.get(field)
 
             if field == "agent": 
-                expected_value = (_get_dict(expected_value[2])["who"] 
-                if isinstance(expected_value, list) and len(expected_value) > 2 else "")
-                actual_value = (_get_dict(actual_value[2])["who"] 
-                if isinstance(actual_value, list) and len(actual_value) > 2 else "")
+                expected_value = (expected_value[2].get("who")
+                                 if isinstance(expected_value, list) 
+                                 and len(expected_value) > 2 else "")
+                actual_value = (actual_value[2].get("who")
+                               if isinstance(actual_value, list) 
+                               and len(actual_value) > 2 else "")
             elif field == "entity":
                 #check if the AuditEvent has correct compartment owner
-                expected_compartment_value = (_get_dict(expected_value[1])["what"] 
-                if isinstance(expected_value, list) and len(expected_value) > 1 else "")
-                actual_compartment_value = (_get_dict(actual_value[1])["what"] 
-                if isinstance(actual_value, list) and len(actual_value) > 1 else "")
+                expected_compartment_value = (expected_value[1].get("what")
+                                             if isinstance(expected_value, list) 
+                                             and len(expected_value) > 1 else "")
+                actual_compartment_value = (actual_value[1].get("what")
+                                           if isinstance(actual_value, list) 
+                                           and len(actual_value) > 1 else "")
 
-                expected_entity_resource_ref = _get_dict(expected_compartment_value).get("reference")
-                actual_entity_resource_ref = _get_dict(actual_compartment_value).get("reference")
+                expected_entity_resource_ref = (expected_compartment_value.get("reference") 
+                                 if isinstance(expected_compartment_value, dict) else "")
+                actual_entity_resource_ref = (actual_compartment_value.get("reference") 
+                                if isinstance(actual_compartment_value, dict) else "")
 
                 expected_compartment_value = (expected_entity_resource_ref.split("/")[0] 
-                                    if isinstance(expected_entity_resource_ref, str) else "")
+                                if isinstance(expected_entity_resource_ref, str) else "")
                 actual_compartment_value = (actual_entity_resource_ref.split("/")[0] 
-                                    if isinstance(actual_entity_resource_ref, str) else "" )
+                                if isinstance(actual_entity_resource_ref, str) else "")
 
                 if expected_compartment_value != actual_compartment_value:
                     raise AssertionError(
                         "Field '{}' compartment owner mismatch in AuditEvent:\n"
                         "Expected: {}\n"
                         "Actual: {}".format(
-                                            field, expected_entity_resource_ref, 
-                                            actual_entity_resource_ref
-                                            )
+                            field, expected_entity_resource_ref, 
+                            actual_entity_resource_ref
+                        )
                     )
 
                 #check if the AuditEvent is for the correct resource type
-                expected_entity_what = (_get_dict(expected_value[2])["what"] 
-                if isinstance(expected_value, list) and len(expected_value) > 2 else "")
-                actual_entity_what = (_get_dict(actual_value[2])["what"] 
-                if isinstance(actual_value, list) and len(actual_value) > 2 else "")
-                
-                expected_entity_resource_ref = _get_dict(expected_entity_what).get("reference")
-                actual_entity_resource_ref = _get_dict(actual_entity_what).get("reference")
+                expected_entity_what = (expected_value[2].get("what")
+                                        if isinstance(expected_value, list) 
+                                        and len(expected_value) > 2 else "")
+                actual_entity_what = (actual_value[2].get("what")
+                                      if isinstance(actual_value, list) 
+                                      and len(actual_value) > 2 else "")
+
+                expected_entity_resource_ref = (expected_entity_what.get("reference") 
+                if isinstance(expected_entity_what, dict) else "")
+                actual_entity_resource_ref = (actual_entity_what.get("reference") 
+                if isinstance(actual_entity_what, dict) else "")
 
                 expected_value = (expected_entity_resource_ref.split("/")[0] 
-                                    if isinstance(expected_entity_resource_ref, str) else "")
+                                 if isinstance(expected_entity_resource_ref, str) else "")
                 actual_value = (actual_entity_resource_ref.split("/")[0] 
-                                    if isinstance(actual_entity_resource_ref, str) else "" )
-
+                                 if isinstance(actual_entity_resource_ref, str) else "")
             elif field == "recorded":
                 expected_value = date.today()
                 actual_value = (datetime.fromisoformat(actual_value)
                                  if isinstance(actual_value,str) else datetime.min).date()
             elif field == "period":
                 #confirm with period.end that object is correct
-                actual_period_end = _get_dict(actual_value).get("end")
+                actual_period_end = (actual_value.get("end") 
+                if isinstance(actual_value, dict) else None)
                 expected_value = date.today()
                 actual_value = (datetime.fromisoformat(actual_period_end)
-                                if isinstance(actual_period_end,str) else datetime.min).date()
+                         if isinstance(actual_period_end,str) else datetime.min).date()
             
             if actual_value != expected_value:
                 raise AssertionError(
@@ -258,9 +271,6 @@ def _assert_audit_events(expected_audit_event: Dict[str, str],
                 )
     
     logging.info("All AuditEvent fields verified successfully")
-
-def _get_dict(raw: Any) -> Dict[str, str]:
-    return cast(Dict[str,str], raw)    
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)

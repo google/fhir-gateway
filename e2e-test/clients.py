@@ -17,7 +17,7 @@
 """Clients to make calls to FHIR Proxy, HAPI Server, and AuthZ Server."""
 
 import json
-from typing import Dict, Tuple, List
+from typing import Dict, Tuple, List, Any
 
 import requests
 
@@ -32,7 +32,7 @@ def _setup_session(base_url: str) -> requests.Session:
     return session
 
 
-def read_file(file_name: str) -> Dict[str, str]:
+def read_file(file_name: str) -> Dict[str, Any]:
     with open(file_name, "r") as f:
         data = json.load(f)
 
