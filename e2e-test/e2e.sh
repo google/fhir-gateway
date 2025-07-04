@@ -28,7 +28,7 @@ function setup() {
   #   with -d we don't get any logs and it makes debugging failures difficult.
   # Note `--wait` is an option in the new version of `docker compose` to make
   # sure that all services are up in a healthy state (old version fails).
-  docker-compose -f docker/hapi-proxy-compose.yaml \
+  AUDIT_EVENT_LOGGING_ENABLED=true docker-compose -f docker/hapi-proxy-compose.yaml \
                  up --force-recreate --remove-orphans -d --quiet-pull --wait
 }
 
