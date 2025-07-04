@@ -24,7 +24,6 @@ from typing import List, Tuple, Dict, Any, cast
 import clients
 import os
 
-from unittest.mock import patch
 from clients import read_file
 from datetime import datetime, date
 
@@ -101,8 +100,6 @@ def test_post_resource_increase_count(
         "%s %ss returned for %s", value_from_proxy, resource_search_pair[0], patient_id,
     )
 
-
-@patch.dict(os.environ, {"AUDIT_EVENT_LOGGING_ENABLED_ENV": "true"})
 def test_post_resource_with_logging_enabled_creates_audit_event(
     file_name: str,
     hapi: clients.HapiClient,
@@ -119,8 +116,6 @@ def test_post_resource_with_logging_enabled_creates_audit_event(
         auth
     )
 
-
-@patch.dict(os.environ, {"AUDIT_EVENT_LOGGING_ENABLED_ENV": "true"})
 def test_post_bundle_with_logging_enabled_creates_audit_events(
     file_name: str,
     hapi: clients.HapiClient,
@@ -151,7 +146,8 @@ def _test_post_and_verify_audit_events(
     payload_type = "Bundle" if resource_type == "" else resource_type
 
     initial_audit_event_count = hapi.get_audit_event_count()
-    logging.info("Initial AuditEvent count: %d", initial_audit_event_count)
+    logging.info("Initial AuditEvent count before posting %s is %d", 
+                                                file_name, initial_audit_event_count)
 
     fhir_proxy.post_resource(resource_type, file_name, token)
     logging.info("Posted %s resource via Proxy.", payload_type)
@@ -160,27 +156,31 @@ def _test_post_and_verify_audit_events(
     poll_interval = 5
     waited = 0
     while waited < max_wait_seconds:
-        current_audit_events = hapi.get_audit_events(expected_audit_event_increase)
+        new_audit_events = hapi.get_audit_events(expected_audit_event_increase)
         current_audit_event_count = hapi.get_audit_event_count()
-        if current_audit_event_count == initial_audit_event_count + expected_audit_event_increase:
+        if (current_audit_event_count == 
+                            initial_audit_event_count + expected_audit_event_increase):
             expected_output_filename = ("transaction_bundle_audit_events.json" 
             if resource_type == "" 
             else "{resource_type}_audit_events.json".format(resource_type=resource_type)
             ).lower()                           
-            for audit_event_entry in current_audit_events:
-                audit_event = cast(Dict[str, str], audit_event_entry.get("resource", {}))
-                _assert_audit_events(read_file("e2e-test/{}".format(expected_output_filename)), audit_event)
+            for audit_event_entry in new_audit_events:
+                audit_event = _get_dict(audit_event_entry.get("resource", {}))
+                _assert_audit_events(read_file(
+                    "e2e-test/{}".format(expected_output_filename)), audit_event)
                     
             logging.info("AuditEvents created successfully after %s POST.", payload_type)
             return
         time.sleep(poll_interval)
         waited += poll_interval
-        logging.info("POST %s :: Waiting for AuditEvent(s)... (%ds elapsed)", payload_type, waited)
+        logging.info("POST %s :: Waiting for AuditEvent(s)... (%ds elapsed)", 
+                                                                  payload_type, waited)
 
     raise AssertionError(
         "Valid AuditEvent was NOT created after {} POST within {} seconds. "
         "Initial count: {}, Current count: {}".format(
-            payload_type, max_wait_seconds, initial_audit_event_count, current_audit_event_count
+            payload_type, max_wait_seconds, 
+            initial_audit_event_count, current_audit_event_count
         )
     )   
 
@@ -196,19 +196,19 @@ def _assert_audit_events(expected_audit_event: Dict[str, str],
             actual_value = actual_audit_event.get(field)
 
             if field == "agent": 
-                expected_value = (_getDict(expected_value[2])["who"] 
+                expected_value = (_get_dict(expected_value[2])["who"] 
                 if isinstance(expected_value, list) and len(expected_value) > 2 else "")
-                actual_value = (_getDict(actual_value[2])["who"] 
+                actual_value = (_get_dict(actual_value[2])["who"] 
                 if isinstance(actual_value, list) and len(actual_value) > 2 else "")
             elif field == "entity":
                 #check if the AuditEvent has correct compartment owner
-                expected_compartment_value = (_getDict(expected_value[1])["what"] 
+                expected_compartment_value = (_get_dict(expected_value[1])["what"] 
                 if isinstance(expected_value, list) and len(expected_value) > 1 else "")
-                actual_compartment_value = (_getDict(actual_value[1])["what"] 
+                actual_compartment_value = (_get_dict(actual_value[1])["what"] 
                 if isinstance(actual_value, list) and len(actual_value) > 1 else "")
 
-                expected_entity_resource_ref = _getDict(expected_compartment_value).get("reference")
-                actual_entity_resource_ref = _getDict(actual_compartment_value).get("reference")
+                expected_entity_resource_ref = _get_dict(expected_compartment_value).get("reference")
+                actual_entity_resource_ref = _get_dict(actual_compartment_value).get("reference")
 
                 expected_compartment_value = (expected_entity_resource_ref.split("/")[0] 
                                     if isinstance(expected_entity_resource_ref, str) else "")
@@ -226,13 +226,13 @@ def _assert_audit_events(expected_audit_event: Dict[str, str],
                     )
 
                 #check if the AuditEvent is for the correct resource type
-                expected_entity_what = (_getDict(expected_value[2])["what"] 
+                expected_entity_what = (_get_dict(expected_value[2])["what"] 
                 if isinstance(expected_value, list) and len(expected_value) > 2 else "")
-                actual_entity_what = (_getDict(actual_value[2])["what"] 
+                actual_entity_what = (_get_dict(actual_value[2])["what"] 
                 if isinstance(actual_value, list) and len(actual_value) > 2 else "")
                 
-                expected_entity_resource_ref = _getDict(expected_entity_what).get("reference")
-                actual_entity_resource_ref = _getDict(actual_entity_what).get("reference")
+                expected_entity_resource_ref = _get_dict(expected_entity_what).get("reference")
+                actual_entity_resource_ref = _get_dict(actual_entity_what).get("reference")
 
                 expected_value = (expected_entity_resource_ref.split("/")[0] 
                                     if isinstance(expected_entity_resource_ref, str) else "")
@@ -245,7 +245,7 @@ def _assert_audit_events(expected_audit_event: Dict[str, str],
                                  if isinstance(actual_value,str) else datetime.min).date()
             elif field == "period":
                 #confirm with period.end that object is correct
-                actual_period_end = _getDict(actual_value).get("end")
+                actual_period_end = _get_dict(actual_value).get("end")
                 expected_value = date.today()
                 actual_value = (datetime.fromisoformat(actual_period_end)
                                 if isinstance(actual_period_end,str) else datetime.min).date()
@@ -259,7 +259,7 @@ def _assert_audit_events(expected_audit_event: Dict[str, str],
     
     logging.info("All AuditEvent fields verified successfully")
 
-def _getDict(raw: Any) -> Dict[str, str]:
+def _get_dict(raw: Any) -> Dict[str, str]:
     return cast(Dict[str,str], raw)    
 
 if __name__ == "__main__":
