@@ -17,12 +17,17 @@ package com.google.fhir.gateway;
 
 import static org.mockito.Mockito.when;
 
+import ca.uhn.fhir.context.FhirContext;
 import com.google.common.base.Preconditions;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.Base64;
+import java.util.Date;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
 import org.apache.http.entity.StringEntity;
+import org.hl7.fhir.instance.model.api.IBaseResource;
 
 class TestUtil {
 
@@ -42,5 +47,20 @@ class TestUtil {
 
   private static String base64UrlEncode(String input) {
     return Base64.getUrlEncoder().withoutPadding().encodeToString(input.getBytes());
+  }
+
+  public static String resourceToString(FhirContext fhirContext, IBaseResource resource) {
+    return fhirContext.newJsonParser().encodeResourceToString(resource);
+  }
+
+  public static boolean isSameDate(Date date1, Date date2) {
+    if (date1 == null || date2 == null) return false;
+
+    ZoneId zoneId = ZoneId.systemDefault();
+
+    LocalDate localDate1 = date1.toInstant().atZone(zoneId).toLocalDate();
+    LocalDate localDate2 = date2.toInstant().atZone(zoneId).toLocalDate();
+
+    return localDate1.isEqual(localDate2);
   }
 }
