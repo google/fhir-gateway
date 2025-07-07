@@ -77,9 +77,7 @@ public class FhirProxyServer extends RestfulServer {
               this,
               checkerFactory,
               new AllowedQueriesChecker(System.getenv(ALLOWED_QUERIES_FILE_ENV)),
-              Boolean.parseBoolean(
-                  System.getenv(
-                      AUDIT_EVENT_LOGGING_ENABLED_ENV)))); // TODO to enable this in e2e tests
+              Boolean.parseBoolean(System.getenv(AUDIT_EVENT_LOGGING_ENABLED_ENV))));
 
     } catch (IOException e) {
       ExceptionUtil.throwRuntimeExceptionAndLog(logger, "IOException while initializing", e);
