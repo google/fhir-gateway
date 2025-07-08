@@ -100,10 +100,10 @@ public class AuditEventHelperTest {
     assertThat(auditEvent.getSubtype().get(0).getCode(), equalTo("create"));
     assertThat(
         getAuditEventDomainResourceReference(auditEvent.getEntity()),
-        equalTo("Patient/test-patient-id-1"));
+        equalTo("Patient/test-patient-id-1/_history/hid-1"));
     assertThat(
         getAuditEventPatientResourceReference(auditEvent.getEntity()),
-        equalTo("Patient/test-patient-id-1"));
+        equalTo("Patient/test-patient-id-1/_history/hid-1"));
   }
 
   @Test
@@ -140,7 +140,7 @@ public class AuditEventHelperTest {
   public void testProcessAuditEventUpdatePatient() throws IOException {
 
     Patient patient = new Patient();
-    patient.setId("test-patient-id-1");
+    patient.setId("test-patient-id-1/_history/2");
     patient.addGeneralPractitioner(agentUserWho);
 
     AuditEventHelper auditEventHelper =
@@ -160,10 +160,10 @@ public class AuditEventHelperTest {
     assertThat(auditEvent.getSubtype().get(0).getCode(), equalTo("update"));
     assertThat(
         getAuditEventDomainResourceReference(auditEvent.getEntity()),
-        equalTo("Patient/test-patient-id-1"));
+        equalTo("Patient/test-patient-id-1/_history/2"));
     assertThat(
         getAuditEventPatientResourceReference(auditEvent.getEntity()),
-        equalTo("Patient/test-patient-id-1"));
+        equalTo("Patient/test-patient-id-1/_history/2"));
   }
 
   @Test
@@ -227,7 +227,7 @@ public class AuditEventHelperTest {
     assertThat(auditEvent.getSubtype().get(0).getCode(), equalTo("create"));
     assertThat(
         getAuditEventDomainResourceReference(auditEvent.getEntity()),
-        equalTo("Encounter/test-encounter-id-1"));
+        equalTo("Encounter/test-encounter-id-1/_history/hid-1"));
     assertThat(
         getAuditEventPatientResourceReference(auditEvent.getEntity()),
         equalTo("Patient/test-patient-id-1"));
@@ -353,7 +353,7 @@ public class AuditEventHelperTest {
     assertThat(auditEvent.getSubtype().get(0).getCode(), equalTo("create"));
     assertThat(
         getAuditEventDomainResourceReference(auditEvent.getEntity()),
-        equalTo("Location/test-location-id-1"));
+        equalTo("Location/test-location-id-1/_history/hid-1"));
   }
 
   @Test
@@ -501,7 +501,7 @@ public class AuditEventHelperTest {
     assertThat(auditEvent.getSubtype().get(0).getCode(), equalTo("delete"));
     assertThat(
         getAuditEventDomainResourceReference(auditEvent.getEntity()),
-        equalTo("Medication/test-medication-id-1"));
+        equalTo("Medication/test-medication-id-1/_history/hid-1"));
     assertThat(auditEvent.getOutcome().toCode(), equalTo("0"));
     assertThat(auditEvent.getOutcomeDesc(), equalTo("Success"));
   }
@@ -938,12 +938,12 @@ public class AuditEventHelperTest {
 
     String responseContentLocation =
         String.format(
-            "%s/fhir/%s/%s/_history/hid-1",
+            "%s/%s/%s",
             FHIR_SERVER_BASE_URL,
             payload != null ? payload.fhirType() : "",
             payload != null && payload.getIdElement() != null
-                ? payload.getIdElement().getIdPart()
-                : null);
+                ? payload.getIdElement().toString()
+                : "");
 
     return createTestInstance(payload, response, responseContentLocation, restOperationType);
   }

@@ -111,8 +111,7 @@ public class AuditEventHelper {
     // Prefer: return=minimal HTTP header
     contentLocationResponseResource =
         responseContentLocation != null
-            ? FhirUtil.parseResourceOrNull(
-                fhirContext, getResourceFromContentLocation(responseContentLocation))
+            ? getResourceFromContentLocation(responseContentLocation)
             : null;
   }
 
@@ -475,10 +474,7 @@ public class AuditEventHelper {
     if (responseBundleEntryComponent.hasResponse()
         && responseBundleEntryComponent.getResponse().getLocation() != null) {
       contentLocationResource =
-          FhirUtil.parseResourceOrNull(
-              this.fhirContext,
-              getResourceFromContentLocation(
-                  responseBundleEntryComponent.getResponse().getLocation()));
+          getResourceFromContentLocation(responseBundleEntryComponent.getResponse().getLocation());
     }
 
     if (responseBundleEntryComponent.hasResource()) {
@@ -526,11 +522,17 @@ public class AuditEventHelper {
   // identity https://www.hl7.org/fhir/http.html#ops
   // One way to get the patient compartment owner for non-patient resources would be to fetch the
   // actual resource from the database first before creating the AuditEvent.
-  private String getResourceFromContentLocation(String responseContentLocation) {
+  private IBaseResource getResourceFromContentLocation(String responseContentLocation) {
     IdType id = new IdType(responseContentLocation);
     String resourceType = id.getResourceType();
-    String resourceId = id.getIdPart();
-    return getResourceTemplate(resourceType, resourceId);
+    String resourceId =
+        id.hasVersionIdPart()
+            ? String.format("%s/_history/%s", id.getIdPart(), id.getVersionIdPart())
+            : id.getIdPart();
+    IBaseResource resource =
+        FhirUtil.parseResourceOrNull(
+            this.fhirContext, getResourceTemplate(resourceType, resourceId));
+    return resource != null ? resource.setId(resourceId) : null;
   }
 
   private AuditEventBuilder initBaseAuditEventBuilder(
@@ -584,8 +586,7 @@ public class AuditEventHelper {
       AuditEventBuilder.QueryEntity queryEntity) {
     // We need to capture the context of the operation e.g. Successful DELETE returns
     // OperationOutcome but no info on the affected resource
-    String processedResource = getResourceFromContentLocation(this.responseContentLocation);
-    IBaseResource resource = FhirUtil.parseResourceOrNull(this.fhirContext, processedResource);
+    IBaseResource resource = getResourceFromContentLocation(this.responseContentLocation);
 
     Set<String> patientIds =
         resource instanceof DomainResource
