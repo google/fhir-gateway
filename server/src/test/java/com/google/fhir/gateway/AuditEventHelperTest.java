@@ -75,11 +75,15 @@ public class AuditEventHelperTest {
   public void testProcessAuditEventsCreatePatient() throws IOException {
 
     Patient patient = new Patient();
-    patient.setId("test-patient-id-1");
     patient.addGeneralPractitioner(agentUserWho);
 
+    String responseContentLocation =
+        String.format(
+            "%s/fhir/%s/%s/_history/hid-1",
+            FHIR_SERVER_BASE_URL, ResourceType.Encounter.name(), "test-patient-id-1");
+
     AuditEventHelper auditEventHelper =
-        createTestInstance(patient, null, RestOperationTypeEnum.CREATE);
+        createTestInstance(patient, null, responseContentLocation, RestOperationTypeEnum.CREATE);
     auditEventHelper.processAuditEvents();
 
     ArgumentCaptor<IBaseResource> payloadResourceCaptor =
@@ -198,11 +202,15 @@ public class AuditEventHelperTest {
   public void testProcessAuditEventsCreateEncounter() throws IOException {
 
     Encounter encounter = new Encounter();
-    encounter.setId("test-encounter-id-1");
     encounter.setSubject(new Reference("Patient/test-patient-id-1"));
 
+    String responseContentLocation =
+        String.format(
+            "%s/fhir/%s/%s/_history/hid-1",
+            FHIR_SERVER_BASE_URL, ResourceType.Encounter.name(), "test-encounter-id-1");
+
     AuditEventHelper auditEventHelper =
-        createTestInstance(encounter, null, RestOperationTypeEnum.CREATE);
+        createTestInstance(encounter, null, responseContentLocation, RestOperationTypeEnum.CREATE);
     auditEventHelper.processAuditEvents();
 
     ArgumentCaptor<IBaseResource> payloadResourceCaptor =
@@ -322,10 +330,13 @@ public class AuditEventHelperTest {
   public void testProcessAuditEventsCreateLocation() throws IOException {
 
     Location location = new Location();
-    location.setId("test-location-id-1");
+    String responseContentLocation =
+        String.format(
+            "%s/fhir/%s/%s/_history/hid-1",
+            FHIR_SERVER_BASE_URL, ResourceType.Encounter.name(), "test-location-id-1");
 
     AuditEventHelper auditEventHelper =
-        createTestInstance(location, null, RestOperationTypeEnum.CREATE);
+        createTestInstance(location, null, responseContentLocation, RestOperationTypeEnum.CREATE);
     auditEventHelper.processAuditEvents();
 
     ArgumentCaptor<IBaseResource> payloadResourceCaptor =
@@ -919,6 +930,24 @@ public class AuditEventHelperTest {
       @Nullable IBaseResource payload,
       @Nullable IBaseResource response,
       @Nullable RestOperationTypeEnum restOperationType) {
+
+    String responseContentLocation =
+        String.format(
+            "%s/fhir/%s/%s/_history/hid-1",
+            FHIR_SERVER_BASE_URL,
+            payload != null ? payload.fhirType() : "",
+            payload != null && payload.getIdElement() != null
+                ? payload.getIdElement().getIdPart()
+                : null);
+
+    return createTestInstance(payload, response, responseContentLocation, restOperationType);
+  }
+
+  private AuditEventHelper createTestInstance(
+      @Nullable IBaseResource payload,
+      @Nullable IBaseResource response,
+      @Nullable String responseContentLocation,
+      @Nullable RestOperationTypeEnum restOperationType) {
     when(requestDetailsReader.loadRequestContents())
         .thenReturn(
             payload != null
@@ -930,13 +959,7 @@ public class AuditEventHelperTest {
     return new AuditEventHelper(
         requestDetailsReader,
         response == null ? "{}" : fhirContext.newJsonParser().encodeResourceToString(response),
-        String.format(
-            "%s/fhir/%s/%s/_history/hid-1",
-            FHIR_SERVER_BASE_URL,
-            payload != null ? payload.fhirType() : "",
-            payload != null && payload.getIdElement() != null
-                ? payload.getIdElement().getIdPart()
-                : null),
+        responseContentLocation,
         agentUserWho,
         decodedJWT,
         new Date(),
