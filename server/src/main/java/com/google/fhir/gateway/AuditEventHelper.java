@@ -34,7 +34,16 @@ import java.util.List;
 import java.util.Set;
 import org.apache.http.HttpResponse;
 import org.hl7.fhir.instance.model.api.IBaseResource;
-import org.hl7.fhir.r4.model.*;
+import org.hl7.fhir.r4.model.AuditEvent;
+import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.Coding;
+import org.hl7.fhir.r4.model.DomainResource;
+import org.hl7.fhir.r4.model.IdType;
+import org.hl7.fhir.r4.model.Identifier;
+import org.hl7.fhir.r4.model.OperationOutcome;
+import org.hl7.fhir.r4.model.Reference;
+import org.hl7.fhir.r4.model.Resource;
+import org.hl7.fhir.r4.model.codesystems.V3ParticipationType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -541,12 +550,27 @@ public class AuditEventHelper {
             .address(this.requestDetailsReader.getServletRequestRemoteAddr())
             .type(AuditEvent.AuditEventAgentNetworkType._2)
             .build());
+
+    Coding participantCoding = new Coding();
+    participantCoding =
+        BalpProfileEnum.BASIC_DELETE.equals(balpProfile)
+                || BalpProfileEnum.PATIENT_DELETE.equals(balpProfile)
+            ? participantCoding
+                .setSystem(V3ParticipationType.CST.getSystem())
+                .setCode(V3ParticipationType.CST.toCode())
+                .setDisplay(V3ParticipationType.CST.getDisplay())
+            : participantCoding
+                .setSystem(V3ParticipationType.IRCP.getSystem())
+                .setCode(V3ParticipationType.IRCP.toCode())
+                .setDisplay(V3ParticipationType.IRCP.getDisplay());
+    auditEventBuilder.agentUserWhoTypeCoding(participantCoding);
+
     auditEventBuilder.agentUserWho(this.agentUserWho);
 
     if (this.decodedJWT != null) {
       auditEventBuilder.agentUserPolicy(
           JwtUtil.getClaimOrDefault(this.decodedJWT, JwtUtil.CLAIM_JWT_ID, ""));
-      auditEventBuilder.authserverUri(
+      auditEventBuilder.authServerUri(
           JwtUtil.getClaimOrDefault(decodedJWT, JwtUtil.CLAIM_ISSUER, ""));
       auditEventBuilder.agentClientWho(createAgentClientWhoRef(this.decodedJWT));
     }

@@ -57,7 +57,7 @@ public class AuditEventBuilder {
   private RestOperationTypeEnum restOperationType;
   private String fhirServerBaseUrl;
   private String gatewayServerBaseUrl;
-  private String authserverUri;
+  private String authServerUri;
   private String agentUserPolicy;
   private String requestId;
   private Coding agentDestinationTypeCoding;
@@ -103,8 +103,8 @@ public class AuditEventBuilder {
     return this;
   }
 
-  public AuditEventBuilder authserverUri(String authserverUri) {
-    this.authserverUri = authserverUri;
+  public AuditEventBuilder authServerUri(String authServerUri) {
+    this.authServerUri = authServerUri;
     return this;
   }
 
@@ -276,7 +276,7 @@ public class AuditEventBuilder {
             new Coding()
                 .setSystem(CS_EXTRA_SECURITY_ROLE_TYPE)
                 .setCode(CS_EXTRA_SECURITY_ROLE_TYPE_CODING_AUTHSERVER));
-    clientAgent.getNetwork().setAddress(this.authserverUri);
+    clientAgent.getNetwork().setAddress(this.authServerUri);
     clientAgent.getNetwork().setType(AuditEvent.AuditEventAgentNetworkType._5);
     clientAgent.setRequestor(false);
 
