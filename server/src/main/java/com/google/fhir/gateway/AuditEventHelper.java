@@ -18,7 +18,6 @@ package com.google.fhir.gateway;
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.rest.api.RequestTypeEnum;
 import ca.uhn.fhir.rest.api.RestOperationTypeEnum;
-import ca.uhn.fhir.storage.interceptor.balp.BalpConstants;
 import ca.uhn.fhir.storage.interceptor.balp.BalpProfileEnum;
 import ca.uhn.fhir.util.UrlUtil;
 import com.auth0.jwt.interfaces.DecodedJWT;
@@ -35,14 +34,7 @@ import java.util.List;
 import java.util.Set;
 import org.apache.http.HttpResponse;
 import org.hl7.fhir.instance.model.api.IBaseResource;
-import org.hl7.fhir.r4.model.AuditEvent;
-import org.hl7.fhir.r4.model.Bundle;
-import org.hl7.fhir.r4.model.DomainResource;
-import org.hl7.fhir.r4.model.IdType;
-import org.hl7.fhir.r4.model.Identifier;
-import org.hl7.fhir.r4.model.OperationOutcome;
-import org.hl7.fhir.r4.model.Reference;
-import org.hl7.fhir.r4.model.Resource;
+import org.hl7.fhir.r4.model.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -182,7 +174,7 @@ public class AuditEventHelper {
 
   private @Nonnull List<AuditEvent> generateAuditEventsByRestOperationType(
       RestOperationTypeEnum restOperationType, AuditEventBuilder.ResourceContext auditEventSource) {
-    List<AuditEvent> auditEventList;
+    List<AuditEvent> auditEventList = new ArrayList<>();
     switch (restOperationType) {
       case SEARCH_TYPE:
       case SEARCH_SYSTEM:
@@ -245,7 +237,6 @@ public class AuditEventHelper {
                 BalpProfileEnum.BASIC_DELETE);
         break;
       default:
-        auditEventList = new ArrayList<>();
         break;
     }
     return auditEventList;
@@ -271,7 +262,6 @@ public class AuditEventHelper {
           getRestOperationTypeForBundleEntry(requestBundle.getEntry().get(i), entryResource);
 
       if (entryResource instanceof Bundle) {
-
         auditEventList.addAll(
             createAuditEventsFromBundle(
                 restOperationType, (Bundle) entryResource, nestedResourceQueryEntity));
@@ -435,7 +425,7 @@ public class AuditEventHelper {
                 requestDetailsReader.getFhirServerBase(),
                 bundleEntryComponent.getRequest().getUrl()))
         .requestType(RequestTypeEnum.valueOf(bundleEntryComponent.getRequest().getMethod().name()))
-        .fhirServerBase(requestDetailsReader.getFhirServerBase())
+        .gatewayServerBase(requestDetailsReader.getFhirServerBase())
         .requestPath(
             UrlUtil.determineResourceTypeInResourceUrl(
                 fhirContext, bundleEntryComponent.getRequest().getUrl()))
@@ -449,7 +439,7 @@ public class AuditEventHelper {
     return AuditEventBuilder.QueryEntity.builder()
         .completeUrl(requestDetailsReader.getCompleteUrl())
         .requestType(requestDetailsReader.getRequestType())
-        .fhirServerBase(requestDetailsReader.getFhirServerBase())
+        .gatewayServerBase(requestDetailsReader.getFhirServerBase())
         .requestPath(requestDetailsReader.getRequestPath())
         .parameters(requestDetailsReader.getParameters())
         .build();
@@ -539,24 +529,25 @@ public class AuditEventHelper {
 
     AuditEventBuilder auditEventBuilder = new AuditEventBuilder(this.periodStartTime);
     auditEventBuilder.restOperationType(restOperationType);
-    if (this.decodedJWT != null) {
-      auditEventBuilder.agentUserPolicy(
-          JwtUtil.getClaimOrDefault(this.decodedJWT, JwtUtil.CLAIM_JWT_ID, ""));
-    }
     auditEventBuilder.auditEventAction(balpProfile.getAction());
-    auditEventBuilder.agentClientTypeCoding(balpProfile.getAgentClientTypeCoding());
-    auditEventBuilder.agentServerTypeCoding(balpProfile.getAgentServerTypeCoding());
+    auditEventBuilder.agentSourceTypeCoding(balpProfile.getAgentClientTypeCoding());
+    auditEventBuilder.agentDestinationTypeCoding(balpProfile.getAgentServerTypeCoding());
     auditEventBuilder.profileUrl(balpProfile.getProfileUrl());
-    auditEventBuilder.fhirServerBaseUrl(this.requestDetailsReader.getFhirServerBase());
+    auditEventBuilder.fhirServerBaseUrl(this.httpFhirClient.getBaseUrl());
+    auditEventBuilder.gatewayServerBaseUrl(this.requestDetailsReader.getFhirServerBase());
     auditEventBuilder.requestId(this.requestDetailsReader.getRequestId());
     auditEventBuilder.network(
         AuditEventBuilder.Network.builder()
             .address(this.requestDetailsReader.getServletRequestRemoteAddr())
-            .type(BalpConstants.AUDIT_EVENT_AGENT_NETWORK_TYPE_IP_ADDRESS)
+            .type(AuditEvent.AuditEventAgentNetworkType._2)
             .build());
     auditEventBuilder.agentUserWho(this.agentUserWho);
 
     if (this.decodedJWT != null) {
+      auditEventBuilder.agentUserPolicy(
+          JwtUtil.getClaimOrDefault(this.decodedJWT, JwtUtil.CLAIM_JWT_ID, ""));
+      auditEventBuilder.authserverUri(
+          JwtUtil.getClaimOrDefault(decodedJWT, JwtUtil.CLAIM_ISSUER, ""));
       auditEventBuilder.agentClientWho(createAgentClientWhoRef(this.decodedJWT));
     }
     return auditEventBuilder;

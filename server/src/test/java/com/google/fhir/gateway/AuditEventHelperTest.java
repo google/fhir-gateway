@@ -4,7 +4,9 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.rest.api.RequestTypeEnum;
@@ -26,6 +28,9 @@ import org.hl7.fhir.r4.model.Location;
 import org.hl7.fhir.r4.model.OperationOutcome;
 import org.hl7.fhir.r4.model.Patient;
 import org.hl7.fhir.r4.model.Reference;
+import org.hl7.fhir.r4.model.ResourceType;
+import org.hl7.fhir.r4.model.codesystems.AuditEntityType;
+import org.hl7.fhir.r4.model.codesystems.ObjectRole;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -49,15 +54,21 @@ public class AuditEventHelperTest {
   private Reference agentUserWho;
 
   private static final String FHIR_SERVER_BASE_URL = "http://my-fhir-server/fhir";
+  private static final String FHIR_INFO_GATEWAY_SERVER_BASE_URL =
+      "http://my-fhir-info-gateway/fhir";
+  private static final String TEST_REQUEST_ID = "test-request-id-1";
 
   @Before
   public void setUp() {
 
-    agentUserWho = new Reference().setReference("Practitioner/test-practitioner-id");
+    agentUserWho =
+        new Reference().setReference("Practitioner/test-practitioner-id").setDisplay("Dr. Smith");
 
     when(claim.asString()).thenReturn("some-value");
     when(decodedJWT.getClaim(anyString())).thenReturn(claim);
-    when(requestDetailsReader.getFhirServerBase()).thenReturn(FHIR_SERVER_BASE_URL);
+    when(requestDetailsReader.getFhirServerBase()).thenReturn(FHIR_INFO_GATEWAY_SERVER_BASE_URL);
+    when(fhirClientMock.getBaseUrl()).thenReturn(FHIR_SERVER_BASE_URL);
+    when(requestDetailsReader.getRequestId()).thenReturn(TEST_REQUEST_ID);
   }
 
   @Test
@@ -84,6 +95,9 @@ public class AuditEventHelperTest {
     assertThat(auditEvent.getSubtype().get(0).getCode(), equalTo("create"));
     assertThat(
         getAuditEventDomainResourceReference(auditEvent.getEntity()),
+        equalTo("Patient/test-patient-id-1"));
+    assertThat(
+        getAuditEventPatientResourceReference(auditEvent.getEntity()),
         equalTo("Patient/test-patient-id-1"));
   }
 
@@ -112,6 +126,9 @@ public class AuditEventHelperTest {
     assertThat(
         getAuditEventDomainResourceReference(auditEvent.getEntity()),
         equalTo("Patient/test-patient-id-1"));
+    assertThat(
+        getAuditEventPatientResourceReference(auditEvent.getEntity()),
+        equalTo("Patient/test-patient-id-1"));
   }
 
   @Test
@@ -138,6 +155,9 @@ public class AuditEventHelperTest {
     assertThat(auditEvent.getSubtype().get(0).getCode(), equalTo("update"));
     assertThat(
         getAuditEventDomainResourceReference(auditEvent.getEntity()),
+        equalTo("Patient/test-patient-id-1"));
+    assertThat(
+        getAuditEventPatientResourceReference(auditEvent.getEntity()),
         equalTo("Patient/test-patient-id-1"));
   }
 
@@ -166,6 +186,12 @@ public class AuditEventHelperTest {
     assertThat(
         getAuditEventDomainResourceReference(auditEvent.getEntity()),
         equalTo("Patient/test-patient-id-1"));
+    assertThat(
+        getAuditEventPatientResourceReference(auditEvent.getEntity()),
+        equalTo("Patient/test-patient-id-1"));
+    assertThat(
+        getAuditEventPatientResourceIdentifierSystem(auditEvent.getEntity()),
+        equalTo(AuditEventBuilder.CS_INFO_GATEWAY_DELETED));
   }
 
   @Test
@@ -193,6 +219,9 @@ public class AuditEventHelperTest {
     assertThat(
         getAuditEventDomainResourceReference(auditEvent.getEntity()),
         equalTo("Encounter/test-encounter-id-1"));
+    assertThat(
+        getAuditEventPatientResourceReference(auditEvent.getEntity()),
+        equalTo("Patient/test-patient-id-1"));
   }
 
   @Test
@@ -220,6 +249,9 @@ public class AuditEventHelperTest {
     assertThat(
         getAuditEventDomainResourceReference(auditEvent.getEntity()),
         equalTo("Encounter/test-encounter-id-1"));
+    assertThat(
+        getAuditEventPatientResourceReference(auditEvent.getEntity()),
+        equalTo("Patient/test-patient-id-1"));
   }
 
   @Test
@@ -247,6 +279,9 @@ public class AuditEventHelperTest {
     assertThat(
         getAuditEventDomainResourceReference(auditEvent.getEntity()),
         equalTo("Encounter/test-encounter-id-1"));
+    assertThat(
+        getAuditEventPatientResourceReference(auditEvent.getEntity()),
+        equalTo("Patient/test-patient-id-1"));
   }
 
   @Test
@@ -274,6 +309,13 @@ public class AuditEventHelperTest {
     assertThat(
         getAuditEventDomainResourceReference(auditEvent.getEntity()),
         equalTo("Encounter/test-encounter-id-1"));
+
+    assertThat(
+        getAuditEventPatientResourceReference(auditEvent.getEntity()),
+        equalTo("Patient/test-patient-id-1"));
+    assertThat(
+        getAuditEventPatientResourceIdentifierSystem(auditEvent.getEntity()),
+        equalTo(AuditEventBuilder.CS_INFO_GATEWAY_DELETED));
   }
 
   @Test
@@ -415,6 +457,44 @@ public class AuditEventHelperTest {
   }
 
   @Test
+  public void testProcessAuditNoRequestNoResponseBody() throws IOException {
+    when(requestDetailsReader.loadRequestContents()).thenReturn(new byte[0]);
+    when(requestDetailsReader.getRestOperationType()).thenReturn(RestOperationTypeEnum.DELETE);
+
+    AuditEventHelper auditEventHelper =
+        new AuditEventHelper(
+            requestDetailsReader,
+            "",
+            String.format(
+                "%s/fhir/%s/%s/_history/hid-1",
+                FHIR_SERVER_BASE_URL, ResourceType.Medication.name(), "test-medication-id-1"),
+            agentUserWho,
+            decodedJWT,
+            new Date(),
+            fhirClientMock,
+            fhirContext);
+
+    auditEventHelper.processAuditEvents();
+
+    ArgumentCaptor<IBaseResource> payloadResourceCaptor =
+        ArgumentCaptor.forClass(IBaseResource.class);
+    verify(fhirClientMock).postResource(payloadResourceCaptor.capture());
+
+    IBaseResource resource = payloadResourceCaptor.getValue();
+    assertThat(resource instanceof AuditEvent, is(true));
+
+    AuditEvent auditEvent = (AuditEvent) resource;
+    assertCommonAuditEventFields(auditEvent, false);
+    assertThat(auditEvent.getAction().toCode(), equalTo("D"));
+    assertThat(auditEvent.getSubtype().get(0).getCode(), equalTo("delete"));
+    assertThat(
+        getAuditEventDomainResourceReference(auditEvent.getEntity()),
+        equalTo("Medication/test-medication-id-1"));
+    assertThat(auditEvent.getOutcome().toCode(), equalTo("0"));
+    assertThat(auditEvent.getOutcomeDesc(), equalTo("Success"));
+  }
+
+  @Test
   public void testProcessAuditEventBundlePayloadRequest() throws IOException {
 
     when(requestDetailsReader.getRequestType()).thenReturn(RequestTypeEnum.POST);
@@ -506,6 +586,9 @@ public class AuditEventHelperTest {
     assertThat(
         getAuditEventDomainResourceReference(auditEvent.getEntity()),
         equalTo("Patient/test-patient-id-1"));
+    assertThat(
+        getAuditEventPatientResourceReference(auditEvent.getEntity()),
+        equalTo("Patient/test-patient-id-1"));
 
     // PUT
     auditEvent = (AuditEvent) resources.get(1);
@@ -514,6 +597,9 @@ public class AuditEventHelperTest {
     assertThat(auditEvent.getSubtype().get(0).getCode(), equalTo("update"));
     assertThat(
         getAuditEventDomainResourceReference(auditEvent.getEntity()),
+        equalTo("Patient/test-patient-id-1"));
+    assertThat(
+        getAuditEventPatientResourceReference(auditEvent.getEntity()),
         equalTo("Patient/test-patient-id-1"));
 
     // GET
@@ -524,6 +610,9 @@ public class AuditEventHelperTest {
     assertThat(
         getAuditEventDomainResourceReference(auditEvent.getEntity()),
         equalTo("Patient/test-patient-id-1"));
+    assertThat(
+        getAuditEventPatientResourceReference(auditEvent.getEntity()),
+        equalTo("Patient/test-patient-id-1"));
 
     // DELETE
     auditEvent = (AuditEvent) resources.get(3);
@@ -533,6 +622,9 @@ public class AuditEventHelperTest {
     assertThat(
         getAuditEventDomainResourceReference(auditEvent.getEntity()),
         equalTo("Patient/test-patient-id-1"));
+    assertThat(
+        getAuditEventPatientResourceReference(auditEvent.getEntity()),
+        equalTo("Patient/test-patient-id-1"));
   }
 
   @Test
@@ -540,14 +632,12 @@ public class AuditEventHelperTest {
     String fullRequestUrl =
         String.format(
             "%s/Observation?_id=test-observation-id-1&_id=test-observation-id-2",
-            FHIR_SERVER_BASE_URL);
-
-    when(requestDetailsReader.getFhirServerBase()).thenReturn(FHIR_SERVER_BASE_URL);
-    when(requestDetailsReader.getRequestType()).thenReturn(RequestTypeEnum.GET);
+            FHIR_INFO_GATEWAY_SERVER_BASE_URL);
     when(requestDetailsReader.getCompleteUrl()).thenReturn(fullRequestUrl);
+    when(requestDetailsReader.getRequestType()).thenReturn(RequestTypeEnum.GET);
     when(requestDetailsReader.getRestOperationType()).thenReturn(RestOperationTypeEnum.SEARCH_TYPE);
     when(requestDetailsReader.getCompleteUrl()).thenReturn(fullRequestUrl);
-    when(requestDetailsReader.getRequestPath()).thenReturn("Observation");
+    when(requestDetailsReader.getRequestPath()).thenReturn(ResourceType.Observation.name());
 
     when(requestDetailsReader.getParameters())
         .thenReturn(Map.of("_id", new String[] {"test-observation-id-1", "test-observation-id-2"}));
@@ -595,12 +685,16 @@ public class AuditEventHelperTest {
         equalTo("Observation/test-observation-id-1"));
     assertThat(
         getEntityQueryBySystemCode(
-            auditEvent.getEntity(), "http://terminology.hl7.org/CodeSystem/object-role", "24"),
+            auditEvent.getEntity(),
+            "http://terminology.hl7.org/CodeSystem/object-role",
+            ObjectRole._24.toCode()),
         equalTo(fullRequestUrl));
 
     assertThat(
         getEntityQueryDescriptionBySystemCode(
-            auditEvent.getEntity(), "http://terminology.hl7.org/CodeSystem/object-role", "24"),
+            auditEvent.getEntity(),
+            "http://terminology.hl7.org/CodeSystem/object-role",
+            ObjectRole._24.toCode()),
         equalTo("GET " + fullRequestUrl));
 
     // Observation 2
@@ -613,61 +707,123 @@ public class AuditEventHelperTest {
         equalTo("Observation/test-observation-id-2"));
     assertThat(
         getEntityQueryBySystemCode(
-            auditEvent.getEntity(), "http://terminology.hl7.org/CodeSystem/object-role", "24"),
+            auditEvent.getEntity(),
+            "http://terminology.hl7.org/CodeSystem/object-role",
+            ObjectRole._24.toCode()),
         equalTo(fullRequestUrl));
     assertThat(
         getEntityQueryDescriptionBySystemCode(
-            auditEvent.getEntity(), "http://terminology.hl7.org/CodeSystem/object-role", "24"),
+            auditEvent.getEntity(),
+            "http://terminology.hl7.org/CodeSystem/object-role",
+            ObjectRole._24.toCode()),
         equalTo("GET " + fullRequestUrl));
   }
 
   private void assertCommonAuditEventFields(AuditEvent auditEvent, boolean inPatientCompartment) {
+    assertThat(
+        auditEvent.getType().getSystem(),
+        equalTo("http://terminology.hl7.org/CodeSystem/audit-event-type"));
+    assertThat(auditEvent.getType().getCode(), equalTo("rest"));
     assertThat(auditEvent.getOutcome().toCode(), equalTo("0"));
     assertThat(auditEvent.getOutcomeDesc(), equalTo("Success"));
     assertThat(TestUtil.isSameDate(auditEvent.getRecorded(), new Date()), is(true));
     assertThat(TestUtil.isSameDate(auditEvent.getPeriod().getStart(), new Date()), is(true));
     assertThat(TestUtil.isSameDate(auditEvent.getPeriod().getEnd(), new Date()), is(true));
-    assertThat(auditEvent.getSource().getObserver().getDisplay(), equalTo(FHIR_SERVER_BASE_URL));
     assertThat(
-        getAuditEventCompartmentOwnerReference(auditEvent.getEntity()),
-        equalTo(inPatientCompartment ? "Patient/test-patient-id-1" : null));
-    assertThat(
-        getAgentReferenceBySystemCode(
+        auditEvent.getSource().getObserver().getDisplay(),
+        equalTo(FHIR_INFO_GATEWAY_SERVER_BASE_URL));
+
+    // Assert that that destination is the FHIR server
+    AuditEvent.AuditEventAgentComponent agentComponentDestination =
+        getAuditEventAgentComponentByType(
             auditEvent.getAgent(),
-            "http://terminology.hl7.org/CodeSystem/v3-ParticipationType",
-            "IRCP"),
-        equalTo("Practitioner/test-practitioner-id"));
+            "D".equals(auditEvent.getAction().toCode())
+                ? "http://terminology.hl7.org/CodeSystem/provenance-participant-type"
+                : "http://dicom.nema.org/resources/ontology/DCM",
+            "D".equals(auditEvent.getAction().toCode()) ? "custodian" : "110152");
+
+    assertThat(agentComponentDestination.getWho().getDisplay(), equalTo(FHIR_SERVER_BASE_URL));
+    assertThat(agentComponentDestination.getRequestor(), equalTo(false));
+    assertThat(agentComponentDestination.getNetwork().getAddress(), equalTo(FHIR_SERVER_BASE_URL));
     assertThat(
-        getAgentReferenceBySystemCode(
+        agentComponentDestination.getNetwork().getType(),
+        equalTo(AuditEvent.AuditEventAgentNetworkType._5));
+
+    // Assert that the source is the FHIR Info Gateway server
+    AuditEvent.AuditEventAgentComponent agentComponentSource =
+        getAuditEventAgentComponentByType(
             auditEvent.getAgent(),
             "http://dicom.nema.org/resources/ontology/DCM",
-            "D".equals(auditEvent.getAction().toCode()) ? "110150" : "110153"),
-        equalTo("some-value"));
-  }
+            "D".equals(auditEvent.getAction().toCode()) ? "110150" : "110153");
+    assertThat(
+        agentComponentSource.getWho().getDisplay(), equalTo(FHIR_INFO_GATEWAY_SERVER_BASE_URL));
+    assertThat(agentComponentSource.getRequestor(), equalTo(false));
+    assertThat(
+        agentComponentSource.getNetwork().getAddress(), equalTo(FHIR_INFO_GATEWAY_SERVER_BASE_URL));
+    assertThat(
+        agentComponentSource.getNetwork().getType(),
+        equalTo(AuditEvent.AuditEventAgentNetworkType._5));
 
-  private String getAuditEventCompartmentOwnerReference(
-      List<AuditEvent.AuditEventEntityComponent> components) {
-    return getEntityReferenceBySystemCode(
-        components, "http://terminology.hl7.org/CodeSystem/object-role", "1");
-  }
+    // Assert the authorization server
+    AuditEvent.AuditEventAgentComponent agentComponentAuthServer =
+        getAuditEventAgentComponentByType(
+            auditEvent.getAgent(),
+            AuditEventBuilder.CS_EXTRA_SECURITY_ROLE_TYPE,
+            AuditEventBuilder.CS_EXTRA_SECURITY_ROLE_TYPE_CODING_AUTHSERVER);
 
-  private String getAuditEventDomainResourceReference(
-      List<AuditEvent.AuditEventEntityComponent> components) {
-    return getEntityReferenceBySystemCode(
-        components, "http://terminology.hl7.org/CodeSystem/object-role", "4");
-  }
+    assertThat(agentComponentAuthServer.getRequestor(), equalTo(false));
+    assertThat(
+        agentComponentAuthServer.getWho().getIdentifier().getSystem(),
+        equalTo("some-value/oauth-client-id"));
+    assertThat(agentComponentAuthServer.getWho().getIdentifier().getValue(), equalTo("some-value"));
+    assertThat(agentComponentAuthServer.getNetwork().getAddress(), equalTo("some-value"));
+    assertThat(
+        agentComponentAuthServer.getNetwork().getType(),
+        equalTo(AuditEvent.AuditEventAgentNetworkType._5));
 
-  private String getEntityReferenceBySystemCode(
-      List<AuditEvent.AuditEventEntityComponent> components, String system, String code) {
-    for (AuditEvent.AuditEventEntityComponent component : components) {
-      if (system.equals(component.getRole().getSystem())
-          && code.equals(component.getRole().getCode())) {
-        return component.getWhat().hasReference()
-            ? component.getWhat().getReference()
-            : component.getWhat().getIdentifier().getValue();
-      }
+    // Assert the correct information recipient
+    AuditEvent.AuditEventAgentComponent agentComponentInformationRecipient =
+        getAuditEventAgentComponentByType(
+            auditEvent.getAgent(),
+            "http://terminology.hl7.org/CodeSystem/v3-ParticipationType",
+            "IRCP");
+    assertThat(
+        agentComponentInformationRecipient.getWho().getReference(),
+        equalTo("Practitioner/test-practitioner-id"));
+    assertThat(agentComponentInformationRecipient.getWho().getDisplay(), equalTo("Dr. Smith"));
+    assertThat(agentComponentInformationRecipient.getRequestor(), equalTo(true));
+
+    // AuditEvent.entity assertions
+    AuditEvent.AuditEventEntityComponent entityComponentDomainResource =
+        getAuditEventEntityComponentByType(
+            auditEvent.getEntity(),
+            "http://terminology.hl7.org/CodeSystem/audit-entity-type",
+            AuditEntityType._2.toCode());
+    assertThat(
+        entityComponentDomainResource.getRole().getSystem(),
+        equalTo("http://terminology.hl7.org/CodeSystem/object-role"));
+    assertThat(entityComponentDomainResource.getRole().getCode(), equalTo(ObjectRole._4.toCode()));
+
+    if (inPatientCompartment) {
+      AuditEvent.AuditEventEntityComponent entityComponentPatient =
+          getAuditEventEntityComponentByType(
+              auditEvent.getEntity(),
+              "http://terminology.hl7.org/CodeSystem/audit-entity-type",
+              AuditEntityType._1.toCode());
+      assertThat(
+          entityComponentPatient.getRole().getSystem(),
+          equalTo("http://terminology.hl7.org/CodeSystem/object-role"));
+      assertThat(entityComponentPatient.getRole().getCode(), equalTo(ObjectRole._1.toCode()));
     }
-    return null;
+
+    // Assert Request ID
+    AuditEvent.AuditEventEntityComponent entityComponentRequestId =
+        getAuditEventEntityComponentByType(
+            auditEvent.getEntity(),
+            "https://profiles.ihe.net/ITI/BALP/CodeSystem/BasicAuditEntityType",
+            "XrequestId");
+    assertThat(
+        entityComponentRequestId.getWhat().getIdentifier().getValue(), equalTo(TEST_REQUEST_ID));
   }
 
   private String getEntityQueryBySystemCode(
@@ -692,14 +848,68 @@ public class AuditEventHelperTest {
     return null;
   }
 
-  private String getAgentReferenceBySystemCode(
+  private String getAuditEventDomainResourceReference(
+      List<AuditEvent.AuditEventEntityComponent> components) {
+    AuditEvent.AuditEventEntityComponent compartmentOwnerComponent =
+        getAuditEventEntityComponentByRole(
+            components,
+            "http://terminology.hl7.org/CodeSystem/object-role",
+            ObjectRole._4.toCode());
+    return compartmentOwnerComponent.getWhat().hasReference()
+        ? compartmentOwnerComponent.getWhat().getReference()
+        : compartmentOwnerComponent.getWhat().getIdentifier().getValue();
+  }
+
+  private String getAuditEventPatientResourceReference(
+      List<AuditEvent.AuditEventEntityComponent> components) {
+    AuditEvent.AuditEventEntityComponent entityComponentPatient =
+        getAuditEventEntityComponentByType(
+            components,
+            "http://terminology.hl7.org/CodeSystem/audit-entity-type",
+            AuditEntityType._1.toCode());
+    return entityComponentPatient.getWhat().hasReference()
+        ? entityComponentPatient.getWhat().getReference()
+        : entityComponentPatient.getWhat().getIdentifier().getValue();
+  }
+
+  private String getAuditEventPatientResourceIdentifierSystem(
+      List<AuditEvent.AuditEventEntityComponent> components) {
+    AuditEvent.AuditEventEntityComponent entityComponentPatient =
+        getAuditEventEntityComponentByType(
+            components,
+            "http://terminology.hl7.org/CodeSystem/audit-entity-type",
+            AuditEntityType._1.toCode());
+    return entityComponentPatient.getWhat().getIdentifier().getSystem();
+  }
+
+  private AuditEvent.AuditEventAgentComponent getAuditEventAgentComponentByType(
       List<AuditEvent.AuditEventAgentComponent> components, String system, String code) {
     for (AuditEvent.AuditEventAgentComponent component : components) {
       if (system.equals(component.getType().getCodingFirstRep().getSystem())
           && code.equals(component.getType().getCodingFirstRep().getCode())) {
-        return component.getWho().hasReference()
-            ? component.getWho().getReference()
-            : component.getWho().getIdentifier().getValue();
+        return component;
+      }
+    }
+    return null;
+  }
+
+  private AuditEvent.AuditEventEntityComponent getAuditEventEntityComponentByRole(
+      List<AuditEvent.AuditEventEntityComponent> components, String system, String code) {
+    for (AuditEvent.AuditEventEntityComponent component : components) {
+      if (system.equals(component.getRole().getSystem())
+          && code.equals(component.getRole().getCode())) {
+        return component;
+      }
+    }
+    return null;
+  }
+
+  private AuditEvent.AuditEventEntityComponent getAuditEventEntityComponentByType(
+      List<AuditEvent.AuditEventEntityComponent> components, String system, String code) {
+    for (AuditEvent.AuditEventEntityComponent component : components) {
+      if (system.equals(component.getType().getSystem())
+          && code.equals(component.getType().getCode())) {
+        return component;
       }
     }
     return null;
