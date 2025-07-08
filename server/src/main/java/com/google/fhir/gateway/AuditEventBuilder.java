@@ -37,7 +37,6 @@ import org.hl7.fhir.r4.model.codesystems.AuditEntityType;
 import org.hl7.fhir.r4.model.codesystems.AuditEventType;
 import org.hl7.fhir.r4.model.codesystems.ObjectRole;
 import org.hl7.fhir.r4.model.codesystems.RestfulInteraction;
-import org.hl7.fhir.r4.model.codesystems.V3ParticipationType;
 import org.hl7.fhir.utilities.xhtml.XhtmlNode;
 
 public class AuditEventBuilder {
@@ -63,6 +62,7 @@ public class AuditEventBuilder {
   private String requestId;
   private Coding agentDestinationTypeCoding;
   private Coding agentSourceTypeCoding;
+  private Coding agentUserWhoTypeCoding;
   private Network network;
   private Outcome outcome;
   private final Date startTime;
@@ -125,6 +125,11 @@ public class AuditEventBuilder {
 
   public AuditEventBuilder agentDestinationTypeCoding(Coding agentServerTypeCoding) {
     this.agentDestinationTypeCoding = agentServerTypeCoding;
+    return this;
+  }
+
+  public AuditEventBuilder agentUserWhoTypeCoding(Coding agentUserWhoTypeCoding) {
+    this.agentUserWhoTypeCoding = agentUserWhoTypeCoding;
     return this;
   }
 
@@ -290,12 +295,7 @@ public class AuditEventBuilder {
     destinationAgent.setRequestor(false);
 
     AuditEvent.AuditEventAgentComponent userAgent = auditEvent.addAgent();
-    userAgent
-        .getType()
-        .addCoding()
-        .setSystem(V3ParticipationType.IRCP.getSystem())
-        .setCode(V3ParticipationType.IRCP.toCode())
-        .setDisplay(V3ParticipationType.IRCP.getDisplay());
+    userAgent.getType().addCoding(this.agentUserWhoTypeCoding);
     userAgent.setWho(this.agentUserWho);
     userAgent.setRequestor(true);
     userAgent.addPolicy(this.agentUserPolicy);

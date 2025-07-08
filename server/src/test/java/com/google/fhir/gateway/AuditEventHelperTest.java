@@ -31,6 +31,7 @@ import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.ResourceType;
 import org.hl7.fhir.r4.model.codesystems.AuditEntityType;
 import org.hl7.fhir.r4.model.codesystems.ObjectRole;
+import org.hl7.fhir.r4.model.codesystems.V3ParticipationType;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -796,8 +797,12 @@ public class AuditEventHelperTest {
     AuditEvent.AuditEventAgentComponent agentComponentInformationRecipient =
         getAuditEventAgentComponentByType(
             auditEvent.getAgent(),
-            "http://terminology.hl7.org/CodeSystem/v3-ParticipationType",
-            "IRCP");
+            "D".equals(auditEvent.getAction().toCode())
+                ? V3ParticipationType.CST.getSystem()
+                : V3ParticipationType.IRCP.getSystem(),
+            "D".equals(auditEvent.getAction().toCode())
+                ? V3ParticipationType.CST.toCode()
+                : V3ParticipationType.IRCP.toCode());
     assertThat(
         agentComponentInformationRecipient.getWho().getReference(),
         equalTo("Practitioner/test-practitioner-id"));
