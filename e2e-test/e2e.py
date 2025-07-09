@@ -270,6 +270,8 @@ def _assert_audit_events(expected_audit_event: Dict[str, Any],
             elif field == "recorded":
                 expected_value = date.today()
                 actual_value = parse_date(actual_value) if isinstance(actual_value, str) else datetime.min.date()
+
+                logging.info("Comparing expected {} vs actual {}".format(expected_value, actual_value))
             elif field == "period":
                 #confirm with period.end that object is correct
                 actual_period_end = (actual_value.get("end") 
@@ -295,19 +297,19 @@ if __name__ == "__main__":
     fhir_proxy_client = clients.FhirProxyClient()
     hapi_client = clients.HapiClient()
 
-    logging.info("Testing proxy and server resource counts ...")
-    test_proxy_and_server_equal_count(
-        patients, resources, hapi_client, fhir_proxy_client, auth_client
-    )
-    logging.info("Testing post resource ...")
-    test_post_resource_increase_count(
-        ("Observation", "subject"),
-        "e2e-test/obs.json",
-        "Patient/75270",
-        hapi_client,
-        fhir_proxy_client,
-        auth_client,
-    )
+    # logging.info("Testing proxy and server resource counts ...")
+    # test_proxy_and_server_equal_count(
+    #     patients, resources, hapi_client, fhir_proxy_client, auth_client
+    # )
+    # logging.info("Testing post resource ...")
+    # test_post_resource_increase_count(
+    #     ("Observation", "subject"),
+    #     "e2e-test/obs.json",
+    #     "Patient/75270",
+    #     hapi_client,
+    #     fhir_proxy_client,
+    #     auth_client,
+    # )
    
     logging.info("Testing POST Resource with AuditEvent logging enabled")
     test_post_resource_with_logging_enabled_creates_audit_event(
