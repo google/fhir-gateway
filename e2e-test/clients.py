@@ -20,6 +20,7 @@ import json
 from typing import Dict, Tuple, List, Any
 
 import requests
+from datetime import datetime
 
 
 def _setup_session(base_url: str) -> requests.Session:
@@ -38,6 +39,20 @@ def read_file(file_name: str) -> Dict[str, Any]:
 
     return data
 
+def parse_date(date_str):
+    if not isinstance(date_str, str):
+        return datetime.min.date()
+    try:
+        return datetime.fromisoformat(date_str).date()
+    except Exception:
+        for format in ("%Y-%m-%dT%H:%M:%S.%f",
+                    "%Y-%m-%dT%H:%M:%S",
+                    "%Y-%m-%d"):
+            try:
+                return datetime.strptime(date_str, format).date()
+            except Exception:
+                continue
+    return datetime.min.date()
 
 class HapiClient:
     """Client for connecting to a HAPI FHIR server.

@@ -23,7 +23,7 @@ from typing import List, Tuple, Dict, Any
 
 import clients
 
-from clients import read_file
+from clients import read_file, parse_date
 from datetime import datetime, date
 
 def test_proxy_and_server_equal_count(
@@ -269,15 +269,13 @@ def _assert_audit_events(expected_audit_event: Dict[str, Any],
                                  
             elif field == "recorded":
                 expected_value = date.today()
-                actual_value = (datetime.fromisoformat(actual_value)
-                                 if isinstance(actual_value,str) else datetime.min).date()
+                actual_value = parse_date(actual_value) if isinstance(actual_value, str) else datetime.min.date()
             elif field == "period":
                 #confirm with period.end that object is correct
                 actual_period_end = (actual_value.get("end") 
                 if isinstance(actual_value, dict) else None)
                 expected_value = date.today()
-                actual_value = (datetime.fromisoformat(actual_period_end)
-                         if isinstance(actual_period_end,str) else datetime.min).date()
+                actual_value = parse_date(actual_period_end) if isinstance(actual_period_end,str) else datetime.min.date()
             
             if actual_value != expected_value:
                 raise AssertionError(
