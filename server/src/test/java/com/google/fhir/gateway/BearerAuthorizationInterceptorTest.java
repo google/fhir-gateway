@@ -236,7 +236,8 @@ public class BearerAuthorizationInterceptorTest {
             .orElseThrow();
     assertThat(
         auditEventEntityWhatRef.getReference(),
-        equalTo("Patient/be92a43f-de46-affa-b131-bbf9eea51140"));
+        equalTo(
+            "Patient/be92a43f-de46-affa-b131-bbf9eea51140/_history/MTYzNzg2NzAwODA4NTA1NDAwMA"));
 
     assertThat(auditEvent.getPeriod().getStart(), notNullValue());
     assertThat(auditEvent.getPeriod().getStart(), notNullValue());
