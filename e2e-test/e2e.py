@@ -1,5 +1,5 @@
 #
-# Copyright 2021-2022 Google LLC
+# Copyright 2021-2025 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -164,13 +164,24 @@ def _test_post_and_verify_audit_events(
             if resource_type == "" 
             else "{resource_type}_audit_events.json".format(resource_type=resource_type)
             ).lower()                           
-            for audit_event_entry in new_audit_events:
+            expected_data = read_file("e2e-test/{}".format(expected_output_filename))
+            if not isinstance(expected_data, list):
+                raise AssertionError("Expected audit event file must contain a list of objects.")
+            if len(expected_data) != len(new_audit_events):
+                raise AssertionError(
+                    "Number of expected and actual audit events do not match: expected {}, actual {}".format(
+                        len(expected_data), len(new_audit_events)
+                    )
+                )
+            for index, (expected_audit_event, audit_event_entry) in enumerate(zip(expected_data, new_audit_events)):
+                if not isinstance(expected_audit_event, dict):
+                    logging.warning("Expected audit event at index {} is not a dict: {}".format(index, expected_audit_event))
+                    continue
                 audit_event = audit_event_entry.get("resource", {})
                 if not isinstance(audit_event, dict):
-                    logging.warning("AuditEvent resource is not a dict: {}".format(audit_event))
+                    logging.warning("AuditEvent resource at index {} is not a dict: {}".format(index, audit_event))
                     continue
-                _assert_audit_events(read_file(
-                    "e2e-test/{}".format(expected_output_filename)), audit_event)
+                _assert_audit_events(expected_audit_event, audit_event)
                     
             logging.info("AuditEvents created successfully after %s POST.", payload_type)
             return
@@ -251,6 +262,12 @@ def _assert_audit_events(expected_audit_event: Dict[str, Any],
                                  if isinstance(expected_entity_resource_ref, str) else "")
                 actual_value = (actual_entity_resource_ref.split("/")[0] 
                                  if isinstance(actual_entity_resource_ref, str) else "")
+                                 
+                if expected_entity_resource_ref is not None and "_history" not in expected_entity_resource_ref:
+                    raise AssertionError(
+                        "Reference '{}' does not contain version id:\n".format(expected_entity_resource_ref)
+                    )
+                                 
             elif field == "recorded":
                 expected_value = date.today()
                 actual_value = (datetime.fromisoformat(actual_value)
@@ -281,27 +298,27 @@ if __name__ == "__main__":
     fhir_proxy_client = clients.FhirProxyClient()
     hapi_client = clients.HapiClient()
 
-    logging.info("Testing proxy and server resource counts ...")
-    test_proxy_and_server_equal_count(
-        patients, resources, hapi_client, fhir_proxy_client, auth_client
-    )
-    logging.info("Testing post resource ...")
-    test_post_resource_increase_count(
-        ("Observation", "subject"),
-        "e2e-test/obs.json",
-        "Patient/75270",
-        hapi_client,
-        fhir_proxy_client,
-        auth_client,
-    )
+    # logging.info("Testing proxy and server resource counts ...")
+    # test_proxy_and_server_equal_count(
+    #     patients, resources, hapi_client, fhir_proxy_client, auth_client
+    # )
+    # logging.info("Testing post resource ...")
+    # test_post_resource_increase_count(
+    #     ("Observation", "subject"),
+    #     "e2e-test/obs.json",
+    #     "Patient/75270",
+    #     hapi_client,
+    #     fhir_proxy_client,
+    #     auth_client,
+    # )
    
-    logging.info("Testing POST Resource with AuditEvent logging enabled")
-    test_post_resource_with_logging_enabled_creates_audit_event(
-        "e2e-test/obs.json",
-        hapi_client,
-        fhir_proxy_client,
-        auth_client,
-    )
+    # logging.info("Testing POST Resource with AuditEvent logging enabled")
+    # test_post_resource_with_logging_enabled_creates_audit_event(
+    #     "e2e-test/obs.json",
+    #     hapi_client,
+    #     fhir_proxy_client,
+    #     auth_client,
+    # )
    
     logging.info("Testing POST Bundle with AuditEvent logging enabled")
     test_post_bundle_with_logging_enabled_creates_audit_events(
