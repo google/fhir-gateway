@@ -271,7 +271,7 @@ def _assert_audit_events(expected_audit_event: Dict[str, Any],
                 expected_value = date.today()
 
                 logging.info("Raw actual {}".format(actual_value))
-                actual_value = parse_date(actual_value) if isinstance(actual_value, str) else datetime.min.date()
+                actual_value = parse_date(actual_value.replace("+00:00", "+0000")) if isinstance(actual_value, str) else datetime.min.date()
 
                 logging.info("Comparing expected {} vs actual {}".format(expected_value, actual_value))
             elif field == "period":
