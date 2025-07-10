@@ -118,13 +118,13 @@ public class AuditEventBuilder {
     return this;
   }
 
-  public AuditEventBuilder agentSourceTypeCoding(Coding agentClientTypeCoding) {
-    this.agentSourceTypeCoding = agentClientTypeCoding;
+  public AuditEventBuilder agentSourceTypeCoding(Coding agentSourceTypeCoding) {
+    this.agentSourceTypeCoding = agentSourceTypeCoding;
     return this;
   }
 
-  public AuditEventBuilder agentDestinationTypeCoding(Coding agentServerTypeCoding) {
-    this.agentDestinationTypeCoding = agentServerTypeCoding;
+  public AuditEventBuilder agentDestinationTypeCoding(Coding agentDestinationTypeCoding) {
+    this.agentDestinationTypeCoding = agentDestinationTypeCoding;
     return this;
   }
 
@@ -268,17 +268,17 @@ public class AuditEventBuilder {
     auditEvent.setRecorded(new Date());
     auditEvent.getSource().getObserver().setDisplay(this.gatewayServerBaseUrl);
 
-    AuditEvent.AuditEventAgentComponent clientAgent = auditEvent.addAgent();
-    clientAgent.setWho(this.agentClientWho);
-    clientAgent
+    AuditEvent.AuditEventAgentComponent authAgent = auditEvent.addAgent();
+    authAgent.setWho(this.agentClientWho);
+    authAgent
         .getType()
         .addCoding(
             new Coding()
                 .setSystem(CS_EXTRA_SECURITY_ROLE_TYPE)
                 .setCode(CS_EXTRA_SECURITY_ROLE_TYPE_CODING_AUTHSERVER));
-    clientAgent.getNetwork().setAddress(this.authServerUri);
-    clientAgent.getNetwork().setType(AuditEvent.AuditEventAgentNetworkType._5);
-    clientAgent.setRequestor(false);
+    authAgent.getNetwork().setAddress(this.authServerUri);
+    authAgent.getNetwork().setType(AuditEvent.AuditEventAgentNetworkType._5);
+    authAgent.setRequestor(false);
 
     AuditEvent.AuditEventAgentComponent sourceAgent = auditEvent.addAgent();
     sourceAgent.getType().addCoding(this.agentSourceTypeCoding);
