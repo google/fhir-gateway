@@ -54,6 +54,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.apache.http.HttpHeaders;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
@@ -120,7 +121,7 @@ public class BearerAuthorizationInterceptorTest {
               }
             },
         new AllowedQueriesChecker(allowedQueriesConfig),
-        isEventLoggingEnabled);
+        isEventLoggingEnabled ? Set.of("C", "R", "U", "D", "E") : Set.of());
   }
 
   @Before

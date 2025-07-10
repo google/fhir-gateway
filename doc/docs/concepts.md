@@ -109,8 +109,11 @@ The configuration parameters are provided through environment variables:
 - `BACKEND_TYPE`: The type of backend, either `HAPI` or `GCP`. `HAPI` should be
   used for most FHIR servers, while `GCP` should be used for GCP FHIR stores.
 
-- `AUDIT_EVENT_LOGGING_ENABLED`: A flag to configure AuditEvent logging. Set to
-  `true` to enable or `false` to disable. Default when not set is `false`.
+- `AUDIT_EVENT_ACTIONS_CONFIG`: A flag to configure AuditEvent logging. Set to
+  either `C`,`R`,`U`,`D` or `E` to enable and select the audit event actions to
+  be logged. This model is guided by the value set codes defined here -
+  https://hl7.org/fhir/R4/valueset-audit-event-action.html. Absence of any
+  (valid) means audit logging is disabled.
 
 ## Access Checkers
 
