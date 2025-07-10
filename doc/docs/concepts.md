@@ -226,9 +226,9 @@ ideal place to track access for auditing. The Gateway simplifies enabling
 AuditEvent logging with these key features:
 
 - Targeting the HL7 FHIR R4 specification -
-  https://hl7.org/fhir/R4/auditevent.html.
+  [https://hl7.org/fhir/R4/auditevent.html](https://hl7.org/fhir/R4/auditevent.html).
 - Adherence to Basic Audit Logging Profiles (BALP) IG minimal audit patterns -
-  https://profiles.ihe.net/ITI/BALP/index.html.
+  [https://profiles.ihe.net/ITI/BALP/index.html](https://profiles.ihe.net/ITI/BALP/index.html).
 - Storing AuditEvents in the same server as the rest of the data.
 - Generating an AuditEvent for every request processed by the Gateway, based on
   request and response data.
@@ -236,5 +236,7 @@ AuditEvent logging with these key features:
   `getUserWho` implementation in the `AccessDecision` interface.
 - Configuration via environment variables (see
   [Configuration Parameters](#configuration-parameters)).
-- Selectable audit event actions for logging, based on the HL7 FHIR R4 value set
-  codes. Disabling audit logging is achieved by omitting any valid action codes.
+- Selectable actions for logging, based on the HL7 FHIR R4
+  [audit event actions value set codes](https://hl7.org/fhir/R4/valueset-audit-event-action.html).
+- Disabling audit logging is achieved by omitting any valid audit event action
+  codes.
