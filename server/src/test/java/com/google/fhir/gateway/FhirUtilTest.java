@@ -21,10 +21,16 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import ca.uhn.fhir.context.FhirContext;
+import ca.uhn.fhir.rest.api.Constants;
+import ca.uhn.fhir.rest.api.RestOperationTypeEnum;
 import com.google.common.io.Resources;
 import com.google.fhir.gateway.interfaces.RequestDetailsReader;
 import java.io.IOException;
 import java.net.URL;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+import org.hl7.fhir.r4.model.IdType;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.junit.MockitoJUnitRunner;
@@ -99,5 +105,71 @@ public class FhirUtilTest {
     RequestDetailsReader requestMock = mock(RequestDetailsReader.class);
     when(requestMock.loadRequestContents()).thenReturn(bundleBytes);
     FhirUtil.parseRequestToBundle(fhirContext, requestMock).getEntry().size();
+  }
+
+  @Test
+  public void getRestOperationTypePatchReturnsPatch() {
+    assertThat(
+        FhirUtil.getRestOperationType("PATCH", null, Collections.emptyMap()),
+        equalTo(RestOperationTypeEnum.PATCH));
+  }
+
+  @Test
+  public void getRestOperationTypePutReturnsUpdate() {
+    assertThat(
+        FhirUtil.getRestOperationType("PUT", null, Collections.emptyMap()),
+        equalTo(RestOperationTypeEnum.UPDATE));
+  }
+
+  @Test
+  public void getRestOperationTypePostReturnsCreate() {
+    assertThat(
+        FhirUtil.getRestOperationType("POST", null, Collections.emptyMap()),
+        equalTo(RestOperationTypeEnum.CREATE));
+  }
+
+  @Test
+  public void getRestOperationTypeDeleteReturnsDelete() {
+    assertThat(
+        FhirUtil.getRestOperationType("DELETE", null, Collections.emptyMap()),
+        equalTo(RestOperationTypeEnum.DELETE));
+  }
+
+  @Test
+  public void getRestOperationTypeGetWithVersionedIdReturnsVRead() {
+    IdType id = new IdType("Patient/123/_history/1");
+    assertThat(
+        FhirUtil.getRestOperationType("GET", id, Collections.emptyMap()),
+        equalTo(RestOperationTypeEnum.VREAD));
+  }
+
+  @Test
+  public void getRestOperationTypeGetWithIdReturnsRead() {
+    IdType id = new IdType("Patient/123");
+    assertThat(
+        FhirUtil.getRestOperationType("GET", id, Collections.emptyMap()),
+        equalTo(RestOperationTypeEnum.READ));
+  }
+
+  @Test
+  public void getRestOperationTypeGetWithPagingActionReturnsGetPage() {
+    Map<String, String[]> params = new HashMap<>();
+    params.put(Constants.PARAM_PAGINGACTION, new String[] {"some-test-uuid"});
+    assertThat(
+        FhirUtil.getRestOperationType("GET", null, params),
+        equalTo(RestOperationTypeEnum.GET_PAGE));
+  }
+
+  @Test
+  public void getRestOperationTypeGetWithoutIdOrPagingReturnsSearchType() {
+    assertThat(
+        FhirUtil.getRestOperationType("GET", null, Collections.emptyMap()),
+        equalTo(RestOperationTypeEnum.SEARCH_TYPE));
+  }
+
+  @Test
+  public void getRestOperationTypeUnknownOperationReturnsNull() {
+    assertThat(
+        FhirUtil.getRestOperationType("OPTIONS", null, Collections.emptyMap()), equalTo(null));
   }
 }

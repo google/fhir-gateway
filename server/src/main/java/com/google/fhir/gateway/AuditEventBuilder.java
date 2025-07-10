@@ -37,7 +37,6 @@ import org.hl7.fhir.r4.model.codesystems.AuditEntityType;
 import org.hl7.fhir.r4.model.codesystems.AuditEventType;
 import org.hl7.fhir.r4.model.codesystems.ObjectRole;
 import org.hl7.fhir.r4.model.codesystems.RestfulInteraction;
-import org.hl7.fhir.r4.model.codesystems.V3ParticipationType;
 import org.hl7.fhir.utilities.xhtml.XhtmlNode;
 
 public class AuditEventBuilder {
@@ -48,16 +47,22 @@ public class AuditEventBuilder {
 
   // TODO investigate whether we need to create a CodeSystem Enum
   public static final String CS_INFO_GATEWAY_DELETED = "http://fhir-info-gateway/deleted";
+  public static final String CS_EXTRA_SECURITY_ROLE_TYPE =
+      "http://terminology.hl7.org/CodeSystem/extra-security-role-type";
+  public static final String CS_EXTRA_SECURITY_ROLE_TYPE_CODING_AUTHSERVER = "authserver";
 
   private Reference agentUserWho;
   private String profileUrl;
   private AuditEvent.AuditEventAction auditEventAction;
   private RestOperationTypeEnum restOperationType;
   private String fhirServerBaseUrl;
+  private String gatewayServerBaseUrl;
+  private String authServerUri;
   private String agentUserPolicy;
   private String requestId;
-  private Coding agentServerTypeCoding;
-  private Coding agentClientTypeCoding;
+  private Coding agentDestinationTypeCoding;
+  private Coding agentSourceTypeCoding;
+  private Coding agentUserWhoTypeCoding;
   private Network network;
   private Outcome outcome;
   private final Date startTime;
@@ -93,6 +98,16 @@ public class AuditEventBuilder {
     return this;
   }
 
+  public AuditEventBuilder gatewayServerBaseUrl(String gatewayServerBaseUrl) {
+    this.gatewayServerBaseUrl = gatewayServerBaseUrl;
+    return this;
+  }
+
+  public AuditEventBuilder authServerUri(String authServerUri) {
+    this.authServerUri = authServerUri;
+    return this;
+  }
+
   public AuditEventBuilder agentUserPolicy(String agentUserPolicy) {
     this.agentUserPolicy = agentUserPolicy;
     return this;
@@ -103,13 +118,18 @@ public class AuditEventBuilder {
     return this;
   }
 
-  public AuditEventBuilder agentServerTypeCoding(Coding agentServerTypeCoding) {
-    this.agentServerTypeCoding = agentServerTypeCoding;
+  public AuditEventBuilder agentSourceTypeCoding(Coding agentSourceTypeCoding) {
+    this.agentSourceTypeCoding = agentSourceTypeCoding;
     return this;
   }
 
-  public AuditEventBuilder agentClientTypeCoding(Coding agentClientTypeCoding) {
-    this.agentClientTypeCoding = agentClientTypeCoding;
+  public AuditEventBuilder agentDestinationTypeCoding(Coding agentDestinationTypeCoding) {
+    this.agentDestinationTypeCoding = agentDestinationTypeCoding;
+    return this;
+  }
+
+  public AuditEventBuilder agentUserWhoTypeCoding(Coding agentUserWhoTypeCoding) {
+    this.agentUserWhoTypeCoding = agentUserWhoTypeCoding;
     return this;
   }
 
@@ -156,7 +176,7 @@ public class AuditEventBuilder {
   }
 
   private static String generateQueryStringFromQueryParameters(QueryEntity queryEntity) {
-    StringBuilder queryString = new StringBuilder(queryEntity.getFhirServerBase());
+    StringBuilder queryString = new StringBuilder(queryEntity.getGatewayServerBase());
     queryString.append('/').append(queryEntity.getRequestPath());
     boolean first = true;
     for (Map.Entry<String, String[]> nextEntrySet : queryEntity.getParameters().entrySet()) {
@@ -246,31 +266,41 @@ public class AuditEventBuilder {
     }
 
     auditEvent.setRecorded(new Date());
+    auditEvent.getSource().getObserver().setDisplay(this.gatewayServerBaseUrl);
 
-    auditEvent.getSource().getObserver().setDisplay(this.fhirServerBaseUrl);
+    AuditEvent.AuditEventAgentComponent authAgent = auditEvent.addAgent();
+    authAgent.setWho(this.agentClientWho);
+    authAgent
+        .getType()
+        .addCoding(
+            new Coding()
+                .setSystem(CS_EXTRA_SECURITY_ROLE_TYPE)
+                .setCode(CS_EXTRA_SECURITY_ROLE_TYPE_CODING_AUTHSERVER));
+    authAgent.getNetwork().setAddress(this.authServerUri);
+    authAgent.getNetwork().setType(AuditEvent.AuditEventAgentNetworkType._5);
+    authAgent.setRequestor(false);
 
-    AuditEvent.AuditEventAgentComponent clientAgent = auditEvent.addAgent();
-    clientAgent.setWho(this.agentClientWho);
-    clientAgent.getType().addCoding(this.agentClientTypeCoding);
-    clientAgent.setRequestor(false);
+    AuditEvent.AuditEventAgentComponent sourceAgent = auditEvent.addAgent();
+    sourceAgent.getType().addCoding(this.agentSourceTypeCoding);
+    sourceAgent.getWho().setDisplay(this.gatewayServerBaseUrl);
+    sourceAgent.getNetwork().setAddress(this.gatewayServerBaseUrl);
+    sourceAgent.getNetwork().setType(AuditEvent.AuditEventAgentNetworkType._5);
+    sourceAgent.setRequestor(false);
 
-    AuditEvent.AuditEventAgentComponent serverAgent = auditEvent.addAgent();
-    serverAgent.getType().addCoding(this.agentServerTypeCoding);
-    serverAgent.getWho().setDisplay(this.fhirServerBaseUrl);
-    serverAgent.getNetwork().setAddress(this.fhirServerBaseUrl);
-    serverAgent.setRequestor(false);
+    AuditEvent.AuditEventAgentComponent destinationAgent = auditEvent.addAgent();
+    destinationAgent.getType().addCoding(this.agentDestinationTypeCoding);
+    destinationAgent.getWho().setDisplay(this.fhirServerBaseUrl);
+    destinationAgent.getNetwork().setAddress(this.fhirServerBaseUrl);
+    destinationAgent.getNetwork().setType(AuditEvent.AuditEventAgentNetworkType._5);
+    destinationAgent.setRequestor(false);
 
     AuditEvent.AuditEventAgentComponent userAgent = auditEvent.addAgent();
-    userAgent
-        .getType()
-        .addCoding()
-        .setSystem(V3ParticipationType.IRCP.getSystem())
-        .setCode(V3ParticipationType.IRCP.toCode())
-        .setDisplay(V3ParticipationType.IRCP.getDisplay());
+    userAgent.getType().addCoding(this.agentUserWhoTypeCoding);
     userAgent.setWho(this.agentUserWho);
     userAgent.setRequestor(true);
     userAgent.addPolicy(this.agentUserPolicy);
-    userAgent.getNetwork().setAddress(this.network.address).setType(this.network.type);
+    userAgent.getNetwork().setAddress(this.network.address);
+    userAgent.getNetwork().setType(this.network.type);
 
     AuditEvent.AuditEventEntityComponent entityTransaction = auditEvent.addEntity();
     entityTransaction
@@ -314,7 +344,7 @@ public class AuditEventBuilder {
   public static class QueryEntity {
     private RequestTypeEnum requestType;
     private String completeUrl;
-    private String fhirServerBase;
+    private String gatewayServerBase;
     private String requestPath;
     private Map<String, String[]> parameters;
   }
