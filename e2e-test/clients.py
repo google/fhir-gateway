@@ -17,6 +17,7 @@
 """Clients to make calls to FHIR Proxy, HAPI Server, and AuthZ Server."""
 
 import json
+import logging
 from typing import Dict, Tuple, List, Any
 
 import requests
@@ -40,18 +41,24 @@ def read_file(file_name: str) -> Dict[str, Any]:
     return data
 
 def parse_date(date_str):
+    logging.info("We are in the parse_date function - Parsing date_str parameter value '{}'".format(date_str))
     if not isinstance(date_str, str):
+        logging.info("We are in the 'not isinstance' condition")
         return datetime.min.date()
     try:
+        logging.info("We are in the try{}")
         return datetime.fromisoformat(date_str).date()
     except Exception:
         for format in ("%Y-%m-%dT%H:%M:%S.%f",
                     "%Y-%m-%dT%H:%M:%S",
                     "%Y-%m-%d"):
+            logging.info("We are in the except looping formats, trying format {}".format(format))        
             try:
                 return datetime.strptime(date_str, format).date()
             except Exception:
                 continue
+    
+    logging.info("We are done trying, returning datetime.min.date()")
     return datetime.min.date()
 
 class HapiClient:
