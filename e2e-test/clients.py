@@ -17,11 +17,9 @@
 """Clients to make calls to FHIR Proxy, HAPI Server, and AuthZ Server."""
 
 import json
-import logging
 from typing import Dict, Tuple, List, Any
 
 import requests
-from datetime import datetime
 
 
 def _setup_session(base_url: str) -> requests.Session:
