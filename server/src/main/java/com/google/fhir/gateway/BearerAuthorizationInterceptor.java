@@ -218,10 +218,6 @@ public class BearerAuthorizationInterceptor {
         Reference agentUserWho = outcome.getUserWho(requestDetailsReader);
         if (agentUserWho != null) {
 
-          FhirContext.forR4Cached()
-              .getParserOptions()
-              .setDontStripVersionsFromReferencesAtPaths("AuditEvent.entity.what");
-
           StringWriter responseStringWriter = new StringWriter();
           reader.transferTo(responseStringWriter);
           String responseStringContent = responseStringWriter.toString();
