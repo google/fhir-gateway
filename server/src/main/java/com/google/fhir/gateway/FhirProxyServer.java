@@ -61,6 +61,9 @@ public class FhirProxyServer extends RestfulServer {
     // TODO make the FHIR version configurable.
     // Create a context for the appropriate version
     setFhirContext(FhirContext.forR4());
+    FhirContext.forR4Cached()
+        .getParserOptions()
+        .setDontStripVersionsFromReferencesAtPaths("AuditEvent.entity.what");
 
     // Note interceptor registration order is important.
     registerCorsInterceptor();

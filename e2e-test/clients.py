@@ -38,21 +38,10 @@ def read_file(file_name: str) -> Dict[str, Any]:
         data = json.load(f)
 
     return data
-
-def parse_date(date_str):
-    if not isinstance(date_str, str):
-        return datetime.min.date()
-    try:
-        return datetime.fromisoformat(date_str).date()
-    except Exception:
-        for format in ("%Y-%m-%dT%H:%M:%S.%f",
-                    "%Y-%m-%dT%H:%M:%S",
-                    "%Y-%m-%d"):
-            try:
-                return datetime.strptime(date_str, format).date()
-            except Exception:
-                continue
-    return datetime.min.date()
+  
+def extract_date_only(date_str):
+    """"Returns date part only e.g. 2025-07-16"""
+    return date_str[:10]
 
 class HapiClient:
     """Client for connecting to a HAPI FHIR server.

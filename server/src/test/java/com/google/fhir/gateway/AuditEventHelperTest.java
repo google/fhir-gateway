@@ -119,7 +119,8 @@ public class AuditEventHelperTest {
         equalTo("Patient/test-patient-id-1/_history/hid-1"));
     assertThat(
         getAuditEventPatientResourceReference(auditEvent.getEntity()),
-        equalTo("Patient/test-patient-id-1/_history/hid-1"));
+        equalTo(
+            "Patient/test-patient-id-1")); // We don't need version when capturing compartment owner
   }
 
   @Test
@@ -179,7 +180,7 @@ public class AuditEventHelperTest {
         equalTo("Patient/test-patient-id-1/_history/2"));
     assertThat(
         getAuditEventPatientResourceReference(auditEvent.getEntity()),
-        equalTo("Patient/test-patient-id-1/_history/2"));
+        equalTo("Patient/test-patient-id-1"));
   }
 
   @Test

@@ -109,7 +109,11 @@ public class FhirUtil {
   }
 
   public static String extractLogicalId(Resource resource) {
-    return resource.getIdElement().hasVersionIdPart()
+    return extractLogicalId(resource, false);
+  }
+
+  public static String extractLogicalId(Resource resource, boolean includeVersion) {
+    return includeVersion && resource.getIdElement().hasVersionIdPart()
         ? String.format(
             "%s/%s/_history/%s",
             resource.getResourceType(),

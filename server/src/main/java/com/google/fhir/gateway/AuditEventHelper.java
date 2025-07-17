@@ -654,7 +654,7 @@ public class AuditEventHelper {
       }
     }
 
-    auditEventBuilder.addEntityWhat(balpProfile, false, FhirUtil.extractLogicalId(resource));
+    auditEventBuilder.addEntityWhat(balpProfile, false, FhirUtil.extractLogicalId(resource, true));
 
     if (BalpProfileEnum.BASIC_QUERY.equals(balpProfile)
         || BalpProfileEnum.PATIENT_QUERY.equals(balpProfile)) {
