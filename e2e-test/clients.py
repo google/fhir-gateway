@@ -20,6 +20,7 @@ import json
 from typing import Dict, Tuple, List, Any
 
 import requests
+from datetime import datetime
 
 
 def _setup_session(base_url: str) -> requests.Session:
@@ -37,7 +38,7 @@ def read_file(file_name: str) -> Dict[str, Any]:
         data = json.load(f)
 
     return data
-
+  
 def extract_date_only(date_str):
     """"Returns date part only e.g. 2025-07-16"""
     return date_str[:10]

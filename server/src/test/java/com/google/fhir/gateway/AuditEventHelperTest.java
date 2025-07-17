@@ -35,6 +35,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.model.AuditEvent;
 import org.hl7.fhir.r4.model.Bundle;
@@ -500,7 +501,13 @@ public class AuditEventHelperTest {
             decodedJWT,
             new Date(),
             fhirClientMock,
-            fhirContext);
+            fhirContext,
+            Set.of(
+                AuditEvent.AuditEventAction.C.toCode(),
+                AuditEvent.AuditEventAction.R.toCode(),
+                AuditEvent.AuditEventAction.U.toCode(),
+                AuditEvent.AuditEventAction.D.toCode(),
+                AuditEvent.AuditEventAction.E.toCode()));
 
     auditEventHelper.processAuditEvents();
 
@@ -985,6 +992,12 @@ public class AuditEventHelperTest {
         decodedJWT,
         new Date(),
         fhirClientMock,
-        fhirContext);
+        fhirContext,
+        Set.of(
+            AuditEvent.AuditEventAction.C.toCode(),
+            AuditEvent.AuditEventAction.R.toCode(),
+            AuditEvent.AuditEventAction.U.toCode(),
+            AuditEvent.AuditEventAction.D.toCode(),
+            AuditEvent.AuditEventAction.E.toCode()));
   }
 }
