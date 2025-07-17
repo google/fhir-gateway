@@ -109,7 +109,17 @@ public class FhirUtil {
   }
 
   public static String extractLogicalId(Resource resource) {
-    return resource.getResourceType() + "/" + resource.getIdElement().getIdPart();
+    return extractLogicalId(resource, false);
+  }
+
+  public static String extractLogicalId(Resource resource, boolean includeVersion) {
+    return includeVersion && resource.getIdElement().hasVersionIdPart()
+        ? String.format(
+            "%s/%s/_history/%s",
+            resource.getResourceType(),
+            resource.getIdElement().getIdPart(),
+            resource.getIdElement().getVersionIdPart())
+        : resource.getResourceType() + "/" + resource.getIdElement().getIdPart();
   }
 
   public static RestOperationTypeEnum getRestOperationType(

@@ -1,5 +1,5 @@
 #
-# Copyright 2021-2023 Google LLC
+# Copyright 2021-2025 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -38,6 +38,9 @@ def read_file(file_name: str) -> Dict[str, Any]:
 
     return data
 
+def extract_date_only(date_str):
+    """"Returns date part only e.g. 2025-07-16"""
+    return date_str[:10]
 
 class HapiClient:
     """Client for connecting to a HAPI FHIR server.

@@ -1,5 +1,5 @@
 #
-# Copyright 2021-2022 Google LLC
+# Copyright 2021-2025 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,16 +16,14 @@
 
 """End-to-end tests using the FHIR Proxy, HAPI Server, and AuthZ Server."""
 
-import datetime
 import logging
 import time
-from typing import List, Tuple, Dict, Any, cast
+from typing import List, Tuple, Dict, Any
 
 import clients
-import os
 
-from clients import read_file
-from datetime import datetime, date
+from clients import read_file, extract_date_only
+from datetime import date
 
 def test_proxy_and_server_equal_count(
     patient_list: List[str],
@@ -164,13 +162,24 @@ def _test_post_and_verify_audit_events(
             if resource_type == "" 
             else "{resource_type}_audit_events.json".format(resource_type=resource_type)
             ).lower()                           
-            for audit_event_entry in new_audit_events:
+            expected_data = read_file("e2e-test/{}".format(expected_output_filename))
+            if not isinstance(expected_data, list):
+                raise AssertionError("Expected audit event file must contain a list of objects.")
+            if len(expected_data) != len(new_audit_events):
+                raise AssertionError(
+                    "Number of expected and actual audit events do not match: expected {}, actual {}".format(
+                        len(expected_data), len(new_audit_events)
+                    )
+                )
+            for index, (expected_audit_event, audit_event_entry) in enumerate(zip(expected_data, new_audit_events)):
+                if not isinstance(expected_audit_event, dict):
+                    logging.warning("Expected audit event at index {} is not a dict: {}".format(index, expected_audit_event))
+                    continue
                 audit_event = audit_event_entry.get("resource", {})
                 if not isinstance(audit_event, dict):
-                    logging.warning("AuditEvent resource is not a dict: {}".format(audit_event))
+                    logging.warning("AuditEvent resource at index {} is not a dict: {}".format(index, audit_event))
                     continue
-                _assert_audit_events(read_file(
-                    "e2e-test/{}".format(expected_output_filename)), audit_event)
+                _assert_audit_events(expected_audit_event, audit_event)
                     
             logging.info("AuditEvents created successfully after %s POST.", payload_type)
             return
@@ -251,17 +260,25 @@ def _assert_audit_events(expected_audit_event: Dict[str, Any],
                                  if isinstance(expected_entity_resource_ref, str) else "")
                 actual_value = (actual_entity_resource_ref.split("/")[0] 
                                  if isinstance(actual_entity_resource_ref, str) else "")
+                                 
+                if expected_entity_resource_ref is not None and "_history" not in expected_entity_resource_ref:
+                    raise AssertionError(
+                        "Reference '{}' does not contain version id:\n".format(expected_entity_resource_ref)
+                    )
+                                 
             elif field == "recorded":
-                expected_value = date.today()
-                actual_value = (datetime.fromisoformat(actual_value)
-                                 if isinstance(actual_value,str) else datetime.min).date()
+                expected_value = date.today().strftime('%Y-%m-%d')
+
+                logging.info("Raw actual {}".format(actual_value))
+                actual_value = extract_date_only(actual_value)
+
+                logging.info("Comparing expected {} vs actual {}".format(expected_value, actual_value))
             elif field == "period":
                 #confirm with period.end that object is correct
                 actual_period_end = (actual_value.get("end") 
                 if isinstance(actual_value, dict) else None)
-                expected_value = date.today()
-                actual_value = (datetime.fromisoformat(actual_period_end)
-                         if isinstance(actual_period_end,str) else datetime.min).date()
+                expected_value = date.today().strftime('%Y-%m-%d')
+                actual_value = extract_date_only(actual_period_end)
             
             if actual_value != expected_value:
                 raise AssertionError(

@@ -24,12 +24,33 @@
     ],
     "action": "C",
     "period": {
-      "start": "2025-06-28T18:23:05+03:00"
+      "start": "2025-07-09T16:07:16+03:00"
     },
-    "recorded": "2025-06-28T18:23:15.938+03:00",
+    "recorded": "2025-07-09T16:07:38.926+03:00",
     "outcome": "0",
     "outcomeDesc": "Success",
     "agent": [
+      {
+        "type": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/extra-security-role-type",
+              "code": "authserver"
+            }
+          ]
+        },
+        "who": {
+          "identifier": {
+            "system": "http://localhost:9080/auth/realms/test/oauth-client-id",
+            "value": "my-fhir-client"
+          }
+        },
+        "requestor": false,
+        "network": {
+          "address": "http://localhost:9080/auth/realms/test",
+          "type": "5"
+        }
+      },
       {
         "type": {
           "coding": [
@@ -41,12 +62,13 @@
           ]
         },
         "who": {
-          "identifier": {
-            "system": "http://localhost:9080/auth/realms/test/oauth-client-id",
-            "value": "my-fhir-client"
-          }
+          "display": "http://localhost:8080/fhir"
         },
-        "requestor": false
+        "requestor": false,
+        "network": {
+          "address": "http://localhost:8080/fhir",
+          "type": "5"
+        }
       },
       {
         "type": {
@@ -59,11 +81,12 @@
           ]
         },
         "who": {
-          "display": "http://localhost:8080/fhir"
+          "display": "http://localhost:8099/fhir"
         },
         "requestor": false,
         "network": {
-          "address": "http://localhost:8080/fhir"
+          "address": "http://localhost:8099/fhir",
+          "type": "5"
         }
       },
       {
@@ -80,12 +103,12 @@
           "type": "Practitioner",
           "identifier": {
             "system": "http://localhost:9080/auth/realms/test",
-            "value": "e8bdfc6c-2a56-4ae4-bc50-48c0d63ef07d"
+            "value": "3712d11c-28bf-44fc-a8ee-39b74b053189"
           }
         },
         "requestor": true,
         "policy": [
-          "4e5ec8b2-993a-4acd-8033-341606e00ca9"
+          "14587aaa-3d51-460d-b681-40e739f00e02"
         ],
         "network": {
           "address": "0:0:0:0:0:0:0:1",
@@ -102,7 +125,7 @@
       {
         "what": {
           "identifier": {
-            "value": "RbgzhHDJ4ePFmDyK"
+            "value": "MrnDc1482vZhO9xu"
           }
         },
         "type": {
@@ -127,7 +150,7 @@
       },
       {
         "what": {
-          "reference": "Observation/520012"
+          "reference": "Observation/520155/_history/1"
         },
         "type": {
           "system": "http://terminology.hl7.org/CodeSystem/audit-entity-type",

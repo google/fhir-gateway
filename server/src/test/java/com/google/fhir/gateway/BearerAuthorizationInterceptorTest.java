@@ -64,6 +64,7 @@ import org.hl7.fhir.r4.model.CapabilityStatement;
 import org.hl7.fhir.r4.model.IdType;
 import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.ResourceType;
+import org.hl7.fhir.r4.model.codesystems.AuditEntityType;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -230,13 +231,15 @@ public class BearerAuthorizationInterceptorTest {
                     it.hasType()
                         && it.getType()
                             .getSystem()
-                            .equals("http://terminology.hl7.org/CodeSystem/audit-entity-type"))
+                            .equals("http://terminology.hl7.org/CodeSystem/audit-entity-type")
+                        && AuditEntityType._2.toCode().equals(it.getType().getCode()))
             .map(AuditEvent.AuditEventEntityComponent::getWhat)
             .findFirst()
             .orElseThrow();
     assertThat(
         auditEventEntityWhatRef.getReference(),
-        equalTo("Patient/be92a43f-de46-affa-b131-bbf9eea51140"));
+        equalTo(
+            "Patient/be92a43f-de46-affa-b131-bbf9eea51140/_history/MTYzNzg2NzAwODA4NTA1NDAwMA"));
 
     assertThat(auditEvent.getPeriod().getStart(), notNullValue());
     assertThat(auditEvent.getPeriod().getStart(), notNullValue());

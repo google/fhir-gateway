@@ -1,3 +1,18 @@
+/*
+ * Copyright 2021-2025 Google LLC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.google.fhir.gateway;
 
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -100,10 +115,11 @@ public class AuditEventHelperTest {
     assertThat(auditEvent.getSubtype().get(0).getCode(), equalTo("create"));
     assertThat(
         getAuditEventDomainResourceReference(auditEvent.getEntity()),
-        equalTo("Patient/test-patient-id-1"));
+        equalTo("Patient/test-patient-id-1/_history/hid-1"));
     assertThat(
         getAuditEventPatientResourceReference(auditEvent.getEntity()),
-        equalTo("Patient/test-patient-id-1"));
+        equalTo(
+            "Patient/test-patient-id-1")); // We don't need version when capturing compartment owner
   }
 
   @Test
@@ -140,7 +156,7 @@ public class AuditEventHelperTest {
   public void testProcessAuditEventUpdatePatient() throws IOException {
 
     Patient patient = new Patient();
-    patient.setId("test-patient-id-1");
+    patient.setId("test-patient-id-1/_history/2");
     patient.addGeneralPractitioner(agentUserWho);
 
     AuditEventHelper auditEventHelper =
@@ -160,7 +176,7 @@ public class AuditEventHelperTest {
     assertThat(auditEvent.getSubtype().get(0).getCode(), equalTo("update"));
     assertThat(
         getAuditEventDomainResourceReference(auditEvent.getEntity()),
-        equalTo("Patient/test-patient-id-1"));
+        equalTo("Patient/test-patient-id-1/_history/2"));
     assertThat(
         getAuditEventPatientResourceReference(auditEvent.getEntity()),
         equalTo("Patient/test-patient-id-1"));
@@ -227,7 +243,7 @@ public class AuditEventHelperTest {
     assertThat(auditEvent.getSubtype().get(0).getCode(), equalTo("create"));
     assertThat(
         getAuditEventDomainResourceReference(auditEvent.getEntity()),
-        equalTo("Encounter/test-encounter-id-1"));
+        equalTo("Encounter/test-encounter-id-1/_history/hid-1"));
     assertThat(
         getAuditEventPatientResourceReference(auditEvent.getEntity()),
         equalTo("Patient/test-patient-id-1"));
@@ -353,7 +369,7 @@ public class AuditEventHelperTest {
     assertThat(auditEvent.getSubtype().get(0).getCode(), equalTo("create"));
     assertThat(
         getAuditEventDomainResourceReference(auditEvent.getEntity()),
-        equalTo("Location/test-location-id-1"));
+        equalTo("Location/test-location-id-1/_history/hid-1"));
   }
 
   @Test
@@ -501,7 +517,7 @@ public class AuditEventHelperTest {
     assertThat(auditEvent.getSubtype().get(0).getCode(), equalTo("delete"));
     assertThat(
         getAuditEventDomainResourceReference(auditEvent.getEntity()),
-        equalTo("Medication/test-medication-id-1"));
+        equalTo("Medication/test-medication-id-1/_history/hid-1"));
     assertThat(auditEvent.getOutcome().toCode(), equalTo("0"));
     assertThat(auditEvent.getOutcomeDesc(), equalTo("Success"));
   }
@@ -938,12 +954,12 @@ public class AuditEventHelperTest {
 
     String responseContentLocation =
         String.format(
-            "%s/fhir/%s/%s/_history/hid-1",
+            "%s/%s/%s",
             FHIR_SERVER_BASE_URL,
             payload != null ? payload.fhirType() : "",
             payload != null && payload.getIdElement() != null
-                ? payload.getIdElement().getIdPart()
-                : null);
+                ? payload.getIdElement().toString()
+                : "");
 
     return createTestInstance(payload, response, responseContentLocation, restOperationType);
   }
