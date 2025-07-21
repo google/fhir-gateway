@@ -109,11 +109,13 @@ The configuration parameters are provided through environment variables:
 - `BACKEND_TYPE`: The type of backend, either `HAPI` or `GCP`. `HAPI` should be
   used for most FHIR servers, while `GCP` should be used for GCP FHIR stores.
 
-- `AUDIT_EVENT_ACTIONS_CONFIG`: A flag to configure AuditEvent logging. Set to
-  either `C`,`R`,`U`,`D` or `E` to enable and select the audit event actions to
-  be logged. This model is guided by the value set codes defined here -
-  https://hl7.org/fhir/R4/valueset-audit-event-action.html. Absence of any
-  (valid) means audit logging is disabled.
+- `AUDIT_EVENT_ACTIONS_CONFIG`: A flag to configure AuditEvent logging. Set to a
+  subset of `C`,`R`,`U`,`D` or `E` to enable and select the audit event actions
+  to be logged. This model is guided by the value set codes defined here -
+  https://hl7.org/fhir/R4/valueset-audit-event-action.html. When no value is set
+  or the value is an empty string, audit logging is disabled. If any other
+  character is set other than the predefined values, the server will fail to
+  start.
 
   For more information on audit event logging, see
   [section on AuditEvent logging](#auditevent-logging).
@@ -225,18 +227,25 @@ Given that every access to the FHIR server goes through the Gateway, it's the
 ideal place to track access for auditing. The Gateway simplifies enabling
 AuditEvent logging with these key features:
 
-- Targeting the HL7 FHIR R4 specification -
-  [https://hl7.org/fhir/R4/auditevent.html](https://hl7.org/fhir/R4/auditevent.html).
-- Adherence to Basic Audit Logging Profiles (BALP) IG minimal audit patterns -
-  [https://profiles.ihe.net/ITI/BALP/index.html](https://profiles.ihe.net/ITI/BALP/index.html).
-- Storing AuditEvents in the same server as the rest of the data.
-- Generating an AuditEvent for every request processed by the Gateway, based on
-  request and response data.
-- Configurable `AuditEvent.agent[user].who` through overriding the default
-  `getUserWho` implementation in the `AccessDecision` interface.
-- Configuration via environment variables (see
+### Key Features
+
+**Comprehensive Audit Logging:**
+
+- Generates an [AuditEvent](https://hl7.org/fhir/R4/auditevent.html) for every
+  request processed by the Gateway, leveraging both request and response data.
+- Adheres to the Basic Audit Logging Profiles (BALP) IG minimal audit patterns
+  ([https://profiles.ihe.net/ITI/BALP/index.html](https://profiles.ihe.net/ITI/BALP/index.html)).
+- Stores AuditEvents on the same server as other data.
+
+**Flexible Configuration:**
+
+- Allows configuration via environment variables (see
   [Configuration Parameters](#configuration-parameters)).
-- Selectable actions for logging, based on the HL7 FHIR R4
+- Provides configurable `AuditEvent.agent[user].who` by overriding the default
+  `getUserWho` implementation in the `AccessDecision` interface
+  ([link to implementation](https://github.com/google/fhir-gateway/blob/1eaacd770dd5a098588eb302dd9ef3235ce88b72/server/src/main/java/com/google/fhir/gateway/interfaces/AccessDecision.java#L81)).
+- Enables selection of logging actions based on HL7 FHIR R4
   [audit event actions value set codes](https://hl7.org/fhir/R4/valueset-audit-event-action.html).
-- Disabling audit logging is achieved by omitting any valid audit event action
-  codes.
+- Audit logging can be disabled by omitting or setting any audit event action
+  codes to empty. Invalid values will result in an `IllegalStateException` on
+  the server.

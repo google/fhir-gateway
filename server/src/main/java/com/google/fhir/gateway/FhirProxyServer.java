@@ -26,8 +26,10 @@ import jakarta.servlet.annotation.WebServlet;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import org.hl7.fhir.r4.model.AuditEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -42,6 +44,13 @@ public class FhirProxyServer extends RestfulServer {
   private static final String PERMISSIVE_ACCESS_CHECKER = "permissive";
   private static final String ALLOWED_QUERIES_FILE_ENV = "ALLOWED_QUERIES_FILE";
   private static final String AUDIT_EVENT_ACTIONS_CONFIG = "AUDIT_EVENT_ACTIONS_CONFIG";
+  private static final Set<String> AUDIT_EVENT_ACTION_CODES =
+      Set.of(
+          AuditEvent.AuditEventAction.C.toCode(),
+          AuditEvent.AuditEventAction.R.toCode(),
+          AuditEvent.AuditEventAction.U.toCode(),
+          AuditEvent.AuditEventAction.D.toCode(),
+          AuditEvent.AuditEventAction.E.toCode());
 
   // TODO: improve this mixture of Spring based IOC with non-@Component classes. This is the
   //   only place we use Spring annotations to automatically discover AccessCheckerFactory plugins.
@@ -79,6 +88,12 @@ public class FhirProxyServer extends RestfulServer {
           auditEventActionsConfig != null ? auditEventActionsConfig.trim().toUpperCase() : "";
       Set<String> auditEventActionsConfigSet =
           normalized.isEmpty() ? Set.of() : Set.of(normalized.split(""));
+
+      for (String code : auditEventActionsConfigSet) {
+        if (!AUDIT_EVENT_ACTION_CODES.contains(code.toUpperCase(Locale.ENGLISH)))
+          throw new IllegalStateException(
+              "Invalid AuditEvent Action value configured for AuditEvent logging");
+      }
 
       registerInterceptor(
           new BearerAuthorizationInterceptor(
