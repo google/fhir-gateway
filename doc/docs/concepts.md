@@ -242,8 +242,8 @@ AuditEvent logging with these key features:
 - Allows configuration via environment variables (see
   [Configuration Parameters](#configuration-parameters)).
 - Provides configurable `AuditEvent.agent[user].who` by overriding the default
-  `getUserWho` implementation in the `AccessDecision` interface
-  ([link to implementation](https://github.com/google/fhir-gateway/blob/1eaacd770dd5a098588eb302dd9ef3235ce88b72/server/src/main/java/com/google/fhir/gateway/interfaces/AccessDecision.java#L81)).
+  [`getUserWho` implementation](https://github.com/google/fhir-gateway/blob/1eaacd770dd5a098588eb302dd9ef3235ce88b72/server/src/main/java/com/google/fhir/gateway/interfaces/AccessDecision.java#L81)
+  in the `AccessDecision` interface.
 - Enables selection of logging actions based on HL7 FHIR R4
   [audit event actions value set codes](https://hl7.org/fhir/R4/valueset-audit-event-action.html).
 - Audit logging can be disabled by omitting or setting any audit event action

@@ -90,9 +90,10 @@ public class FhirProxyServer extends RestfulServer {
           normalized.isEmpty() ? Set.of() : Set.of(normalized.split(""));
 
       for (String code : auditEventActionsConfigSet) {
-        if (!AUDIT_EVENT_ACTION_CODES.contains(code.toUpperCase(Locale.ENGLISH)))
-          throw new IllegalStateException(
-              "Invalid AuditEvent Action value configured for AuditEvent logging");
+        if (!AUDIT_EVENT_ACTION_CODES.contains(code.toUpperCase(Locale.ENGLISH))) {
+          ExceptionUtil.throwRuntimeExceptionAndLog(
+              logger, "Invalid AuditEvent Action value configured for AuditEvent logging");
+        }
       }
 
       registerInterceptor(
