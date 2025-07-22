@@ -43,7 +43,7 @@ services:
     - ACCESS_CHECKER
     - RUN_MODE
     - ALLOWED_QUERIES_FILE
-    - AUDIT_EVENT_LOGGING_ENABLED
+    - AUDIT_EVENT_ACTIONS_CONFIG
     network_mode: "host"
     healthcheck:
       # As hapi-server does not support curl, we check here that the

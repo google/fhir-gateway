@@ -71,6 +71,7 @@ public class AuditEventHelper {
   @Nullable private final IBaseResource requestResource;
   @Nullable private final IBaseResource responseResource;
   @Nullable private final IBaseResource contentLocationResponseResource;
+  private final Set<String> auditEventActionsConfigSet;
 
   public AuditEventHelper(
       RequestDetailsReader requestDetailsReader,
@@ -80,7 +81,8 @@ public class AuditEventHelper {
       @Nullable DecodedJWT decodedJWT,
       Date periodStartTime,
       HttpFhirClient httpFhirClient,
-      FhirContext fhirContext) {
+      FhirContext fhirContext,
+      Set<String> auditEventActionsConfigSet) {
     this.patientFinder = PatientFinderImp.getInstance(fhirContext);
     this.requestDetailsReader = requestDetailsReader;
     this.responseContentLocation = responseContentLocation;
@@ -89,6 +91,7 @@ public class AuditEventHelper {
     this.periodStartTime = periodStartTime;
     this.httpFhirClient = httpFhirClient;
     this.fhirContext = fhirContext;
+    this.auditEventActionsConfigSet = auditEventActionsConfigSet;
 
     // The following constructor logic prepares the source for the AuditEvent to be generated. It
     // uses a combination of the request payload, response resource and the Content-Location header
@@ -187,38 +190,46 @@ public class AuditEventHelper {
       case SEARCH_TYPE:
       case SEARCH_SYSTEM:
       case GET_PAGE:
-        auditEventList =
-            processRestOperationByType(
-                restOperationType,
-                auditEventSource,
-                BalpProfileEnum.PATIENT_QUERY,
-                BalpProfileEnum.BASIC_QUERY);
+        if (auditEventActionsConfigSet.contains(AuditEvent.AuditEventAction.E.toCode())) {
+          auditEventList =
+              processRestOperationByType(
+                  restOperationType,
+                  auditEventSource,
+                  BalpProfileEnum.PATIENT_QUERY,
+                  BalpProfileEnum.BASIC_QUERY);
+        }
         break;
       case READ:
       case VREAD:
-        auditEventList =
-            processRestOperationByType(
-                restOperationType,
-                auditEventSource,
-                BalpProfileEnum.PATIENT_READ,
-                BalpProfileEnum.BASIC_READ);
+        if (auditEventActionsConfigSet.contains(AuditEvent.AuditEventAction.R.toCode())) {
+          auditEventList =
+              processRestOperationByType(
+                  restOperationType,
+                  auditEventSource,
+                  BalpProfileEnum.PATIENT_READ,
+                  BalpProfileEnum.BASIC_READ);
+        }
         break;
       case CREATE:
-        auditEventList =
-            processRestOperationByType(
-                restOperationType,
-                auditEventSource,
-                BalpProfileEnum.PATIENT_CREATE,
-                BalpProfileEnum.BASIC_CREATE);
+        if (auditEventActionsConfigSet.contains(AuditEvent.AuditEventAction.C.toCode())) {
+          auditEventList =
+              processRestOperationByType(
+                  restOperationType,
+                  auditEventSource,
+                  BalpProfileEnum.PATIENT_CREATE,
+                  BalpProfileEnum.BASIC_CREATE);
+        }
         break;
       case UPDATE:
       case PATCH:
-        auditEventList =
-            processRestOperationByType(
-                restOperationType,
-                auditEventSource,
-                BalpProfileEnum.PATIENT_UPDATE,
-                BalpProfileEnum.BASIC_UPDATE);
+        if (auditEventActionsConfigSet.contains(AuditEvent.AuditEventAction.U.toCode())) {
+          auditEventList =
+              processRestOperationByType(
+                  restOperationType,
+                  auditEventSource,
+                  BalpProfileEnum.PATIENT_UPDATE,
+                  BalpProfileEnum.BASIC_UPDATE);
+        }
         break;
       case DELETE:
 
@@ -237,12 +248,14 @@ public class AuditEventHelper {
         // This implementation skips logging Deletes if the operation is conditional (thus no
         // Resource ID present)
 
-        auditEventList =
-            processRestOperationByType(
-                restOperationType,
-                auditEventSource,
-                BalpProfileEnum.PATIENT_DELETE,
-                BalpProfileEnum.BASIC_DELETE);
+        if (auditEventActionsConfigSet.contains(AuditEvent.AuditEventAction.D.toCode())) {
+          auditEventList =
+              processRestOperationByType(
+                  restOperationType,
+                  auditEventSource,
+                  BalpProfileEnum.PATIENT_DELETE,
+                  BalpProfileEnum.BASIC_DELETE);
+        }
         break;
       default:
         break;
