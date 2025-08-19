@@ -26,7 +26,10 @@ import jakarta.servlet.annotation.WebServlet;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import org.hl7.fhir.r4.model.AuditEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,7 +43,14 @@ public class FhirProxyServer extends RestfulServer {
   private static final String ACCESS_CHECKER_ENV = "ACCESS_CHECKER";
   private static final String PERMISSIVE_ACCESS_CHECKER = "permissive";
   private static final String ALLOWED_QUERIES_FILE_ENV = "ALLOWED_QUERIES_FILE";
-  private static final String AUDIT_EVENT_LOGGING_ENABLED_ENV = "AUDIT_EVENT_LOGGING_ENABLED";
+  private static final String AUDIT_EVENT_ACTIONS_CONFIG = "AUDIT_EVENT_ACTIONS_CONFIG";
+  private static final Set<String> AUDIT_EVENT_ACTION_CODES =
+      Set.of(
+          AuditEvent.AuditEventAction.C.toCode(),
+          AuditEvent.AuditEventAction.R.toCode(),
+          AuditEvent.AuditEventAction.U.toCode(),
+          AuditEvent.AuditEventAction.D.toCode(),
+          AuditEvent.AuditEventAction.E.toCode());
 
   // TODO: improve this mixture of Spring based IOC with non-@Component classes. This is the
   //   only place we use Spring annotations to automatically discover AccessCheckerFactory plugins.
@@ -60,6 +70,9 @@ public class FhirProxyServer extends RestfulServer {
     // TODO make the FHIR version configurable.
     // Create a context for the appropriate version
     setFhirContext(FhirContext.forR4());
+    FhirContext.forR4Cached()
+        .getParserOptions()
+        .setDontStripVersionsFromReferencesAtPaths("AuditEvent.entity.what");
 
     // Note interceptor registration order is important.
     registerCorsInterceptor();
@@ -70,6 +83,19 @@ public class FhirProxyServer extends RestfulServer {
       HttpFhirClient httpFhirClient = FhirClientFactory.createFhirClientFromEnvVars();
       TokenVerifier tokenVerifier = TokenVerifier.createFromEnvVars();
 
+      String auditEventActionsConfig = System.getenv(AUDIT_EVENT_ACTIONS_CONFIG);
+      String normalized =
+          auditEventActionsConfig != null ? auditEventActionsConfig.trim().toUpperCase() : "";
+      Set<String> auditEventActionsConfigSet =
+          normalized.isEmpty() ? Set.of() : Set.of(normalized.split(""));
+
+      for (String code : auditEventActionsConfigSet) {
+        if (!AUDIT_EVENT_ACTION_CODES.contains(code.toUpperCase(Locale.ENGLISH))) {
+          ExceptionUtil.throwRuntimeExceptionAndLog(
+              logger, "Invalid AuditEvent Action value configured for AuditEvent logging");
+        }
+      }
+
       registerInterceptor(
           new BearerAuthorizationInterceptor(
               httpFhirClient,
@@ -77,9 +103,7 @@ public class FhirProxyServer extends RestfulServer {
               this,
               checkerFactory,
               new AllowedQueriesChecker(System.getenv(ALLOWED_QUERIES_FILE_ENV)),
-              Boolean.parseBoolean(
-                  System.getenv(
-                      AUDIT_EVENT_LOGGING_ENABLED_ENV)))); // TODO to enable this in e2e tests
+              auditEventActionsConfigSet));
 
     } catch (IOException e) {
       ExceptionUtil.throwRuntimeExceptionAndLog(logger, "IOException while initializing", e);

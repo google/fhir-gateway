@@ -1,5 +1,5 @@
 #
-# Copyright 2021-2023 Google LLC
+# Copyright 2021-2025 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -43,6 +43,7 @@ services:
     - ACCESS_CHECKER
     - RUN_MODE
     - ALLOWED_QUERIES_FILE
+    - AUDIT_EVENT_ACTIONS_CONFIG
     network_mode: "host"
     healthcheck:
       # As hapi-server does not support curl, we check here that the
