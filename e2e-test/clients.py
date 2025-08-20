@@ -1,5 +1,5 @@
 #
-# Copyright 2021-2023 Google LLC
+# Copyright 2021-2025 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,9 +17,10 @@
 """Clients to make calls to FHIR Proxy, HAPI Server, and AuthZ Server."""
 
 import json
-from typing import Dict, Tuple
+from typing import Dict, Tuple, List, Any
 
 import requests
+from datetime import datetime
 
 
 def _setup_session(base_url: str) -> requests.Session:
@@ -32,12 +33,15 @@ def _setup_session(base_url: str) -> requests.Session:
     return session
 
 
-def read_file(file_name: str) -> Dict[str, str]:
+def read_file(file_name: str) -> Dict[str, Any]:
     with open(file_name, "r") as f:
         data = json.load(f)
 
     return data
-
+  
+def extract_date_only(date_str):
+    """"Returns date part only e.g. 2025-07-16"""
+    return date_str[:10]
 
 class HapiClient:
     """Client for connecting to a HAPI FHIR server.
@@ -56,6 +60,20 @@ class HapiClient:
         response = self.session.get(resource_path)
         response.raise_for_status()
         return response.json()["total"]
+
+    def get_audit_event_count(self) -> int:
+        """Returns the count of AuditEvent resources."""
+        resource_path = "{}/AuditEvent?_summary=count".format(self.base_url)
+        response = self.session.get(resource_path)
+        response.raise_for_status()
+        return response.json()["total"]
+
+    def get_audit_events(self, limit: int = 1) -> List[Dict[str, str]]:
+        """Returns the most recent AuditEvent resources."""
+        resource_path = "{}/AuditEvent?_count={}&_sort=-_lastUpdated".format(self.base_url, limit)
+        response = self.session.get(resource_path)
+        response.raise_for_status()
+        return response.json().get("entry", [])
 
 
 class FhirProxyClient:

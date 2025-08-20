@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2024 Google LLC
+ * Copyright 2021-2025 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,7 +32,6 @@ import com.google.common.base.Preconditions;
 import com.google.fhir.gateway.interfaces.AccessChecker;
 import com.google.fhir.gateway.interfaces.AccessCheckerFactory;
 import com.google.fhir.gateway.interfaces.AccessDecision;
-import com.google.fhir.gateway.interfaces.AuditEventHelper;
 import com.google.fhir.gateway.interfaces.RequestDetailsReader;
 import com.google.fhir.gateway.interfaces.RequestMutation;
 import java.io.IOException;
@@ -42,6 +41,7 @@ import java.io.StringWriter;
 import java.io.Writer;
 import java.util.Date;
 import java.util.Locale;
+import java.util.Set;
 import lombok.Builder;
 import lombok.Getter;
 import org.apache.http.Header;
@@ -78,7 +78,7 @@ public class BearerAuthorizationInterceptor {
   private final HttpFhirClient fhirClient;
   private final AccessCheckerFactory accessFactory;
   private final AllowedQueriesChecker allowedQueriesChecker;
-  private final boolean isEventLoggingEnabled;
+  private final Set<String> auditEventActionsConfigSet;
 
   BearerAuthorizationInterceptor(
       HttpFhirClient fhirClient,
@@ -86,7 +86,7 @@ public class BearerAuthorizationInterceptor {
       RestfulServer server,
       AccessCheckerFactory accessFactory,
       AllowedQueriesChecker allowedQueriesChecker,
-      boolean isEventLoggingEnabled)
+      Set<String> auditEventActionsConfigSet)
       throws IOException {
     Preconditions.checkNotNull(fhirClient);
     Preconditions.checkNotNull(server);
@@ -95,7 +95,7 @@ public class BearerAuthorizationInterceptor {
     this.tokenVerifier = tokenVerifier;
     this.accessFactory = accessFactory;
     this.allowedQueriesChecker = allowedQueriesChecker;
-    this.isEventLoggingEnabled = isEventLoggingEnabled;
+    this.auditEventActionsConfigSet = auditEventActionsConfigSet;
     logger.info("Created proxy to the FHIR store " + this.fhirClient.getBaseUrl());
   }
 
@@ -215,9 +215,13 @@ public class BearerAuthorizationInterceptor {
         reader = HttpUtil.readerFromEntity(entity);
       }
 
-      if (isEventLoggingEnabled) {
+      if (!auditEventActionsConfigSet.isEmpty()) {
         Reference agentUserWho = outcome.getUserWho(requestDetailsReader);
         if (agentUserWho != null) {
+
+          FhirContext.forR4Cached()
+              .getParserOptions()
+              .setDontStripVersionsFromReferencesAtPaths("AuditEvent.entity.what");
 
           StringWriter responseStringWriter = new StringWriter();
           reader.transferTo(responseStringWriter);
@@ -226,7 +230,7 @@ public class BearerAuthorizationInterceptor {
           Header contentLocationHeader = response.getFirstHeader(CONTENT_LOCATION_HEADER);
 
           AuditEventHelper auditEventHelper =
-              AuditEventHelperImpl.createInstance(
+              new AuditEventHelper(
                   requestDetailsReader,
                   responseStringContent,
                   contentLocationHeader != null ? contentLocationHeader.getValue() : null,
@@ -234,7 +238,8 @@ public class BearerAuthorizationInterceptor {
                   authorizationDto.getDecodedJWT(),
                   periodStartTime,
                   fhirClient,
-                  server.getFhirContext());
+                  server.getFhirContext(),
+                  auditEventActionsConfigSet);
 
           auditEventHelper.processAuditEvents();
 

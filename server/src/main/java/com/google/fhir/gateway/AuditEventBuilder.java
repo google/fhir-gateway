@@ -1,15 +1,32 @@
+/*
+ * Copyright 2021-2025 Google LLC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.google.fhir.gateway;
 
+import ca.uhn.fhir.rest.api.RequestTypeEnum;
 import ca.uhn.fhir.rest.api.RestOperationTypeEnum;
 import ca.uhn.fhir.storage.interceptor.balp.BalpProfileEnum;
 import ca.uhn.fhir.util.UrlUtil;
-import com.google.fhir.gateway.interfaces.RequestDetailsReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import lombok.Builder;
+import lombok.Getter;
+import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.model.AuditEvent;
 import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.Identifier;
@@ -20,7 +37,6 @@ import org.hl7.fhir.r4.model.codesystems.AuditEntityType;
 import org.hl7.fhir.r4.model.codesystems.AuditEventType;
 import org.hl7.fhir.r4.model.codesystems.ObjectRole;
 import org.hl7.fhir.r4.model.codesystems.RestfulInteraction;
-import org.hl7.fhir.r4.model.codesystems.V3ParticipationType;
 import org.hl7.fhir.utilities.xhtml.XhtmlNode;
 
 public class AuditEventBuilder {
@@ -31,16 +47,22 @@ public class AuditEventBuilder {
 
   // TODO investigate whether we need to create a CodeSystem Enum
   public static final String CS_INFO_GATEWAY_DELETED = "http://fhir-info-gateway/deleted";
+  public static final String CS_EXTRA_SECURITY_ROLE_TYPE =
+      "http://terminology.hl7.org/CodeSystem/extra-security-role-type";
+  public static final String CS_EXTRA_SECURITY_ROLE_TYPE_CODING_AUTHSERVER = "authserver";
 
   private Reference agentUserWho;
   private String profileUrl;
   private AuditEvent.AuditEventAction auditEventAction;
   private RestOperationTypeEnum restOperationType;
   private String fhirServerBaseUrl;
+  private String gatewayServerBaseUrl;
+  private String authServerUri;
   private String agentUserPolicy;
   private String requestId;
-  private Coding agentServerTypeCoding;
-  private Coding agentClientTypeCoding;
+  private Coding agentDestinationTypeCoding;
+  private Coding agentSourceTypeCoding;
+  private Coding agentUserWhoTypeCoding;
   private Network network;
   private Outcome outcome;
   private final Date startTime;
@@ -76,6 +98,16 @@ public class AuditEventBuilder {
     return this;
   }
 
+  public AuditEventBuilder gatewayServerBaseUrl(String gatewayServerBaseUrl) {
+    this.gatewayServerBaseUrl = gatewayServerBaseUrl;
+    return this;
+  }
+
+  public AuditEventBuilder authServerUri(String authServerUri) {
+    this.authServerUri = authServerUri;
+    return this;
+  }
+
   public AuditEventBuilder agentUserPolicy(String agentUserPolicy) {
     this.agentUserPolicy = agentUserPolicy;
     return this;
@@ -86,13 +118,18 @@ public class AuditEventBuilder {
     return this;
   }
 
-  public AuditEventBuilder agentServerTypeCoding(Coding agentServerTypeCoding) {
-    this.agentServerTypeCoding = agentServerTypeCoding;
+  public AuditEventBuilder agentSourceTypeCoding(Coding agentSourceTypeCoding) {
+    this.agentSourceTypeCoding = agentSourceTypeCoding;
     return this;
   }
 
-  public AuditEventBuilder agentClientTypeCoding(Coding agentClientTypeCoding) {
-    this.agentClientTypeCoding = agentClientTypeCoding;
+  public AuditEventBuilder agentDestinationTypeCoding(Coding agentDestinationTypeCoding) {
+    this.agentDestinationTypeCoding = agentDestinationTypeCoding;
+    return this;
+  }
+
+  public AuditEventBuilder agentUserWhoTypeCoding(Coding agentUserWhoTypeCoding) {
+    this.agentUserWhoTypeCoding = agentUserWhoTypeCoding;
     return this;
   }
 
@@ -111,33 +148,38 @@ public class AuditEventBuilder {
     return this;
   }
 
-  public AuditEventBuilder addQuery(RequestDetailsReader requestDetailsReader) {
-    AuditEvent.AuditEventEntityComponent queryEntity = new AuditEvent.AuditEventEntityComponent();
+  public AuditEventBuilder addQuery(QueryEntity queryEntity) {
+    AuditEvent.AuditEventEntityComponent queryEntityComponent =
+        new AuditEvent.AuditEventEntityComponent();
 
     // uses https://hl7.org/fhir/R4/valueset-audit-entity-type.html
-    queryEntity
+    queryEntityComponent
         .getType()
         .setSystem(AuditEntityType._2.getSystem())
         .setCode(AuditEntityType._2.toCode())
         .setDisplay(AuditEntityType._2.getDisplay());
 
-    queryEntity // uses https://hl7.org/fhir/R4/valueset-object-role.html
+    queryEntityComponent // uses https://hl7.org/fhir/R4/valueset-object-role.html
         .getRole()
         .setSystem(ObjectRole._24.getSystem())
         .setCode(ObjectRole._24.toCode())
         .setDisplay(ObjectRole._24.getDisplay());
 
-    String description =
-        requestDetailsReader.getRequestType().name() + " " + requestDetailsReader.getCompleteUrl();
-    queryEntity.setDescription(description);
+    String description = queryEntity.getRequestType().name() + " " + queryEntity.getCompleteUrl();
+    queryEntityComponent.setDescription(description);
 
-    StringBuilder queryString = new StringBuilder();
-    queryString.append(requestDetailsReader.getFhirServerBase());
-    queryString.append("/");
-    queryString.append(requestDetailsReader.getRequestPath());
+    String queryString = generateQueryStringFromQueryParameters(queryEntity);
+    queryEntityComponent.getQueryElement().setValue(queryString.getBytes(StandardCharsets.UTF_8));
+
+    auditEventEntityList.add(queryEntityComponent);
+    return this;
+  }
+
+  private static String generateQueryStringFromQueryParameters(QueryEntity queryEntity) {
+    StringBuilder queryString = new StringBuilder(queryEntity.getGatewayServerBase());
+    queryString.append('/').append(queryEntity.getRequestPath());
     boolean first = true;
-    for (Map.Entry<String, String[]> nextEntrySet :
-        requestDetailsReader.getParameters().entrySet()) {
+    for (Map.Entry<String, String[]> nextEntrySet : queryEntity.getParameters().entrySet()) {
       for (String nextValue : nextEntrySet.getValue()) {
         if (first) {
           queryString.append("?");
@@ -150,11 +192,7 @@ public class AuditEventBuilder {
         queryString.append(UrlUtil.escapeUrlParam(nextValue));
       }
     }
-
-    queryEntity.getQueryElement().setValue(queryString.toString().getBytes(StandardCharsets.UTF_8));
-
-    auditEventEntityList.add(queryEntity);
-    return this;
+    return queryString.toString();
   }
 
   // TODO investigate https://hl7.org/fhir/R4/valueset-object-role.html variations to enhance
@@ -228,31 +266,41 @@ public class AuditEventBuilder {
     }
 
     auditEvent.setRecorded(new Date());
+    auditEvent.getSource().getObserver().setDisplay(this.gatewayServerBaseUrl);
 
-    auditEvent.getSource().getObserver().setDisplay(this.fhirServerBaseUrl);
+    AuditEvent.AuditEventAgentComponent authAgent = auditEvent.addAgent();
+    authAgent.setWho(this.agentClientWho);
+    authAgent
+        .getType()
+        .addCoding(
+            new Coding()
+                .setSystem(CS_EXTRA_SECURITY_ROLE_TYPE)
+                .setCode(CS_EXTRA_SECURITY_ROLE_TYPE_CODING_AUTHSERVER));
+    authAgent.getNetwork().setAddress(this.authServerUri);
+    authAgent.getNetwork().setType(AuditEvent.AuditEventAgentNetworkType._5);
+    authAgent.setRequestor(false);
 
-    AuditEvent.AuditEventAgentComponent clientAgent = auditEvent.addAgent();
-    clientAgent.setWho(this.agentClientWho);
-    clientAgent.getType().addCoding(this.agentClientTypeCoding);
-    clientAgent.setRequestor(false);
+    AuditEvent.AuditEventAgentComponent sourceAgent = auditEvent.addAgent();
+    sourceAgent.getType().addCoding(this.agentSourceTypeCoding);
+    sourceAgent.getWho().setDisplay(this.gatewayServerBaseUrl);
+    sourceAgent.getNetwork().setAddress(this.gatewayServerBaseUrl);
+    sourceAgent.getNetwork().setType(AuditEvent.AuditEventAgentNetworkType._5);
+    sourceAgent.setRequestor(false);
 
-    AuditEvent.AuditEventAgentComponent serverAgent = auditEvent.addAgent();
-    serverAgent.getType().addCoding(this.agentServerTypeCoding);
-    serverAgent.getWho().setDisplay(this.fhirServerBaseUrl);
-    serverAgent.getNetwork().setAddress(this.fhirServerBaseUrl);
-    serverAgent.setRequestor(false);
+    AuditEvent.AuditEventAgentComponent destinationAgent = auditEvent.addAgent();
+    destinationAgent.getType().addCoding(this.agentDestinationTypeCoding);
+    destinationAgent.getWho().setDisplay(this.fhirServerBaseUrl);
+    destinationAgent.getNetwork().setAddress(this.fhirServerBaseUrl);
+    destinationAgent.getNetwork().setType(AuditEvent.AuditEventAgentNetworkType._5);
+    destinationAgent.setRequestor(false);
 
     AuditEvent.AuditEventAgentComponent userAgent = auditEvent.addAgent();
-    userAgent
-        .getType()
-        .addCoding()
-        .setSystem(V3ParticipationType.IRCP.getSystem())
-        .setCode(V3ParticipationType.IRCP.toCode())
-        .setDisplay(V3ParticipationType.IRCP.getDisplay());
+    userAgent.getType().addCoding(this.agentUserWhoTypeCoding);
     userAgent.setWho(this.agentUserWho);
     userAgent.setRequestor(true);
     userAgent.addPolicy(this.agentUserPolicy);
-    userAgent.getNetwork().setAddress(this.network.address).setType(this.network.type);
+    userAgent.getNetwork().setAddress(this.network.address);
+    userAgent.getNetwork().setType(this.network.type);
 
     AuditEvent.AuditEventEntityComponent entityTransaction = auditEvent.addEntity();
     entityTransaction
@@ -289,5 +337,22 @@ public class AuditEventBuilder {
   public static class Outcome {
     private AuditEvent.AuditEventOutcome code;
     private String description;
+  }
+
+  @Builder
+  @Getter
+  public static class QueryEntity {
+    private RequestTypeEnum requestType;
+    private String completeUrl;
+    private String gatewayServerBase;
+    private String requestPath;
+    private Map<String, String[]> parameters;
+  }
+
+  @Builder
+  @Getter
+  public static class ResourceContext {
+    private QueryEntity queryEntity;
+    private IBaseResource resourceEntity;
   }
 }

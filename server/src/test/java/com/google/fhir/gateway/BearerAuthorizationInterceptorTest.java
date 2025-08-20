@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2024 Google LLC
+ * Copyright 2021-2025 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -54,6 +54,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.apache.http.HttpHeaders;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
@@ -64,6 +65,7 @@ import org.hl7.fhir.r4.model.CapabilityStatement;
 import org.hl7.fhir.r4.model.IdType;
 import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.ResourceType;
+import org.hl7.fhir.r4.model.codesystems.AuditEntityType;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -120,7 +122,7 @@ public class BearerAuthorizationInterceptorTest {
               }
             },
         new AllowedQueriesChecker(allowedQueriesConfig),
-        isEventLoggingEnabled);
+        isEventLoggingEnabled ? Set.of("C", "R", "U", "D", "E") : Set.of());
   }
 
   @Before
@@ -187,6 +189,7 @@ public class BearerAuthorizationInterceptorTest {
     when(requestMock.getId()).thenReturn(new IdType("be92a43f-de46-affa-b131-bbf9eea51140"));
     when(requestMock.getFhirServerBase()).thenReturn("http://my-gateway-server/fhir");
     when(requestMock.getServletRequest()).thenReturn(httpServletRequest);
+    when(requestMock.loadRequestContents()).thenReturn(new byte[] {});
 
     BearerAuthorizationInterceptor testInstance = createTestInstance(true, null, true);
     testInstance.authorizeRequest(requestMock);
@@ -229,13 +232,15 @@ public class BearerAuthorizationInterceptorTest {
                     it.hasType()
                         && it.getType()
                             .getSystem()
-                            .equals("http://terminology.hl7.org/CodeSystem/audit-entity-type"))
+                            .equals("http://terminology.hl7.org/CodeSystem/audit-entity-type")
+                        && AuditEntityType._2.toCode().equals(it.getType().getCode()))
             .map(AuditEvent.AuditEventEntityComponent::getWhat)
             .findFirst()
             .orElseThrow();
     assertThat(
         auditEventEntityWhatRef.getReference(),
-        equalTo("Patient/be92a43f-de46-affa-b131-bbf9eea51140"));
+        equalTo(
+            "Patient/be92a43f-de46-affa-b131-bbf9eea51140/_history/MTYzNzg2NzAwODA4NTA1NDAwMA"));
 
     assertThat(auditEvent.getPeriod().getStart(), notNullValue());
     assertThat(auditEvent.getPeriod().getStart(), notNullValue());

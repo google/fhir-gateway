@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2023 Google LLC
+ * Copyright 2021-2025 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,18 +16,24 @@
 package com.google.fhir.gateway;
 
 import ca.uhn.fhir.context.FhirContext;
+import ca.uhn.fhir.parser.DataFormatException;
 import ca.uhn.fhir.parser.IParser;
+import ca.uhn.fhir.rest.api.Constants;
+import ca.uhn.fhir.rest.api.RequestTypeEnum;
+import ca.uhn.fhir.rest.api.RestOperationTypeEnum;
 import ca.uhn.fhir.rest.server.exceptions.InvalidRequestException;
 import com.google.common.base.Preconditions;
 import com.google.fhir.gateway.interfaces.RequestDetailsReader;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 import org.apache.http.HttpResponse;
 import org.hl7.fhir.exceptions.FHIRException;
 import org.hl7.fhir.instance.model.api.IBaseResource;
+import org.hl7.fhir.instance.model.api.IIdType;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Resource;
 import org.hl7.fhir.r4.model.ResourceType;
@@ -103,6 +109,53 @@ public class FhirUtil {
   }
 
   public static String extractLogicalId(Resource resource) {
-    return resource.getResourceType() + "/" + resource.getIdElement().getIdPart();
+    return extractLogicalId(resource, false);
+  }
+
+  public static String extractLogicalId(Resource resource, boolean includeVersion) {
+    return includeVersion && resource.getIdElement().hasVersionIdPart()
+        ? String.format(
+            "%s/%s/_history/%s",
+            resource.getResourceType(),
+            resource.getIdElement().getIdPart(),
+            resource.getIdElement().getVersionIdPart())
+        : resource.getResourceType() + "/" + resource.getIdElement().getIdPart();
+  }
+
+  public static RestOperationTypeEnum getRestOperationType(
+      String httpRestOperation, IIdType resourceId, Map<String, String[]> requestParameters) {
+    RestOperationTypeEnum restOperationTypeEnum = null;
+    if (RequestTypeEnum.PATCH.name().equals(httpRestOperation)) {
+      restOperationTypeEnum = RestOperationTypeEnum.PATCH;
+    } else if (RequestTypeEnum.PUT.name().equals(httpRestOperation)) {
+      restOperationTypeEnum = RestOperationTypeEnum.UPDATE;
+    } else if (RequestTypeEnum.GET.name().equals(httpRestOperation)) {
+      if (resourceId != null && resourceId.hasVersionIdPart()) {
+        restOperationTypeEnum = RestOperationTypeEnum.VREAD;
+      } else if (resourceId != null && !resourceId.hasVersionIdPart()) {
+        restOperationTypeEnum = RestOperationTypeEnum.READ;
+      } else if (resourceId == null
+          && requestParameters.containsKey(Constants.PARAM_PAGINGACTION)) {
+        restOperationTypeEnum = RestOperationTypeEnum.GET_PAGE;
+      } else {
+        restOperationTypeEnum = RestOperationTypeEnum.SEARCH_TYPE;
+      }
+    } else if (RequestTypeEnum.POST.name().equals(httpRestOperation)) {
+      restOperationTypeEnum = RestOperationTypeEnum.CREATE;
+    } else if (RequestTypeEnum.DELETE.name().equals(httpRestOperation)) {
+      restOperationTypeEnum = RestOperationTypeEnum.DELETE;
+    }
+    return restOperationTypeEnum;
+  }
+
+  @Nullable
+  public static IBaseResource parseResourceOrNull(
+      FhirContext fhirContext, String fhirResourceString) {
+    try {
+      IParser jsonParser = fhirContext.newJsonParser();
+      return jsonParser.parseResource(fhirResourceString);
+    } catch (DataFormatException e) {
+      return null;
+    }
   }
 }

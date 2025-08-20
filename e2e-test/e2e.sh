@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright 2021-2023 Google LLC
+# Copyright 2021-2025 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@ function setup() {
   #   with -d we don't get any logs and it makes debugging failures difficult.
   # Note `--wait` is an option in the new version of `docker compose` to make
   # sure that all services are up in a healthy state (old version fails).
-  docker-compose -f docker/hapi-proxy-compose.yaml \
+  AUDIT_EVENT_ACTIONS_CONFIG=CRUDE docker-compose -f docker/hapi-proxy-compose.yaml \
                  up --force-recreate --remove-orphans -d --quiet-pull --wait
 }
 
