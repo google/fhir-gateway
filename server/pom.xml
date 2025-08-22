@@ -158,7 +158,7 @@
     <dependency>
       <groupId>ca.uhn.hapi.fhir</groupId>
       <artifactId>hapi-fhir-storage</artifactId>
-      <version>8.0.0</version>
+      <version>8.4.0</version>
     </dependency>
 
   </dependencies>
