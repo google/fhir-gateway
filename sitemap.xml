@@ -2,42 +2,42 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
          <loc>https://example.com/info-gateway/</loc>
-         <lastmod>2024-11-29</lastmod>
+         <lastmod>2025-11-17</lastmod>
     </url>
     <url>
          <loc>https://example.com/info-gateway/concepts/</loc>
-         <lastmod>2024-11-29</lastmod>
+         <lastmod>2025-11-17</lastmod>
     </url>
     <url>
          <loc>https://example.com/info-gateway/contribute/</loc>
-         <lastmod>2024-11-29</lastmod>
+         <lastmod>2025-11-17</lastmod>
     </url>
     <url>
          <loc>https://example.com/info-gateway/design/</loc>
-         <lastmod>2024-11-29</lastmod>
+         <lastmod>2025-11-17</lastmod>
     </url>
     <url>
          <loc>https://example.com/info-gateway/getting_started/</loc>
-         <lastmod>2024-11-29</lastmod>
+         <lastmod>2025-11-17</lastmod>
     </url>
     <url>
          <loc>https://example.com/info-gateway/release_process/</loc>
-         <lastmod>2024-11-29</lastmod>
+         <lastmod>2025-11-17</lastmod>
     </url>
     <url>
          <loc>https://example.com/info-gateway/support/</loc>
-         <lastmod>2024-11-29</lastmod>
+         <lastmod>2025-11-17</lastmod>
     </url>
     <url>
          <loc>https://example.com/info-gateway/tutorial_docker/</loc>
-         <lastmod>2024-11-29</lastmod>
+         <lastmod>2025-11-17</lastmod>
     </url>
     <url>
          <loc>https://example.com/info-gateway/tutorial_first_access_checker/</loc>
-         <lastmod>2024-11-29</lastmod>
+         <lastmod>2025-11-17</lastmod>
     </url>
     <url>
          <loc>https://example.com/info-gateway/tutorials/</loc>
-         <lastmod>2024-11-29</lastmod>
+         <lastmod>2025-11-17</lastmod>
     </url>
 </urlset>
