@@ -45,6 +45,7 @@ your environment.
      -e BACKEND_TYPE=HAPI \
      -e RUN_MODE=PROD \
      -e ACCESS_CHECKER=list \
+     -e AUDIT_EVENT_ACTIONS_CONFIG=CRUDE \
      --network=host \
      us-docker.pkg.dev/fhir-proxy-build/stable/fhir-gateway:latest
    ```
@@ -68,10 +69,10 @@ Several environment variables are used to configure FHIR Information Gateway:
   [`patient`](https://github.com/google/fhir-gateway/blob/main/plugins/src/main/java/com/google/fhir/gateway/plugin/PatientAccessChecker.java)
   example access-checkers.
 - `AUDIT_EVENT_ACTIONS_CONFIG`: A flag to configure AuditEvent logging. Set to
-  either `C`,`R`,`U`,`D` or `E` to enable and select the audit event actions to
-  be logged. This model is guided by the value set codes defined here -
-  https://hl7.org/fhir/R4/valueset-audit-event-action.html. Absence of any
-  (valid) means audit logging is disabled.
+  either `C`,`R`,`U`,`D`,`E` or all of them to enable and select the audit event
+  actions to be logged. This model is guided by the value set codes defined
+  here - https://hl7.org/fhir/R4/valueset-audit-event-action.html. Absence of
+  any (valid) means audit logging is disabled.
 
 !!! tip "GCP Note"
 
@@ -155,3 +156,14 @@ Information Gateway with the sample `list` access checker plugin.
 
     You should get a response of
     `User is not authorized to GET http://localhost:8080/fhir/Patient/3`.
+
+4.  For the first patient that the user had access to, confirm an AuditEvent
+    resource was created.
+
+    ```shell
+    curl -H "Content-Type: application/json; charset=utf-8" \
+    'http://localhost:8099/fhir/AuditEvent?patient=75270'
+    ```
+
+    You should get a response of an AuditEvent resource (contained in a Bundle
+    resource) that logs the read access to the Patient resource.
