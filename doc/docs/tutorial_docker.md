@@ -49,6 +49,14 @@ your environment.
      --network=host \
      us-docker.pkg.dev/fhir-proxy-build/stable/fhir-gateway:latest
    ```
+   !!! tip "Docker Host Networking Note" The `--network=host` flag is used to
+   allow the FHIR Information Gateway container to access services running on
+   the host machine (Keycloak and HAPI FHIR server in this case). This flag
+   works on Linux hosts. If you are using Docker Desktop on Windows or Mac, you
+   may need to replace `localhost` with `host.docker.internal` in the
+   environment variable values above and remove the `--network=host` flag.
+   Alternatively for Docker Desktop versions 4.34 and later, you can enable
+   [host networking](https://docs.docker.com/engine/network/tutorials/host/#prerequisites).
 
 Several environment variables are used to configure FHIR Information Gateway:
 
