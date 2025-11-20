@@ -38,6 +38,7 @@ your environment.
    `List/patient-list-example` resource.
 
 5. Run the FHIR Information Gateway Docker image with the `list` access checker.
+
    ```shell
    docker run \
      -e TOKEN_ISSUER=http://localhost:9080/auth/realms/test \
@@ -49,13 +50,16 @@ your environment.
      --network=host \
      us-docker.pkg.dev/fhir-proxy-build/stable/fhir-gateway:latest
    ```
-   !!! tip "Docker Host Networking Note" The `--network=host` flag is used to
-   allow the FHIR Information Gateway container to access services running on
-   the host machine (Keycloak and HAPI FHIR server in this case). This flag
-   works on Linux hosts. If you are using Docker Desktop on Windows or Mac, you
-   may need to replace `localhost` with `host.docker.internal` in the
-   environment variable values above and remove the `--network=host` flag.
-   Alternatively for Docker Desktop versions 4.34 and later, you can enable
+
+   !!! tip "Docker Host Networking Note"
+
+   The `--network=host` flag is used to allow the FHIR Information Gateway
+   container to access services running on the host machine (Keycloak and HAPI
+   FHIR server in this case). This flag works on Linux hosts. If you are using
+   Docker Desktop on Windows or Mac, you may need to replace `localhost` with
+   `host.docker.internal` in the environment variable values above and remove
+   the `--network=host` flag. Alternatively for Docker Desktop versions 4.34 and
+   later, you can enable
    [host networking](https://docs.docker.com/engine/network/tutorials/host/#prerequisites).
 
 Several environment variables are used to configure FHIR Information Gateway:
@@ -173,5 +177,5 @@ Information Gateway with the sample `list` access checker plugin.
     'http://localhost:8099/fhir/AuditEvent?patient=75270'
     ```
 
-    You should get a response of an AuditEvent resource (contained in a Bundle
+    You should get a response with an AuditEvent resource (contained in a Bundle
     resource) that logs the read access to the Patient resource.
