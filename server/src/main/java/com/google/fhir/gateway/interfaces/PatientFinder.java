@@ -69,8 +69,7 @@ public interface PatientFinder {
   /**
    * Finds all patient ids in the content of a resource.
    *
-   * @param resource belonging to {@link org.hl7.fhir.r4.model.codesystems.CompartmentType.PATIENT}
-   *     that is expected to have patient ids.
+   * @param resource belonging to Patient Compartment that is expected to have patient ids.
    * @return the ids of the patient compartment owners
    */
   Set<String> findPatientIds(DomainResource resource);

@@ -42,6 +42,16 @@
     </license>
   </licenses>
 
+  <developers>
+    <!-- A Sonatype requirement is to have someone here. For the full list of contributors see:
+    https://github.com/google/fhir-gateway/graphs/contributors -->
+    <developer>
+      <id>bashir</id>
+      <name>Bashir Sadjad</name>
+      <email>bashir@google.com</email>
+    </developer>
+  </developers>
+
   <modules>
     <module>exec</module>
     <module>plugins</module>
@@ -54,21 +64,6 @@
     <developerConnection>scm:git:ssh://github.com:google/fhir-gateway.git</developerConnection>
     <url>https://github.com/google/fhir-gateway/tree/main</url>
   </scm>
-
-  <!-- For release documentation see:
-    https://central.sonatype.org/publish/publish-maven/
-    Note, although it suggests new projects should use s01.oss.sonatype.org but
-    with our sonatype.org credentials, it fails with a "Forbidden" message. -->
-  <distributionManagement>
-    <repository>
-      <id>ossrh</id>
-      <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
-    </repository>
-    <snapshotRepository>
-      <id>ossrh</id>
-      <url>https://oss.sonatype.org/content/repositories/snapshots</url>
-    </snapshotRepository>
-  </distributionManagement>
 
   <properties>
     <hapifhir_version>8.0.0</hapifhir_version>
@@ -290,6 +285,65 @@
           <target>17</target>
         </configuration>
       </plugin>
+
+      <!-- See https://central.sonatype.org/publish/publish-portal-maven/ -->
+      <plugin>
+        <groupId>org.sonatype.central</groupId>
+        <artifactId>central-publishing-maven-plugin</artifactId>
+        <version>0.9.0</version>
+        <extensions>true</extensions>
+        <configuration>
+          <publishingServerId>central</publishingServerId>
+        </configuration>
+      </plugin>
+
+      <!-- source jars are needed for Maven Central deployment -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-source-plugin</artifactId>
+        <version>3.3.1</version>
+        <executions>
+          <execution>
+            <id>attach-sources</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>jar-no-fork</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!-- javadoc jars are needed for Maven Central deployment -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-javadoc-plugin</artifactId>
+        <version>3.12.0</version>
+        <executions>
+          <execution>
+            <id>attach-javadocs</id>
+            <goals>
+              <goal>jar</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!-- we need to sign to deploy on Maven Central -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-gpg-plugin</artifactId>
+        <version>3.2.8</version>
+        <executions>
+          <execution>
+            <id>sign-artifacts</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>sign</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+
     </plugins>
   </build>
 

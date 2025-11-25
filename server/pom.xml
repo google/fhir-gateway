@@ -27,6 +27,9 @@
   <artifactId>server</artifactId>
   <packaging>jar</packaging>
 
+  <name>FHIR Information Gateway Core</name>
+  <description>The core component of FHIR Info Gateway</description>
+
   <properties>
     <root.basedir>${project.parent.basedir}</root.basedir>
     <!-- This is chosen based on the Spring Boot version used in exec module.
