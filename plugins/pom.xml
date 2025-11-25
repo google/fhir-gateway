@@ -28,6 +28,9 @@
 
   <artifactId>plugins</artifactId>
 
+  <name>FHIR Information Gateway Plugins</name>
+  <description>Sample AccessChecker plugins for FHIR Info Gateway</description>
+
   <properties>
     <root.basedir>${project.parent.basedir}</root.basedir>
   </properties>
