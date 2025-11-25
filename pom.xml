@@ -280,17 +280,6 @@
         </configuration>
       </plugin>
 
-      <!-- See https://central.sonatype.org/publish/publish-portal-maven/ -->
-      <plugin>
-        <groupId>org.sonatype.central</groupId>
-        <artifactId>central-publishing-maven-plugin</artifactId>
-        <version>0.9.0</version>
-        <extensions>true</extensions>
-        <configuration>
-          <publishingServerId>central</publishingServerId>
-        </configuration>
-      </plugin>
-
       <!-- source jars are needed for Maven Central deployment -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
@@ -322,7 +311,8 @@
         </executions>
       </plugin>
 
-      <!-- we need to sign to deploy on Maven Central -->
+      <!-- We need to sign to deploy on Maven Central; we do this
+         only in the deploy phase not to impact install. -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-gpg-plugin</artifactId>
@@ -330,12 +320,24 @@
         <executions>
           <execution>
             <id>sign-artifacts</id>
-            <phase>verify</phase>
+            <phase>deploy</phase>
             <goals>
               <goal>sign</goal>
             </goals>
           </execution>
         </executions>
+      </plugin>
+
+      <!-- See https://central.sonatype.org/publish/publish-portal-maven/
+        Keep this after GPG step above to upload signature files too. -->
+      <plugin>
+        <groupId>org.sonatype.central</groupId>
+        <artifactId>central-publishing-maven-plugin</artifactId>
+        <version>0.9.0</version>
+        <extensions>true</extensions>
+        <configuration>
+          <publishingServerId>central</publishingServerId>
+        </configuration>
       </plugin>
 
     </plugins>
