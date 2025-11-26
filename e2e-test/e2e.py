@@ -292,7 +292,7 @@ def _assert_audit_events(expected_audit_event: Dict[str, Any],
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
 
-    patients = ["Patient/75270", "Patient/3810"]
+    patients = ["Patient/3177", "Patient/2835"]
     resources = [("Encounter", "patient"), ("Observation", "subject")]
     auth_client = clients.AuthClient()
     fhir_proxy_client = clients.FhirProxyClient()
@@ -306,7 +306,7 @@ if __name__ == "__main__":
     test_post_resource_increase_count(
         ("Observation", "subject"),
         "e2e-test/obs.json",
-        "Patient/75270",
+        "Patient/3177",
         hapi_client,
         fhir_proxy_client,
         auth_client,

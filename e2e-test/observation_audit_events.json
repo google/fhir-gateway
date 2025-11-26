@@ -135,7 +135,7 @@
       },
       {
         "what": {
-          "reference": "Patient/75270"
+          "reference": "Patient/3177"
         },
         "type": {
           "system": "http://terminology.hl7.org/CodeSystem/audit-entity-type",
