@@ -60,7 +60,7 @@ your environment.
    `host.docker.internal` in the environment variable values above and remove
    the `--network=host` flag. Alternatively for Docker Desktop versions 4.34 and
    later, you can enable
-   [host networking](https://docs.docker.com/engine/network/tutorials/host/#prerequisites).
+   [host networking](https://docs.docker.com/engine/network/drivers/host/#docker-desktop).
 
 Several environment variables are used to configure FHIR Information Gateway:
 
