@@ -46,13 +46,17 @@ To load this dataset into the HAPI FHIR image, do the following:
    [FHIR Analytics](https://github.com/GoogleCloudPlatform/openmrs-fhir-analytics/tree/master/synthea-hiv)
    repo to upload the files into the HAPI FHIR container. Note instead of
    uploading all patients, you can pick a small subset instead. In that case
-   adjust the `INPUT_DIR` accordingly. Using the whole dataset increases the
-   container init time by a few minutes (and slows down e2e tests which depend
-   on this):
+   adjust the `INPUT_DIR` and mount point below accordingly.
+   Using the whole dataset increases the container init time by a few minutes
+   (and slows down e2e tests which depend on this):
 
-   ```
+   ```sh
    docker run -it --network=host \ -e SINK_TYPE="HAPI" \ -e FHIR_ENDPOINT=http://localhost:8080/fhir \ -e INPUT_DIR="/workspace/output/fhir" \ -e CORES="--cores 1" \ -v $(pwd)/fhir:/workspace/output/fhir \ us-docker.pkg.dev/cloud-build-fhir/fhir-analytics/synthea-uploader:latest
    ```
+
+   _Note:_ The `$(pwd)/fhir` part of the command mounts the local `fhir`
+   directory (created in step 3) into the container at `/workspace/output/fhir`,
+   which is where the uploader expects to find the files.
 
 5. As the uploader uses `POST` to upload the JSON files, the server will create
    the ID used to refer to resources. We would like to upload a patient list
