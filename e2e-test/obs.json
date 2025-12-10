@@ -23,10 +23,10 @@
       "text": "Body Weight"
     },
     "subject": {
-      "reference": "Patient/75270"
+      "reference": "Patient/3177"
     },
     "encounter": {
-      "reference": "Encounter/76366"
+      "reference": "Encounter/3186"
     },
     "effectiveDateTime": "2015-07-05T10:11:41-04:00",
     "issued": "2015-07-05T10:11:41.981-04:00",
