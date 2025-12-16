@@ -55,6 +55,6 @@ services:
       timeout: 10s
 
   hapi-server:
-    image: us-docker.pkg.dev/fhir-proxy-build/stable/hapi-synthea:latest
+    image: us-docker.pkg.dev/fhir-proxy-build/stable/hapi-synthea:small
     ports:
     - "8099:8080"

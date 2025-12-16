@@ -17,13 +17,18 @@ image is based on the HAPI FHIR
 [Synthea](https://synthea.mitre.org/downloads) stored in the container itself.
 To load this dataset into the HAPI FHIR image, do the following:
 
-1. Run a local version of the HAPI FHIR server:
+1. Run a local version of the HAPI FHIR server. Note by default this uses an
+   in-memory database but we want to persist the uploaded data, hence we change
+   the configuration by the following environment variables:
 
    ```
-   docker run --rm -d  -p 8080:8080 --name hapi_fhir hapiproject/hapi:latest
+   docker run --rm -d  -p 8080:8080 --name hapi-fhir-add-synthea \
+     -e spring.datasource.url='jdbc:h2:file:/app/data/hapi_db;DB_CLOSE_ON_EXIT=FALSE;AUTO_RECONNECT=TRUE' \
+     -e spring.jpa.hibernate.ddl-auto=update \
+     hapiproject/hapi:latest
    ```
 
-2. Download the `1K Sample Synthetic Patient Records, FHIR R4` dataset:
+2. Download the `1K+ Sample Synthetic Patient Records, FHIR R4` dataset:
 
    ```
    wget https://synthetichealth.github.io/synthea-sample-data/downloads/synthea_sample_data_fhir_r4_sep2019.zip \
@@ -39,10 +44,14 @@ To load this dataset into the HAPI FHIR image, do the following:
 
 4. Use the Synthetic Data Uploader from the
    [FHIR Analytics](https://github.com/GoogleCloudPlatform/openmrs-fhir-analytics/tree/master/synthea-hiv)
-   repo to upload the files into the HAPI FHIR container
+   repo to upload the files into the HAPI FHIR container. Note instead of
+   uploading all patients, you can pick a small subset instead. In that case
+   adjust the `INPUT_DIR` and mount point below accordingly.
+   Using the whole dataset increases the container init time by a few minutes
+   (and slows down e2e tests which depend on this):
 
    ```sh
-   `docker run -it --network=host \ -e SINK_TYPE="HAPI" \ -e FHIR_ENDPOINT=http://localhost:8080/fhir \ -e INPUT_DIR="/workspace/output/fhir" \ -e CORES="--cores 1" \ -v $(pwd)/fhir:/workspace/output/fhir \ us-docker.pkg.dev/cloud-build-fhir/fhir-analytics/synthea-uploader:latest`
+   docker run -it --network=host \ -e SINK_TYPE="HAPI" \ -e FHIR_ENDPOINT=http://localhost:8080/fhir \ -e INPUT_DIR="/workspace/output/fhir" \ -e CORES="--cores 1" \ -v $(pwd)/fhir:/workspace/output/fhir \ us-docker.pkg.dev/cloud-build-fhir/fhir-analytics/synthea-uploader:latest
    ```
 
    _Note:_ The `$(pwd)/fhir` part of the command mounts the local `fhir`
@@ -89,7 +98,7 @@ To load this dataset into the HAPI FHIR image, do the following:
 7. Commit the Docker container. This saves its state into a new image
 
    ```
-    docker commit hapi_fhir us-docker.pkg.dev/fhir-proxy-build/stable/hapi-synthea:latest
+    docker commit hapi-fhir-add-synthea us-docker.pkg.dev/fhir-proxy-build/stable/hapi-synthea:latest
    ```
 
 8. Push the image
